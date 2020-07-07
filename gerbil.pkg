@@ -1,0 +1,4 @@
+;; Gerbil Ethereum support
+(package: ethereum
+ depend: ("github.com/fare/gerbil-utils"
+          "github.com/fare/gerbil-crypto"))
