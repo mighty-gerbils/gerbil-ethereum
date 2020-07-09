@@ -102,34 +102,34 @@
 ;;
 (def simple-contract-prelude
   [;; Init vs running convention!
-   ;; [0] Put some values on stack while they're cheap.
-   GETPC GETPC GETPC 240 ;; -- 240 2 1 0 [+5]
-   ;; [5] Get state frame size, starting with PC, 16 bit
-   DUP4 #|0|# CALLDATALOAD DUP2 #|240|# SHR frame@ ;; -- frame@ sz 240 2 1 0 [+6, assuming frame@<255]
-   ;; [11] copy frame to memory
-   DUP2 #|sz|# DUP5 #|2|# DUP3 #|frame@|# CALLDATACOPY ;; -- frame@ sz 240 2 1 0 [+4]
-   ;; [15] store calldatapointer
-   DUP2 #|sz|# DUP5 #|2|# ADD calldatapointer@ MSTORE ;; -- frame@ sz 240 2 1 0 [+6]
-   ;; [21] save the brk variable
-   DUP2 #|sz|# DUP2 #|frame@|# ADD DUP8 #|brk@,==0|# MSTORE ;; -- frame@ sz 240 2 1 0 [+6]
-   ;; [27] compute the digest of the frame just restored
-   SHA3 ;; -- digest 240 2 1 0 [+1]
-   ;; [28] compare to saved merkleized state, jump to saved label if it matches
-   DUP5 #|0|# SLOAD EQ (- frame@ 30) MLOAD JUMPI ;; [+7]
-   [jumplabel 'abort-label] ;; [+1]
-   ;; [36] Abort. We explicitly PUSH1 0 rather than DUPn because we don't assume stack position in general
-   0 DUP1 REVERT]) ;; [+4]
+   ;; Put some values on stack while they're cheap.
+   GETPC GETPC GETPC 240 ;; -- 240 2 1 0
+   ;; Get state frame size, starting with PC, 16 bit
+   DUP4 #|0|# CALLDATALOAD DUP2 #|240|# SHR frame@ ;; -- frame@ sz 240 2 1 0
+   ;; copy frame to memory
+   DUP2 #|sz|# DUP5 #|2|# DUP3 #|frame@|# CALLDATACOPY ;; -- frame@ sz 240 2 1 0
+   ;; store calldatapointer
+   DUP2 #|sz|# DUP5 #|2|# ADD calldatapointer@ MSTORE ;; -- frame@ sz 240 2 1 0
+   ;; save the brk variable
+   DUP2 #|sz|# DUP2 #|frame@|# ADD DUP8 #|brk@,==0|# MSTORE ;; -- frame@ sz 240 2 1 0
+   ;; compute the digest of the frame just restored
+   SHA3 ;; -- digest 240 2 1 0
+   ;; compare to saved merkleized state, jump to saved label if it matches
+   DUP5 #|0|# SLOAD EQ (- frame@ 30) MLOAD JUMPI ;; -- stack at destination: -- 240 2 1 0
+   [jumplabel 'abort-label]
+   ;; Abort. We explicitly PUSH1 0 rather than DUPn because we don't assume stack position in general
+   0 DUP1 REVERT])
 
 ;; Logging the data, simple version, optimal for messages less than 6000 bytes of data.
 (def simple-logging
-  [[jumplabel 'commit-label 40] ;; [+1]
-   calldatanew@ MLOAD CALLDATASIZE DUP2 SUB ;; -- logsz cdn [+6]
+  [[jumplabel 'commit-label]
+   calldatanew@ MLOAD CALLDATASIZE DUP2 SUB ;; -- logsz cdn
    0 DUP2 #|logsz|# DUP4 #|cdn|# DUP3 #|0|# CALLDATACOPY LOG0 STOP])
 
 ;; Logging the data
 (def variable-size-logging
-  [[jumplabel 'commit-label 40] ;; [+1]
-   ;; [41] compute available buffer size: max(MSIZE, n*256)
+  [[jumplabel 'commit-label]
+   ;; compute available buffer size: max(MSIZE, n*256)
    ;; -- TODO: find out the optimal number to minimize gas, considering the quadratic cost of memory
    ;; versus the affine cost of logging, and the cost of this loop.
    ;; i.e. compute total logging gas depending on buffer size, differentiate, minimize
@@ -146,25 +146,25 @@
    ;; The formula for optimal L with only the quadratic term is cubrt(Q*C/2)*cubrt(L),
    ;; which also tops at 38000 and grows more slowly.
    ;;
-   ;; Instead of having the contract minimize a polynomial, we can just let the user
-   ;; specify their buffer size as a parameter:
+   ;; Instead of having the contract itself minimize a polynomial, we can just let the user
+   ;; specify their buffer size as a parameter (within limits);
    ;; if they provide a bad answer, they are the ones who pay the extra gas (or fail).
-   ;; This parameter can be a single byte, to be shifted left 7 or 8 times
+   ;; This parameter could be a single byte, to be shifted left 7 or 8 times
    ;; -- getting it wrong is only 70-odd gas wrong,
    ;; less than it costs to use a second byte for precision.
-   MSIZE 16384 DUP2 DUP2 GT [pushlabel1 'maxm1] JUMPI SWAP1 ;;[+11]
-   [jumplabel 'maxm1 52] POP ;; -- bufsz [+2]
-   calldatanew@ MLOAD CALLDATASIZE DUP2 SUB ;; -- logsz cdn bufsz [+6]
-   ;; [60] Loop:
-   [jumplabel 'logbuf 57] ;; -- logsz cdn bufsz [+1]
-   ;; [61] If there's no more data, stop.
-   DUP1 #|logsz|# [pushlabel1 'logbuf1] JUMPI STOP [jumplabel 'logbuf1 66] ;; -- logsz cdn bufsz [+6]
-   ;; [67] compute the message size: msgsz = min(cdsz, bufsz)
-   DUP3 #|bufsz|# DUP2 #|logsz|# LT [pushlabel1 'minbl] JUMPI SWAP1 ;; [+7]
-   [jumplabel 'minbl 74] POP ;; -- msgsz logsz cdn bufsz [+1]
-   ;; [75] Log a message
-   DUP1 #|msgsz|# 0 DUP2 #|msgsz|# DUP6 #|cdn|# DUP3 #|0|# CALLDATACOPY LOG0 ;; -- msgsz logsz cdn bufsz [+8]
-   ;; [83] Adjust logsz and cdn
-   SWAP3 #|cdn logsz msgsz|# DUP3 #|msgsz|# ADD SWAP3 #|msgsz logsz cdn|# SWAP1 SUB ;; -- logsz cdn bufsz [+6]
-   ;; [89] loop!
-   [pushlabel1 'logbuf] JUMP]) ;; [+3]
+   MSIZE 16384 DUP2 DUP2 GT [pushlabel1 'maxm1] JUMPI SWAP1
+   [jumplabel 'maxm1] POP ;; -- bufsz
+   calldatanew@ MLOAD CALLDATASIZE DUP2 SUB ;; -- logsz cdn bufsz
+   ;; Loop:
+   [jumplabel 'logbuf] ;; -- logsz cdn bufsz
+   ;; If there's no more data, stop.
+   DUP1 #|logsz|# [pushlabel1 'logbuf1] JUMPI STOP [jumplabel 'logbuf1] ;; -- logsz cdn bufsz
+   ;; compute the message size: msgsz = min(cdsz, bufsz)
+   DUP3 #|bufsz|# DUP2 #|logsz|# LT [pushlabel1 'minbl] JUMPI SWAP1
+   [jumplabel 'minbl] POP ;; -- msgsz logsz cdn bufsz
+   ;; Log a message
+   DUP1 #|msgsz|# 0 DUP2 #|msgsz|# DUP6 #|cdn|# DUP3 #|0|# CALLDATACOPY LOG0 ;; -- msgsz logsz cdn bufsz
+   ;; Adjust logsz and cdn
+   SWAP3 #|cdn logsz msgsz|# DUP3 #|msgsz|# ADD SWAP3 #|msgsz logsz cdn|# SWAP1 SUB ;; -- logsz cdn bufsz
+   ;; loop!
+   [pushlabel1 'logbuf] JUMP])
