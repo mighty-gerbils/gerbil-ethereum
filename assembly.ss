@@ -44,14 +44,14 @@
 (def (segment-push! s b)
   (when (segment-full? s) (error "segment full" 'segment-push! s b))
   (bytes-set! (Segment-bytes s) (Segment-fill-pointer s) b)
-  (inc! (Segment-fill-pointer s)))
+  (increment! (Segment-fill-pointer s)))
 
 (def (segment-push-bytes! s b)
   (unless (< (+ (bytes-length b) (Segment-fill-pointer s))
              (bytes-length (Segment-bytes s)))
     (error "segment full" 'segment-push-bytes! s b))
   (subu8vector-move! b 0 (bytes-length b) (Segment-bytes s) (Segment-fill-pointer s))
-  (inc! (Segment-fill-pointer s) (bytes-length b)))
+  (increment! (Segment-fill-pointer s) (bytes-length b)))
 
 (def (segment-contents s)
   (subu8vector (Segment-bytes s) 0 (Segment-fill-pointer s)))

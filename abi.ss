@@ -112,7 +112,7 @@
 (def (ethabi-encode-into types xs bytes start head get-tail set-tail!)
   (for-each (lambda (type x)
               (.call type .ethabi-encode-into x bytes start head get-tail set-tail!)
-              (inc! head (.@ type .ethabi-head-length)))
+              (increment! head (.@ type .ethabi-head-length)))
             types xs))
 
 ;; : [Listof Any] <- [Listof Type] Bytes Nat Nat
@@ -135,7 +135,7 @@
   (begin0 (map-in-order
            (lambda (type)
              (begin0 (.call type .ethabi-decode-from bytes start head get-tail set-tail!)
-               (inc! head (.@ type .ethabi-head-length))))
+               (increment! head (.@ type .ethabi-head-length))))
            types)
     (assert! (= head head-end))))
 
