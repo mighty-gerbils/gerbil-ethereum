@@ -3,10 +3,10 @@
 
 (import
   :std/error :std/sugar :std/text/hex
-  :utils/assert :utils/failure :utils/option
-  :utils/net/json-rpc
-  :poo/poo :poo/io :poo/brace
-  :persist/db
+  :clan/assert :clan/failure :clan/option
+  :clan/net/json-rpc
+  :clan/poo/poo :clan/poo/io :clan/poo/brace
+  :clan/persist/db
   ./hex ./ethereum ./network-config ./signing ./known-addresses ./types ./json-rpc ./nonce-tracker)
 
 (defstruct (TransactionRejected exception) (receipt))

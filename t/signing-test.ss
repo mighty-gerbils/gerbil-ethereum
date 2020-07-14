@@ -4,7 +4,7 @@
   :gerbil/gambit/exceptions
   :std/format :std/sugar
   :std/test
-  :poo/poo :poo/brace :poo/io
+  :clan/poo/poo :clan/poo/brace :clan/poo/io
   ../hex ../types ../ethereum ../known-addresses ../signing)
 
 (def (kp x) (keypair<-secret-key (bytes<-0x x) ""))

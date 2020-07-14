@@ -2,7 +2,7 @@
 
 (import
   :std/format :std/srfi/1 :std/test
-  :persist/db
+  :clan/persist/db :clan/decimal
   ../ethereum ../known-addresses ../json-rpc ../batch-send
   ./signing-test ./transaction-integrationtest)
 
@@ -14,8 +14,9 @@
 (def (get-address-missing-amount amount address)
   (def balance (eth_getBalance address 'pending))
   (printf (if (>= balance amount)
-            "~a has ~a wei already. Good.\n"
-            "~a has ~a wei only. Funding.\n") (nicknamed-string<-address address) balance)
+            "~a has ~a ether already. Good.\n"
+            "~a has ~a ether only. Funding.\n")
+          (nicknamed-string<-address address) (string<-decimal balance scale: -18))
   (if (>= balance amount)
     [] [[address (- amount balance)]]))
 

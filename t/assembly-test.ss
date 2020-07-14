@@ -5,8 +5,8 @@
         :std/test
         :std/srfi/1
         :std/misc/list
-        :utils/pure/dict/assq
-        (only-in :utils/number bytes<-nat)
+        :clan/pure/dict/assq
+        (only-in :clan/number bytes<-nat)
         ../assembly)
 
 ;; jumplabel-len : Nat

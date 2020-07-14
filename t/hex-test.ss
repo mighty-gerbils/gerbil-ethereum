@@ -3,7 +3,7 @@
 (import
   :gerbil/gambit/bytes :gerbil/gambit/exceptions
   :std/error :std/text/hex :std/test :std/srfi/1 :std/sugar
-  :crypto/keccak
+  :clan/crypto/keccak
   ../hex)
 
 (def hex-test

@@ -1,20 +1,27 @@
 (gerbil-build-deps-v2:
- (ethereum/version (gxc: "version.ss") (gerbil/core utils/versioning))
- (ethereum/abi
+ (mukn/ethereum/version
+  (gxc: "version.ss")
+  (clan/crypto/version
+   clan/persist/version
+   clan/poo/version
+   clan/version
+   clan/versioning
+   gerbil/core))
+ (mukn/ethereum/abi
   (gxc: "abi.ss")
-  (crypto/keccak
+  (clan/crypto/keccak
+   clan/io
+   clan/number
+   clan/poo/mop
+   clan/poo/poo
    gerbil/core
    gerbil/gambit/bytes
-   poo/mop
-   poo/poo
    std/misc/repr
    std/srfi/1
-   std/sugar
-   utils/io
-   utils/number))
- (ethereum/hex
+   std/sugar))
+ (mukn/ethereum/hex
   (gxc: "hex.ss")
-  (crypto/keccak
+  (clan/crypto/keccak
    gerbil/core
    gerbil/gambit/bits
    gerbil/gambit/bytes
@@ -22,22 +29,29 @@
    std/misc/bytes
    std/srfi/13
    std/text/hex))
- (ethereum/types
+ (mukn/ethereum/types
   (gxc: "types.ss")
-  (ethereum/abi
-   ethereum/hex
+  (clan/base
+   clan/io
+   clan/json
+   clan/list
+   clan/maybe
+   clan/number
+   clan/poo/brace
+   clan/poo/io
+   clan/poo/mop
+   clan/poo/number
+   clan/poo/poo
+   clan/poo/type
+   clan/syntax
    gerbil/core
    gerbil/gambit/bits
    gerbil/gambit/bytes
    gerbil/gambit/exact
    gerbil/gambit/hash
    gerbil/gambit/ports
-   poo/brace
-   poo/io
-   poo/mop
-   poo/number
-   poo/poo
-   poo/type
+   mukn/ethereum/abi
+   mukn/ethereum/hex
    std/format
    std/iter
    std/misc/bytes
@@ -47,230 +61,223 @@
    std/srfi/1
    std/srfi/43
    std/sugar
-   std/text/json
-   utils/base
-   utils/io
-   utils/json
-   utils/list
-   utils/maybe
-   utils/number
-   utils/syntax))
- (ethereum/network-config
+   std/text/json))
+ (mukn/ethereum/network-config
   (gxc: "network-config.ss")
-  (ethereum/types
+  (clan/json
+   clan/path-config
+   clan/poo/io
+   clan/poo/mop
+   clan/poo/number
+   clan/poo/poo
+   clan/poo/type
    gerbil/core
-   poo/io
-   poo/mop
-   poo/number
-   poo/poo
-   poo/type
-   std/text/json
-   utils/json
-   utils/path-config))
- (ethereum/ethereum
+   mukn/ethereum/types
+   std/text/json))
+ (mukn/ethereum/ethereum
   (gxc: "ethereum.ss")
-  (ethereum/hex
-   ethereum/types
+  (clan/maybe
+   clan/poo/brace
+   clan/poo/io
+   clan/poo/poo
+   clan/poo/type
    gerbil/core
-   poo/brace
-   poo/io
-   poo/poo
-   poo/type
-   std/sugar
-   utils/maybe))
- (ethereum/assembly
+   mukn/ethereum/hex
+   mukn/ethereum/types
+   std/sugar))
+ (mukn/ethereum/assembly
   (gxc: "assembly.ss")
-  (ethereum/ethereum
-   ethereum/types
+  (clan/number
+   clan/poo/io
+   clan/poo/poo
    gerbil/core
    gerbil/gambit/bits
    gerbil/gambit/bytes
    gerbil/gambit/exact
-   poo/io
-   poo/poo
+   mukn/ethereum/ethereum
+   mukn/ethereum/types
    std/misc/bytes
-   std/sugar
-   utils/number))
- (ethereum/contract-support
+   std/sugar))
+ (mukn/ethereum/contract-support
   (gxc: "contract-support.ss")
-  (ethereum/assembly gerbil/core gerbil/gambit/bytes std/sugar))
- (ethereum/signing
+  (gerbil/core gerbil/gambit/bytes mukn/ethereum/assembly std/sugar))
+ (mukn/ethereum/signing
   (gxc: "signing.ss")
-  (crypto/keccak
-   crypto/secp256k1
-   ethereum/types
+  (clan/base
+   clan/crypto/keccak
+   clan/crypto/secp256k1
+   clan/poo/brace
+   clan/poo/io
+   clan/poo/mop
+   clan/poo/poo
    gerbil/core
    gerbil/gambit/bits
    gerbil/gambit/bytes
    gerbil/gambit/foreign
-   poo/brace
-   poo/io
-   poo/mop
-   poo/poo
-   std/sugar
-   utils/base))
- (ethereum/known-addresses
+   mukn/ethereum/types
+   std/sugar))
+ (mukn/ethereum/known-addresses
   (gxc: "known-addresses.ss")
-  (ethereum/hex
-   ethereum/signing
-   ethereum/types
+  (clan/json
+   clan/poo/io
+   clan/poo/type
    gerbil/core
-   poo/io
-   poo/type
-   std/format
-   utils/json))
- (ethereum/json-rpc
+   mukn/ethereum/hex
+   mukn/ethereum/signing
+   mukn/ethereum/types
+   std/format))
+ (mukn/ethereum/json-rpc
   (gxc: "json-rpc.ss")
-  (ethereum/ethereum
-   ethereum/network-config
-   ethereum/signing
-   ethereum/types
+  (clan/json
+   clan/logger
+   clan/maybe
+   clan/net/json-rpc
+   clan/poo/brace
+   clan/poo/io
+   clan/poo/mop
+   clan/poo/number
+   clan/poo/poo
+   clan/poo/type
    gerbil/core
    gerbil/gambit/threads
-   poo/brace
-   poo/io
-   poo/mop
-   poo/number
-   poo/poo
-   poo/type
+   mukn/ethereum/ethereum
+   mukn/ethereum/network-config
+   mukn/ethereum/signing
+   mukn/ethereum/types
    std/format
    std/lazy
-   std/sugar
-   utils/json
-   utils/logger
-   utils/maybe
-   utils/net/json-rpc))
- (ethereum/watch
+   std/sugar))
+ (mukn/ethereum/watch
   (gxc: "watch.ss")
-  (ethereum/ethereum
-   ethereum/json-rpc
-   ethereum/network-config
-   ethereum/types
+  (clan/concurrency
+   clan/exception
+   clan/persist/persist
+   clan/poo/number
+   clan/poo/poo
+   clan/poo/type
    gerbil/core
    gerbil/gambit/threads
-   persist/persist
-   poo/number
-   poo/poo
-   poo/type
-   std/sugar
-   utils/concurrency
-   utils/exception))
- (ethereum/nonce-tracker
+   mukn/ethereum/ethereum
+   mukn/ethereum/json-rpc
+   mukn/ethereum/network-config
+   mukn/ethereum/types
+   std/sugar))
+ (mukn/ethereum/nonce-tracker
   (gxc: "nonce-tracker.ss")
-  (ethereum/ethereum
-   ethereum/json-rpc
-   ethereum/types
+  (clan/base
+   clan/concurrency
+   clan/failure
+   clan/maybe
+   clan/net/json-rpc
+   clan/option
+   clan/persist/db
+   clan/persist/persist
+   clan/poo/brace
+   clan/poo/io
+   clan/poo/mop
+   clan/poo/poo
+   clan/poo/type
    gerbil/core
    gerbil/gambit/threads
-   persist/db
-   persist/persist
-   poo/brace
-   poo/io
-   poo/mop
-   poo/poo
-   poo/type
+   mukn/ethereum/ethereum
+   mukn/ethereum/json-rpc
+   mukn/ethereum/types
    std/error
    std/misc/completion
-   std/text/hex
-   utils/base
-   utils/concurrency
-   utils/failure
-   utils/maybe
-   utils/net/json-rpc
-   utils/option))
- (ethereum/transaction
+   std/text/hex))
+ (mukn/ethereum/transaction
   (gxc: "transaction.ss")
-  (ethereum/ethereum
-   ethereum/hex
-   ethereum/json-rpc
-   ethereum/known-addresses
-   ethereum/network-config
-   ethereum/nonce-tracker
-   ethereum/signing
-   ethereum/types
+  (clan/assert
+   clan/failure
+   clan/net/json-rpc
+   clan/option
+   clan/persist/db
+   clan/poo/brace
+   clan/poo/io
+   clan/poo/poo
    gerbil/core
-   persist/db
-   poo/brace
-   poo/io
-   poo/poo
+   mukn/ethereum/ethereum
+   mukn/ethereum/hex
+   mukn/ethereum/json-rpc
+   mukn/ethereum/known-addresses
+   mukn/ethereum/network-config
+   mukn/ethereum/nonce-tracker
+   mukn/ethereum/signing
+   mukn/ethereum/types
    std/error
    std/sugar
-   std/text/hex
-   utils/assert
-   utils/failure
-   utils/net/json-rpc
-   utils/option))
- (ethereum/tx-tracker
+   std/text/hex))
+ (mukn/ethereum/tx-tracker
   (gxc: "tx-tracker.ss")
-  (ethereum/ethereum
-   ethereum/hex
-   ethereum/json-rpc
-   ethereum/known-addresses
-   ethereum/nonce-tracker
-   ethereum/signing
-   ethereum/transaction
-   ethereum/types
+  (clan/base
+   clan/concurrency
+   clan/exception
+   clan/failure
+   clan/maybe
+   clan/net/json-rpc
+   clan/option
+   clan/persist/db
+   clan/persist/persist
+   clan/poo/brace
+   clan/poo/io
+   clan/poo/mop
+   clan/poo/poo
    gerbil/core
    gerbil/gambit/bytes
    gerbil/gambit/exceptions
    gerbil/gambit/threads
-   persist/db
-   persist/persist
-   poo/brace
-   poo/io
-   poo/mop
-   poo/poo
+   mukn/ethereum/ethereum
+   mukn/ethereum/hex
+   mukn/ethereum/json-rpc
+   mukn/ethereum/known-addresses
+   mukn/ethereum/nonce-tracker
+   mukn/ethereum/signing
+   mukn/ethereum/transaction
+   mukn/ethereum/types
    std/error
    std/misc/completion
-   std/text/hex
-   utils/base
-   utils/concurrency
-   utils/exception
-   utils/failure
-   utils/maybe
-   utils/net/json-rpc
-   utils/option))
- (ethereum/contract-config
+   std/text/hex))
+ (mukn/ethereum/contract-config
   (gxc: "contract-config.ss")
-  (crypto/keccak
-   ethereum/ethereum
-   ethereum/hex
-   ethereum/json-rpc
-   ethereum/known-addresses
-   ethereum/transaction
-   ethereum/tx-tracker
-   ethereum/types
+  (clan/crypto/keccak
+   clan/json
+   clan/path-config
+   clan/persist/db
+   clan/poo/brace
+   clan/poo/io
+   clan/poo/mop
+   clan/poo/poo
    gerbil/core
-   persist/db
-   poo/brace
-   poo/io
-   poo/mop
-   poo/poo
-   std/sugar
-   utils/json
-   utils/path-config))
- (ethereum/batch-send
+   mukn/ethereum/ethereum
+   mukn/ethereum/hex
+   mukn/ethereum/json-rpc
+   mukn/ethereum/known-addresses
+   mukn/ethereum/transaction
+   mukn/ethereum/tx-tracker
+   mukn/ethereum/types
+   std/sugar))
+ (mukn/ethereum/batch-send
   (gxc: "batch-send.ss")
-  (ethereum/assembly
-   ethereum/contract-config
-   ethereum/contract-support
-   ethereum/ethereum
-   ethereum/hex
-   ethereum/known-addresses
-   ethereum/transaction
-   ethereum/tx-tracker
-   ethereum/types
+  (clan/base
+   clan/poo/io
+   clan/poo/poo
    gerbil/core
    gerbil/gambit/bytes
-   poo/io
-   poo/poo
-   utils/base))
- (ethereum/abi-json
+   mukn/ethereum/assembly
+   mukn/ethereum/contract-config
+   mukn/ethereum/contract-support
+   mukn/ethereum/ethereum
+   mukn/ethereum/hex
+   mukn/ethereum/known-addresses
+   mukn/ethereum/transaction
+   mukn/ethereum/tx-tracker
+   mukn/ethereum/types))
+ (mukn/ethereum/abi-json
   (gxc: "abi-json.ss")
-  (ethereum/abi
-   ethereum/ethereum
-   ethereum/transaction
-   ethereum/types
+  (clan/base
    gerbil/core
-   utils/base)))
+   mukn/ethereum/abi
+   mukn/ethereum/ethereum
+   mukn/ethereum/transaction
+   mukn/ethereum/types)))
 

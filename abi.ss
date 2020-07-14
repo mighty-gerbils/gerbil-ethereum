@@ -12,8 +12,8 @@
 (import
   :gerbil/gambit/bytes
   :std/misc/repr :std/srfi/1 :std/sugar
-  :utils/io :utils/number :poo/poo :poo/mop
-  :crypto/keccak)
+  :clan/io :clan/number :clan/poo/poo :clan/poo/mop
+  :clan/crypto/keccak)
 
 
 ;; for CallFunction:

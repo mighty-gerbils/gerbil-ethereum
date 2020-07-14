@@ -3,12 +3,12 @@
 (import
   :gerbil/gambit/threads
   :std/error :std/misc/completion :std/text/hex
-  :utils/base :utils/concurrency :utils/failure :utils/option :utils/maybe
-  :utils/net/json-rpc
-  :poo/poo :poo/brace :poo/io
-  (only-in :poo/mop define-type Fun)
-  (only-in :poo/type Maybe)
-  :persist/db :persist/persist
+  :clan/base :clan/concurrency :clan/failure :clan/option :clan/maybe
+  :clan/net/json-rpc
+  :clan/poo/poo :clan/poo/brace :clan/poo/io
+  (only-in :clan/poo/mop define-type Fun)
+  (only-in :clan/poo/type Maybe)
+  :clan/persist/db :clan/persist/persist
   ./types ./ethereum ./json-rpc)
 
 (define-type NonceOperation

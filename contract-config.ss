@@ -2,11 +2,11 @@
 
 (import
   :std/sugar
-  :utils/json :utils/path-config
-  :poo/poo :poo/brace :poo/io
-  (only-in :poo/mop define-type)
-  :persist/db
-  :crypto/keccak
+  :clan/json :clan/path-config
+  :clan/poo/poo :clan/poo/brace :clan/poo/io
+  (only-in :clan/poo/mop define-type)
+  :clan/persist/db
+  :clan/crypto/keccak
   ./hex ./types ./known-addresses ./ethereum ./json-rpc ./transaction ./tx-tracker)
 
 (define-type ContractConfig

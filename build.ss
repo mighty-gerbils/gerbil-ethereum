@@ -9,7 +9,7 @@
 
 (import
   :std/make :std/format :std/misc/list :std/srfi/1
-  :utils/filesystem :utils/path :utils/versioning)
+  :clan/filesystem :clan/path :clan/versioning)
 
 (def here (path-parent (this-source-file)))
 (current-directory here)
@@ -40,7 +40,8 @@
 
 (def (main . args)
   (when (match args ([] #t) (["compile" . _] #t) (_ #f))
-    (update-version-from-git name: "Gerbil-ethereum" path: "version.ss"))
+    (update-version-from-git name: "Gerbil-ethereum"
+                             deps: '("clan" "clan/crypto" "clan/poo" "clan/persist")))
   (make (build-spec)
     srcdir: here
     verbose: #f

@@ -2,9 +2,9 @@
 
 (import
   :std/format :std/test
-  :utils/base :utils/concurrency :utils/path :utils/path-config
-  :poo/io
-  :persist/db
+  :clan/base :clan/concurrency :clan/path :clan/path-config
+  :clan/poo/io
+  :clan/persist/db
   ../types ../network-config ../signing ../known-addresses ../json-rpc ../transaction
   ./path-config ./signing-test)
 
