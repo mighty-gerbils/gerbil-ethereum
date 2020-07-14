@@ -2,15 +2,15 @@
 
 (import
   :std/format :std/test
-  :clan/utils/base :clan/utils/concurrency :clan/utils/path
-  :clan/poo/io
-  :clan/runtime/db
+  :utils/base :utils/concurrency :utils/path :utils/path-config
+  :poo/io
+  :persist/db
   ../types ../network-config ../signing ../known-addresses ../json-rpc ../transaction
   ./path-config ./signing-test)
 
 ;; Use the Private Ethereum Testnet
-(load-ethereum-configs (subpath gerbil-ethereum-src "t/ethereum_networks.json"))
-(ensure-ethereum-config "pet")
+(load-ethereum-networks (subpath gerbil-ethereum-src "t/ethereum_networks.json"))
+(ensure-ethereum-network "pet")
 
 ;; Poll for ethereum server
 (retry retry-window: 0.05 max-window: 1.0 max-retries: 10

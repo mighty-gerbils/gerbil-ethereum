@@ -4,21 +4,21 @@
 ;; We are shadowing existing types. Should we monkey-patch them instead? Let's hope not.
 
 (import
-  (for-syntax :gerbil/gambit/exact :std/iter :clan/utils/syntax)
+  (for-syntax :gerbil/gambit/exact :std/iter :utils/syntax)
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
   :gerbil/gambit/hash :gerbil/gambit/ports
   :std/format :std/iter :std/misc/bytes :std/misc/completion :std/misc/list
   :std/sort :std/srfi/1 :std/srfi/43 :std/sugar :std/text/json
-  :clan/utils/base :clan/utils/io :clan/utils/json :clan/utils/list
-  :clan/utils/maybe :clan/utils/number :clan/utils/syntax
-  :clan/poo/poo :clan/poo/io
-  (only-in :clan/poo/mop
+  :utils/base :utils/io :utils/json :utils/list
+  :utils/maybe :utils/number :utils/syntax
+  :poo/poo :poo/io
+  (only-in :poo/mop
            Type Type. proto Class Class. Slot
            .defgeneric validate element? .method define-type)
-  (prefix-in (only-in :clan/poo/mop Bool String Symbol) poo.)
-  (prefix-in (only-in :clan/poo/number Nat UInt. IntSet) poo.)
-  (prefix-in :clan/poo/type poo.)
-  :clan/poo/brace
+  (prefix-in (only-in :poo/mop Bool String Symbol) poo.)
+  (prefix-in (only-in :poo/number Nat UInt. IntSet) poo.)
+  (prefix-in :poo/type poo.)
+  :poo/brace
   ./hex ./abi)
 
 ;; --- something for types in general, including Record, Union, Maybe

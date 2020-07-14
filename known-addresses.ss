@@ -1,9 +1,9 @@
 (export #t)
 
 (import
-  :std/format :clan/utils/json
-  :clan/poo/io
-  (only-in :clan/poo/type Map)
+  :std/format :utils/json
+  :poo/io
+  (only-in :poo/type Map)
   ./hex ./types ./signing)
 
 ;; TODO: handle collisions, exceptions

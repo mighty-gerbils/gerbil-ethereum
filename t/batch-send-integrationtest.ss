@@ -2,7 +2,7 @@
 
 (import
   :std/format :std/srfi/1 :std/test
-  :clan/runtime/db
+  :persist/db
   ../ethereum ../known-addresses ../json-rpc ../batch-send
   ./signing-test ./transaction-integrationtest)
 

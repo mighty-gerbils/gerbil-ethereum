@@ -2,8 +2,8 @@
 
 (import
   :std/sugar :std/test
-  :clan/utils/list :clan/poo/poo
-  :clan/runtime/db
+  :utils/list :poo/poo
+  :persist/db
   ../signing ../json-rpc ../transaction ../nonce-tracker
   ./transaction-integrationtest)
 

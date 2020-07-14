@@ -2,10 +2,10 @@
 
 (import
   :std/sugar
-  :clan/utils/json :clan/utils/path-config
-  :clan/poo/poo :clan/poo/brace :clan/poo/io
-  (only-in :clan/poo/mop define-type)
-  :clan/runtime/db
+  :utils/json :utils/path-config
+  :poo/poo :poo/brace :poo/io
+  (only-in :poo/mop define-type)
+  :persist/db
   :crypto/keccak
   ./hex ./types ./known-addresses ./ethereum ./json-rpc ./transaction ./tx-tracker)
 

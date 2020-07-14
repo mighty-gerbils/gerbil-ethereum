@@ -4,9 +4,9 @@
 (import
   :gerbil/gambit/exceptions :gerbil/gambit/ports
   :std/format :std/getopt :std/misc/list :std/misc/ports :std/misc/process :std/srfi/13 :std/sugar
-  :clan/utils/base :clan/utils/files :clan/utils/maybe :clan/utils/multicall
-  :clan/utils/path-config :clan/utils/shell
-  :clan/net/json-rpc
+  :utils/base :utils/files :utils/maybe :utils/multicall
+  :utils/path-config :utils/shell
+  :utils/net/json-rpc
   :ethereum/t/path-config)
 
 (def geth-port 30303)

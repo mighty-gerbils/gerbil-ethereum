@@ -4,11 +4,11 @@
 (import
   :gerbil/gambit/threads
   :std/sugar
-  :clan/utils/concurrency :clan/utils/exception
-  :clan/poo/poo
-  (only-in :clan/poo/number Integer)
-  (only-in :clan/poo/type Map)
-  :clan/runtime/persist
+  :utils/concurrency :utils/exception
+  :poo/poo
+  (only-in :poo/number Integer)
+  (only-in :poo/type Map)
+  :persist/persist
   ./types ./ethereum ./network-config ./json-rpc)
 
 ;; TODO: Handle "query returned more than 1000 results" when too many contracts created in interval!!!

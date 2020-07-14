@@ -19,12 +19,12 @@
   :gerbil/gambit/threads
   (for-syntax :std/format)
   :std/format :std/lazy :std/sugar
-  :clan/net/json-rpc
-  :clan/utils/json :clan/utils/logger :clan/utils/maybe
-  :clan/poo/poo :clan/poo/brace :clan/poo/io
-  (only-in :clan/poo/mop define-type)
-  (only-in :clan/poo/number Real)
-  (only-in :clan/poo/type List Maybe Unit Or Map Json False)
+  :utils/net/json-rpc
+  :utils/json :utils/logger :utils/maybe
+  :poo/poo :poo/brace :poo/io
+  (only-in :poo/mop define-type)
+  (only-in :poo/number Real)
+  (only-in :poo/type List Maybe Unit Or Map Json False)
   ./types ./signing ./ethereum ./network-config
   )
 

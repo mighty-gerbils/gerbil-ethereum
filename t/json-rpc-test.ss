@@ -3,7 +3,7 @@
 (import
   :gerbil/gambit/bytes :gerbil/gambit/exceptions
   :std/sugar :std/test
-  :clan/poo/poo :clan/poo/io
+  :poo/poo :poo/io
   ../json-rpc)
 
 (def json-rpc-test

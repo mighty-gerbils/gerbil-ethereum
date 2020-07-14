@@ -2,9 +2,9 @@
 
 (import
   :std/sugar
-  :clan/utils/maybe
-  :clan/poo/poo :clan/poo/io :clan/poo/brace
-  (prefix-in :clan/poo/type poo.)
+  :utils/maybe
+  :poo/poo :poo/io :poo/brace
+  (prefix-in :poo/type poo.)
   ./types ./hex)
 
 ;; TODO: implement and use a "newtype"

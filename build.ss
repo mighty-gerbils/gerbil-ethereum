@@ -9,10 +9,10 @@
 
 (import
   :std/make :std/format :std/misc/list :std/srfi/1
-  :clan/utils/filesystem :clan/utils/path :clan/utils/version
-  "t/path-config.ss")
+  :utils/filesystem :utils/path :utils/versioning)
 
-(current-directory gerbil-ethereum-src)
+(def here (path-parent (this-source-file)))
+(current-directory here)
 
 (def (files)
   (filter (lambda (x) (and (path-extension-is? x ".ss")
@@ -42,7 +42,7 @@
   (when (match args ([] #t) (["compile" . _] #t) (_ #f))
     (update-version-from-git name: "Gerbil-ethereum" path: "version.ss"))
   (make (build-spec)
-    srcdir: gerbil-ethereum-src
+    srcdir: here
     verbose: #f
     debug: 'env
     optimize: #t))

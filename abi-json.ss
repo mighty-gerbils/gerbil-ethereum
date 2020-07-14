@@ -3,7 +3,7 @@
 
 (export #t)
 (import
-  :clan/utils/base
+  :utils/base
   ./types ./ethereum ./abi ./transaction)
 
 ;; : Type <- String

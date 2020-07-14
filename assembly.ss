@@ -3,7 +3,7 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
   :std/misc/bytes :std/sugar
-  :clan/utils/number :clan/poo/poo :clan/poo/io
+  :utils/number :poo/poo :poo/io
   ./types ./ethereum)
 
 ;; In the future, segments can be nested, and

@@ -3,12 +3,12 @@
 (import
   :gerbil/gambit/bytes :gerbil/gambit/exceptions :gerbil/gambit/threads
   :std/error :std/misc/completion :std/text/hex
-  :clan/utils/base :clan/utils/concurrency :clan/utils/exception
-  :clan/utils/failure :clan/utils/option :clan/utils/maybe
-  :clan/net/json-rpc
-  :clan/poo/poo :clan/poo/brace :clan/poo/io
-  (only-in :clan/poo/mop Lens slot-lens sexp<- Type. define-type)
-  :clan/runtime/db :clan/runtime/persist
+  :utils/base :utils/concurrency :utils/exception
+  :utils/failure :utils/option :utils/maybe
+  :utils/net/json-rpc
+  :poo/poo :poo/brace :poo/io
+  (only-in :poo/mop Lens slot-lens sexp<- Type. define-type)
+  :persist/db :persist/persist
   ./hex ./types ./signing ./known-addresses ./ethereum ./json-rpc ./nonce-tracker ./transaction)
 
 ;; TODO: A much better state machine to get wanted transactions confirmed.

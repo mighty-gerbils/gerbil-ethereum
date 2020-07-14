@@ -2,7 +2,7 @@
 
 (import
   :gerbil/gambit/system
-  :clan/utils/source :clan/utils/path :clan/utils/path-config)
+  :utils/source :utils/path :utils/path-config)
 
 (def gerbil-ethereum-src (path-parent (path-normalized-directory (this-source-file))))
 (set! source-directory (lambda () gerbil-ethereum-src))
