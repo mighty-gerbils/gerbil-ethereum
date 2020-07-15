@@ -2,12 +2,12 @@
 ;; Run your own local private copy of Ethereum as a node on localhost, for testing purposes
 
 (import
-  :gerbil/gambit/exceptions :gerbil/gambit/ports
+  :gerbil/gambit/exceptions :gerbil/gambit/ports :gerbil/gambit/threads
   :std/format :std/getopt :std/misc/list :std/misc/ports :std/misc/process :std/srfi/13 :std/sugar
   :clan/base :clan/files :clan/maybe :clan/multicall
   :clan/path-config :clan/shell
   :clan/net/json-rpc
-  :ethereum/t/path-config)
+  :mukn/ethereum/t/path-config)
 
 (def geth-port 30303)
 (def geth-rpc-port 8545)
