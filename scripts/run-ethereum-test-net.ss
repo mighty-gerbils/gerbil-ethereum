@@ -83,7 +83,7 @@
   (cond
    ((with-catch false
                 (cut json-rpc (format "http://localhost:~d" geth-rpc-port)
-                     "web3_clientVersion" null))
+                     "web3_clientVersion" (void)))
     => (lambda (version) (printf "Connected to geth ~a\n" version)))
    (else
     (printf "Waiting for geth to start...\n")

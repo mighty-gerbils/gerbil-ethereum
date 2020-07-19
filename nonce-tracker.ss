@@ -41,9 +41,9 @@
       ['nonce-tracker address]
       (lambda (op)
         (match op
-          ('Reset (continue null null))
-          ('Peek (when (eq? nonce null) (reset)) nonce)
-          ('Next (when (eq? nonce null) (reset)) (next nonce))))))
+          ('Reset (continue (void) (void)))
+          ('Peek (when (void? nonce) (reset)) nonce)
+          ('Next (when (void? nonce) (reset)) (next nonce))))))
    reset: (lambda (x) ((<-key x) 'Reset))
    peek: (lambda (x) ((<-key x) 'Peek))
    next: (lambda (x) ((<-key x) 'Next))

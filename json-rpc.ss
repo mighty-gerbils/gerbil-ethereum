@@ -89,30 +89,30 @@
   (Union
    (Record block: [Quantity]) ;; block number as 0x string.
    (Record time: [Quantity]) ;; time in seconds-since-epoch as 0x string
-   Unit)) ;; JSON null, isomorphic to unit, but its own thing for faithful FFI purposes. #!void in Gerbil?
+   Unit)) ;; JSON null, isomorphic to unit, but its own thing for faithful FFI purposes. (void) in Gerbil.
 
 (define-type TransactionParameters
   (Record
    from: [Address]
-   to: [(Maybe Address) optional: #t default: null]
-   gas: [(Maybe Quantity) optional: #t default: null] ; in gas
-   gasPrice: [(Maybe Quantity) optional: #t default: null] ; in wei/gas
-   value: [(Maybe Quantity) optional: #t default: null] ; in wei
-   data: [(Maybe Bytes) optional: #t default: null]
-   nonce: [(Maybe Quantity) optional: #t default: null]
-   condition: [(Maybe TransactionCondition) optional: #t default: null]))
+   to: [(Maybe Address) optional: #t default: (void)]
+   gas: [(Maybe Quantity) optional: #t default: (void)] ; in gas
+   gasPrice: [(Maybe Quantity) optional: #t default: (void)] ; in wei/gas
+   value: [(Maybe Quantity) optional: #t default: (void)] ; in wei
+   data: [(Maybe Bytes) optional: #t default: (void)]
+   nonce: [(Maybe Quantity) optional: #t default: (void)]
+   condition: [(Maybe TransactionCondition) optional: #t default: (void)]))
 
 (def ToData<-Operation
   (match <>
-    ((TransferTokens recipient) (values recipient null))
-    ((CreateContract code) (values null code))
+    ((TransferTokens recipient) (values recipient (void)))
+    ((CreateContract code) (values (void) code))
     ((CallFunction recipient data) (values recipient data))))
 
 (def (TransactionParameters<-Operation from operation value)
   (defvalues (to data) (ToData<-Operation operation))
   ;; TransactionParameters
   {(from) (to) (value) (data)
-   gas: null gasPrice: null nonce: null condition: null})
+   gas: (void) gasPrice: (void) nonce: (void) condition: (void)})
 
 (def (Transactionparameters<-PreTransaction sender pretx)
   (defrule (.pretx x ...) (begin (def x (.@ pretx x)) ...)) (.pretx operation gas value)
@@ -127,24 +127,24 @@
   (Record
    hash: [Digest]
    nonce: [Quantity]
-   blockHash: [(Maybe Digest) optional: #t default: null]
-   blockNumber: [(Maybe Quantity) optional: #t default: null]
-   transactionIndex: [(Maybe Quantity) optional: #t default: null]
-   from: [(Maybe Address) optional: #t default: null]
-   to: [(Maybe Address) optional: #t default: null]
+   blockHash: [(Maybe Digest) optional: #t default: (void)]
+   blockNumber: [(Maybe Quantity) optional: #t default: (void)]
+   transactionIndex: [(Maybe Quantity) optional: #t default: (void)]
+   from: [(Maybe Address) optional: #t default: (void)]
+   to: [(Maybe Address) optional: #t default: (void)]
    value: [Quantity]
    gasPrice: [Quantity]
    gas: [Quantity]
    input: [Bytes]
-   v: [(Maybe Quantity) optional: #t default: null]
-   standard-v: [(Maybe Quantity) optional: #t default: null]
-   r: [(Maybe UInt256) optional: #t default: null]
-   s: [(Maybe UInt256) optional: #t default: null]
-   raw: [(Maybe Data) optional: #t default: null]
-   publicKey: [(Maybe PublicKey) optional: #t default: null]
-   networkID: [(Maybe Quantity) optional: #t default: null]
-   creates: [(Maybe Digest) optional: #t default: null]
-   condition: [Json optional: #t default: null])) ;; is this any JSON, or a TransactionCondition above??
+   v: [(Maybe Quantity) optional: #t default: (void)]
+   standard-v: [(Maybe Quantity) optional: #t default: (void)]
+   r: [(Maybe UInt256) optional: #t default: (void)]
+   s: [(Maybe UInt256) optional: #t default: (void)]
+   raw: [(Maybe Data) optional: #t default: (void)]
+   publicKey: [(Maybe PublicKey) optional: #t default: (void)]
+   networkID: [(Maybe Quantity) optional: #t default: (void)]
+   creates: [(Maybe Digest) optional: #t default: (void)]
+   condition: [Json optional: #t default: (void)])) ;; is this any JSON, or a TransactionCondition above??
 
 (define-type SignTransactionResult
   (Record
@@ -156,11 +156,11 @@
 (define-type LogObject
   (Record
    removed: [Bool]
-   logIndex: [(Maybe Quantity) optional: #t default: null]
-   transactionIndex: [(Maybe Quantity) optional: #t default: null]
-   transactionHash: [(Maybe Digest) optional: #t default: null]
-   blockNumber: [(Maybe Quantity) optional: #t default: null]
-   blockHash: [(Maybe Digest) optional: #t default: null]
+   logIndex: [(Maybe Quantity) optional: #t default: (void)]
+   transactionIndex: [(Maybe Quantity) optional: #t default: (void)]
+   transactionHash: [(Maybe Digest) optional: #t default: (void)]
+   blockNumber: [(Maybe Quantity) optional: #t default: (void)]
+   blockHash: [(Maybe Digest) optional: #t default: (void)]
    address: [Address]
    data: [Bytes]
    topics: [(List Bytes32)]))
@@ -170,10 +170,10 @@
   (Record
    blockHash: [Digest]
    blockNumber: [Quantity]
-   contractAddress: [(Maybe Address) optional: #t default: null]
+   contractAddress: [(Maybe Address) optional: #t default: (void)]
    cumulativeGasUsed: [Quantity]
    from: [Address]
-   to: [(Maybe Address) optional: #t default: null]
+   to: [(Maybe Address) optional: #t default: (void)]
    gasUsed: [Quantity]
    logs: [LogObjectList]
    logsBloom: [Bloom]
@@ -195,21 +195,21 @@
 (define-type CallParameters
   (Record
    from: [Address]
-   to: [(Maybe Address) optional: #t default: null]
-   gas: [(Maybe Quantity) optional: #t default: null]
-   gasPrice: [(Maybe Quantity) optional: #t default: null]
-   value: [(Maybe Quantity) optional: #t default: null]
-   data: [(Maybe Bytes) optional: #t default: null]))
+   to: [(Maybe Address) optional: #t default: (void)]
+   gas: [(Maybe Quantity) optional: #t default: (void)]
+   gasPrice: [(Maybe Quantity) optional: #t default: (void)]
+   value: [(Maybe Quantity) optional: #t default: (void)]
+   data: [(Maybe Bytes) optional: #t default: (void)]))
 
 (def (CallParameter<-Operation from operation)
   (defvalues (to data) (ToData<-Operation operation))
-  {(from) (to) (data) gas: null gasPrice: null value: null}) ;; CallParameter
+  {(from) (to) (data) gas: (void) gasPrice: (void) value: (void)}) ;; CallParameter
 
 (def (CallParameter<-PreTransaction pretx)
   (defrule [x ...] (begin (def x (.@ pretx x)) ...))
   [sender operation gas value]
   {from: sender to: (operation-to operation) data: (operation-data operation)
-   gasPrice: null (gas) (value)})
+   gasPrice: (void) (gas) (value)})
 
 (def (CallParameter<-Transaction tx)
   (defrule (.tx x ...) (begin (def x (.@ tx x)) ...))
@@ -241,12 +241,12 @@
    nonce: [Quantity]
    gasPrice: [Quantity]
    gas: [Quantity]
-   to: [(Maybe Address) optional: #t default: null]
+   to: [(Maybe Address) optional: #t default: (void)]
    value: [Quantity]
    input: [Bytes]
-   v: [(Maybe UInt256) optional: #t default: null]
-   r: [(Maybe UInt256) optional: #t default: null]
-   s: [(Maybe UInt256) optional: #t default: null]
+   v: [(Maybe UInt256) optional: #t default: (void)]
+   r: [(Maybe UInt256) optional: #t default: (void)]
+   s: [(Maybe UInt256) optional: #t default: (void)]
    hash: [Digest]))
 
 (define-type SignedTransaction
@@ -333,7 +333,7 @@
 
 (define-type BlockInformation
   (Record number: [(Maybe Quantity)]
-          hash: [(or Digest null)]
+          hash: [(or Digest (void))]
           parentHash: [Digest]
           nonce: [(Maybe Bytes8)]
           sha3Uncles: [Digest]
@@ -362,14 +362,14 @@
 (define-type newFilterOptions ;; for newFilter
   (Record fromBlock: [BlockParameter optional: #t default: 'latest]
           toBlock: [BlockParameter optional: #t default: 'latest]
-          address: [(Or Address (List Address) Unit) optional: #t default: null]
-          topics: [(Maybe (List (Maybe (Or Bytes32 (List Bytes32))))) optional: #t default: null]))
+          address: [(Or Address (List Address) Unit) optional: #t default: (void)]
+          topics: [(Maybe (List (Maybe (Or Bytes32 (List Bytes32))))) optional: #t default: (void)]))
 (define-type getLogsFilterOptions ;; for getLogs
   (Record fromBlock: [(Maybe BlockParameter) optional: #t default: 'latest]
           toBlock: [(Maybe BlockParameter) optional: #t default: 'latest]
-          address: [(Or Address (List Address) Unit) optional: #t default: null]
-          topics: [(Maybe (List (Or Bytes32 Unit (List Bytes32)))) optional: #t default: null]
-          blockhash: [(Maybe Digest) optional: #t default: null]))
+          address: [(Or Address (List Address) Unit) optional: #t default: (void)]
+          topics: [(Maybe (List (Or Bytes32 Unit (List Bytes32)))) optional: #t default: (void)]
+          blockhash: [(Maybe Digest) optional: #t default: (void)]))
 
 (define-ethereum-api eth newFilter Quantity <- newFilterOptions)
 (define-ethereum-api eth newBlockFilter Quantity <-)

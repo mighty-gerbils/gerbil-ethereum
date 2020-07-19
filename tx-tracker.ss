@@ -325,7 +325,7 @@
   (lambda (user state)
     (without-tx
     (for-each/maybe (fun (for-txsn txsn) (.call TransactionTracker activate {(user) (txsn)}))
-                    (.call NatSet .min-elt (.@ state ongoing-transactions) null))))
+                    (.call NatSet .min-elt (.@ state ongoing-transactions) (void)))))
 
   ;; Remove a transaction, as a cleanup to call at the end of it when it's stable.
   ;; : Unit <- Address Nat TX

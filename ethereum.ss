@@ -79,11 +79,11 @@
               ((CreateContract data) (hash ("data" (json<- Bytes data))))
               ((CallFunction to data) (hash ("to" (json<- Address to)) ("data" (json<- Bytes data)))))
    .<-json: (lambda (h)
-              (def to (map/maybe (.@ Address .<-json) (hash-ref h "to" null)))
-              (def data (map/maybe (.@ Bytes .<-json) (hash-ref h "data" null)))
+              (def to (map/maybe (.@ Address .<-json) (hash-ref h "to" (void))))
+              (def data (map/maybe (.@ Bytes .<-json) (hash-ref h "data" (void))))
               (cond
-               ((and to (eq? data null)) (TransferTokens to))
-               ((and data (eq? to null)) (CreateContract data))
+               ((and to (void? data)) (TransferTokens to))
+               ((and data (void? to)) (CreateContract data))
                (else (CallFunction to data))))
    })
 
