@@ -7,7 +7,7 @@
   (for-syntax :gerbil/gambit/exact :std/iter :clan/syntax)
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
   :gerbil/gambit/hash :gerbil/gambit/ports
-  :std/format :std/iter :std/misc/bytes :std/misc/completion :std/misc/list
+  :std/format :std/iter :std/misc/bytes :std/misc/completion :std/misc/hash :std/misc/list
   :std/sort :std/srfi/1 :std/srfi/43 :std/sugar :std/text/json
   :clan/base :clan/io :clan/json :clan/list
   :clan/maybe :clan/number :clan/syntax
@@ -58,12 +58,17 @@
   (lambda (bytes start head get-tail set-tail!)
     (ensure-zeroes bytes head .ethabi-padding)
     (u8vector-uint-ref bytes (+ head .ethabi-padding) big .length-in-bytes)))
+(def UInt<-length-in-bits (make-hash-table))
+(def (UIntN .length-in-bits)
+  (hash-ensure-ref UInt<-length-in-bits .length-in-bits
+                   (lambda () (def sexp (symbolify "UInt" .length-in-bits))
+                           {(:: @ UInt.) (.length-in-bits) (sexp)})))
 (defsyntax (defUIntNs stx)
   (with-syntax ((((id i)...)
                  (for/collect (j (in-range 8 257 8))
                    [(datum->syntax (stx-car stx) (symbolify "UInt" j)) j])))
     #'(begin
-        (.def (id @ UInt.) .length-in-bits: i sexp: 'id)...
+        (def id (UIntN i))...
         (register-simple-eth-type id)...
         (register-simple-eth-type UInt256 "uint"))))
 (defUIntNs)
