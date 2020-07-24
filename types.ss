@@ -4,7 +4,7 @@
 ;; We are shadowing existing types. Should we monkey-patch them instead? Let's hope not.
 
 (import
-  (for-syntax :gerbil/gambit/exact :std/iter :clan/syntax)
+  (for-syntax :gerbil/gambit/exact :std/iter :std/stxutil :clan/syntax)
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
   :gerbil/gambit/hash :gerbil/gambit/ports
   :std/format :std/iter :std/misc/bytes :std/misc/completion :std/misc/hash :std/misc/list
@@ -16,7 +16,7 @@
            Type Type. proto Class Class. Slot
            .defgeneric validate element? .method define-type sexp<-)
   (prefix-in (only-in :clan/poo/mop Bool String Symbol) poo.)
-  (prefix-in (only-in :clan/poo/number Nat UInt. IntSet) poo.)
+  (prefix-in (only-in :clan/poo/number Nat UInt. UInt IntSet) poo.)
   (prefix-in :clan/poo/type poo.)
   :clan/poo/brace
   ./hex ./abi)
@@ -287,6 +287,64 @@
     (.<-nat (u8vector-uint-ref bytes (+ head .ethabi-padding) big .length-in-bytes))))
 (defrule (Enum values ...) {(:: @ Enum.) vals: '(values ...)})
 
+;; Sum : {Kw Type} ... -> Type
+(def (Sum . plist)
+  ;; a : [Assocof Symbol Type]
+  (def a (map (match <> ([kw . type] (cons (symbolify kw) type))) (alist<-plist plist)))
+  (def tag-marsh-t (poo.UInt (integer-length (max 0 (1- (length a))))))
+  (def t
+    {(:: @ [methods.bytes<-marshal Type.])
+      sexp: ['Sum . plist]
+      variants: (.<-alist a)
+      variant-names: (map car a)
+      types: (map cdr a)
+      make: (lambda (tag value) {(tag) (value)})
+      .element?:
+      (lambda (v)
+        (match v
+          ({(tag) (value)}
+           (and (.key? variants tag)
+                (element? (.ref variants tag) value)))
+          (_ #f)))
+      .sexp<-: (lambda (v)
+                 (def tag (.@ v tag))
+                 `(.call ,sexp make ',tag ,(sexp<- (.ref variants tag) (.@ v value))))
+      .json<-: (lambda (v)
+                 (def tag (.@ v tag))
+                 (hash ("tag" (symbol->string tag)) ("value" (json<- (.ref variants tag) (.@ v value)))))
+      .<-json: (lambda (j)
+                 (def tag (string->symbol (hash-ref j "tag")))
+                 (make tag (<-json (.ref variants tag) (hash-ref j "value"))))
+      .marshal: (lambda (v port)
+                  (def tag (.@ v tag))
+                  (def tag-n (index-of variant-names tag))
+                  (marshal tag-marsh-t tag-n port)
+                  (marshal (.ref variants tag) (.@ v value) port))
+      .unmarshal: (lambda (port)
+                    (def tag-n (unmarshal tag-marsh-t port))
+                    (def tag (list-ref variant-names tag-n))
+                    (def value (unmarshal (.ref variants tag) port))
+                    (make tag value))})
+  t)
+
+(begin-syntax
+  (def ((sum-constructor-match-transformer tag-sym) stx)
+    (syntax-case stx ()
+      ((_ p) (with-syntax ((tag* tag-sym)) #'(.o tag: 'tag* value: p)))))
+  (def ((sum-constructor-expr-transformer sum-id tag-sym) stx)
+    (syntax-case stx ()
+      ((_ e) (with-syntax ((sum sum-id) (tag* tag-sym)) #'(.call sum make 'tag* e))))))
+(defsyntax define-sum-constructors
+  (lambda (stx)
+    (syntax-case stx ()
+      ((_ sum-id variant-id ...)
+       (with-syntax (((sum-variant-id ...) (stx-map (cut format-id #'sum-id "~a-~a" #'sum-id <>) #'(variant-id ...))))
+         #'(begin
+             (defsyntax-for-match sum-variant-id
+               (sum-constructor-match-transformer 'variant-id)
+               (sum-constructor-expr-transformer #'sum-id 'variant-id))
+             ...))))))
+
 (.def (FixedVector. @ [methods.bytes<-marshal Type.] type size)
   sexp: `(Vector ,(.@ type sexp) ,(.@ type size))
   .element?: (let (e? (.@ type .element?))
@@ -369,3 +427,7 @@
   (def a (map/car sym<-kw (alist<-plist plist)))
   (def tag-bits (integer-length (1- (length a))))
   ...)
+
+;; index-of : [Listof Any] Any -> (U Index #f)
+(def (index-of lst e)
+  (list-index (cut equal? e <>) lst))
