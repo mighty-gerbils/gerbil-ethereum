@@ -104,9 +104,9 @@
 
 (def ToData<-Operation
   (match <>
-    ((TransferTokens recipient) (values recipient (void)))
-    ((CreateContract code) (values (void) code))
-    ((CallFunction recipient data) (values recipient data))))
+    ((Operation-TransferTokens recipient) (values recipient (void)))
+    ((Operation-CreateContract code) (values (void) code))
+    ((Operation-CallFunction {to: recipient (data)}) (values recipient data))))
 
 (def (TransactionParameters<-Operation from operation value)
   (defvalues (to data) (ToData<-Operation operation))

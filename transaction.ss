@@ -179,7 +179,7 @@
 ;; : PreTransaction <- Address Quantity
 (def (transfer-tokens from: sender to: recipient value: value)
   {(sender)
-   operation: (TransferTokens recipient)
+   operation: (Operation-TransferTokens recipient)
    (value)
    gas: transfer-gas-used})
 
@@ -193,8 +193,8 @@
 
 ;; : PreTransaction <- Address Bytes value: ?Quantity gas: ?(Maybe Quantity)
 (def (create-contract sender code value: (value 0) gas: (gas #f))
-  (make-pre-transaction sender (CreateContract code) value gas: gas))
+  (make-pre-transaction sender (Operation-CreateContract code) value gas: gas))
 
 ;; : PreTransaction <- Address Address Bytes Quantity gas: ?(Maybe Quantity)
 (def (call-function sender contract call value: (value 0) gas: (gas #f))
-  (make-pre-transaction sender (CallFunction contract call) value gas: gas))
+  (make-pre-transaction sender (Operation-CallFunction {to: contract data: call}) value gas: gas))

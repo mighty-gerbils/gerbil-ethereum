@@ -46,47 +46,22 @@
    value: [Quantity])) ;; in wei}
 
 ;; Three kinds of operations that may be posted
-(defstruct $Operation ())
-(defstruct (TransferTokens $Operation)
-  (to) ;; Address
-  transparent: #t)
-(defstruct (CreateContract $Operation)
-  (data) ;; Bytes
-  transparent: #t)
-(defstruct (CallFunction $Operation)
-  (to ;; Address
-   data) ;; Bytes
-  transparent: #t)
+(define-type Operation
+  (Sum
+   TransferTokens: Address ; to
+   CreateContract: Bytes ; data
+   CallFunction: (Record to: [Address] data: [Bytes])))
+(define-sum-constructors Operation TransferTokens CreateContract CallFunction)
 (def operation-to
   (match <>
-    ((TransferTokens to) to)
-    ((CreateContract _) #f)
-    ((CallFunction to _) to)))
+    ((Operation-TransferTokens to) to)
+    ((Operation-CreateContract _) #f)
+    ((Operation-CallFunction {(to)}) to)))
 (def operation-data
   (match <>
-    ((TransferTokens _) #f)
-    ((CreateContract data) data)
-    ((CallFunction _ data) data)))
-(define-type Operation
-  {(:: @ [poo.methods.string&bytes&marshal<-json Type.])
-   .element?: $Operation?
-   .String: String
-   .sexp<-: (match <>
-              ((TransferTokens to) ['TransferTokens (sexp<- Address to)])
-              ((CreateContract data) ['CreateContract (sexp<- Bytes data)])
-              ((CallFunction to data) ['CallFunction (sexp<- Address to) (sexp<- Bytes data)]))
-   .json<-: (match <>
-              ((TransferTokens to) (hash ("to" (json<- Address to))))
-              ((CreateContract data) (hash ("data" (json<- Bytes data))))
-              ((CallFunction to data) (hash ("to" (json<- Address to)) ("data" (json<- Bytes data)))))
-   .<-json: (lambda (h)
-              (def to (map/maybe (.@ Address .<-json) (hash-ref h "to" (void))))
-              (def data (map/maybe (.@ Bytes .<-json) (hash-ref h "data" (void))))
-              (cond
-               ((and to (void? data)) (TransferTokens to))
-               ((and data (void? to)) (CreateContract data))
-               (else (CallFunction to data))))
-   })
+    ((Operation-TransferTokens _) #f)
+    ((Operation-CreateContract data) data)
+    ((Operation-CallFunction {(data)}) data)))
 
 (define-type PreTransaction
   (Record
