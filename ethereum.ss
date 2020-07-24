@@ -4,6 +4,7 @@
   :std/sugar
   :clan/maybe
   :clan/poo/poo :clan/poo/io :clan/poo/brace
+  (only-in :clan/poo/mop sexp<-)
   (prefix-in :clan/poo/type poo.)
   ./types ./hex)
 

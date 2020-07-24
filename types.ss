@@ -14,7 +14,7 @@
   :clan/poo/poo :clan/poo/io
   (only-in :clan/poo/mop
            Type Type. proto Class Class. Slot
-           .defgeneric validate element? .method define-type)
+           .defgeneric validate element? .method define-type sexp<-)
   (prefix-in (only-in :clan/poo/mop Bool String Symbol) poo.)
   (prefix-in (only-in :clan/poo/number Nat UInt. IntSet) poo.)
   (prefix-in :clan/poo/type poo.)
