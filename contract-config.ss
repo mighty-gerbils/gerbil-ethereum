@@ -44,7 +44,8 @@
 
 ;; Digest <- PreTransaction
 (def (code-hash<-create-contract pretx)
-  (keccak256<-bytes (CreateContract-data (.@ pretx operation))))
+  (with (((Operation-CreateContract data) (.@ pretx operation)))
+    (keccak256<-bytes data)))
 
 ;; <- ContractConfig
 (def (verify-contract-config config pretx)
