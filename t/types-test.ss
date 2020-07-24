@@ -13,6 +13,14 @@
    host: [String]
    port: [UInt16]))
 
+(define-type Zoth
+  (Sum
+   z: (Tuple)
+   o: (Tuple UInt8)
+   t: (Tuple UInt8 UInt8)
+   h: (Tuple UInt8 UInt8 UInt8)))
+(define-sum-constructors Zoth z o t h)
+
 (def (sort-alist alist) (sort alist (comparing-key test: string<? key: car)))
 
 (defrule (check-rep parse unparse rep obj)
@@ -31,4 +39,34 @@
                  (compose 0x<-bytes (.@ EthereumRpcConfig .bytes<-) .<-alist)
                  "0x00046874747000096c6f63616c686f73740050"
                  '((host . "localhost") (port . 80) (scheme . http)))
+      )
+    (test-case "Sum"
+      (check-equal? (element? Zoth "this is not a poo") #f)
+      (check-equal? (element? Zoth (Zoth-z #())) #t)
+      (check-equal? (element? Zoth (Zoth-z #(1))) #f)
+      (check-equal? (element? Zoth (Zoth-o #(1))) #t)
+      (check-equal? (element? Zoth (Zoth-o #(1 2))) #f)
+      (check-equal? (element? Zoth (Zoth-o #("this is not an int"))) #f)
+      (check-equal? (element? Zoth (Zoth-t #(2 3))) #t)
+      (check-equal? (element? Zoth (Zoth-t #(2 3 4))) #f)
+      (check-equal? (element? Zoth (Zoth-t #(2 394))) #f)
+      (check-equal? (element? Zoth (Zoth-h #(5 8 13))) #t)
+      (check-equal? (element? Zoth (Zoth-h #(5 8 13 14))) #f)
+      (check-equal? (element? Zoth (Zoth-h #(5 -1 13))) #f)
+      (check-equal? (sort-alist (hash->list (.call Zoth .json<- (Zoth-z #()))))
+                    '(("tag" . "z") ("value" . ())))
+      (check-equal? (sort-alist (hash->list (.call Zoth .json<- (Zoth-o #(1)))))
+                    '(("tag" . "o") ("value" . ("0x1"))))
+      (check-equal? (sort-alist (hash->list (.call Zoth .json<- (Zoth-t #(2 3)))))
+                    '(("tag" . "t") ("value" . ("0x2" "0x3"))))
+      (check-equal? (sort-alist (hash->list (.call Zoth .json<- (Zoth-h #(5 8 13)))))
+                    '(("tag" . "h") ("value" . ("0x5" "0x8" "0xd"))))
+      (check-equal? (match (.call Zoth .<-json (hash ("tag" "t") ("value" ["0x15" "0x22"])))
+                      ((Zoth-t (vector a b)) (+ a b)))
+                    55)
+      (def ja<-0x (compose sort-alist hash->list (.@ Zoth .json<-) (.@ Zoth .<-bytes) bytes<-0x))
+      (def 0x<-ja (compose 0x<-bytes (.@ Zoth .bytes<-) (.@ Zoth .<-json) list->hash-table))
+      (check-rep ja<-0x 0x<-ja "0x00" '(("tag" . "z") ("value" . ())))
+      (check-rep ja<-0x 0x<-ja "0x0137" '(("tag" . "o") ("value" . ("0x37"))))
+      (check-rep ja<-0x 0x<-ja "0x025990" '(("tag" . "t") ("value" . ("0x59" "0x90"))))
       )))
