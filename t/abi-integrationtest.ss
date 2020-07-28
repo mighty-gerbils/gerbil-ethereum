@@ -6,7 +6,6 @@
   :clan/list :clan/path :clan/path-config :clan/poo/poo
   ../types ../ethereum ../signing ../json-rpc ../transaction ../abi ../tx-tracker
   ./path-config ./signing-test ./transaction-integrationtest)
-(import :clan/debug)
 
 (def (compile-solidity src dstdir)
   (def srcdir (path-directory src))
