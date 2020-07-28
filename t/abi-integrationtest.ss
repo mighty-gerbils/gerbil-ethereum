@@ -11,7 +11,11 @@
   (def srcdir (path-directory src))
   (def srcfile (path-strip-directory src))
   (create-directory* dstdir)
-  (run-process/batch ["env" "-C" srcdir "solc" "--optimize" "--bin" "--abi" "-o" dstdir "--overwrite" srcfile]))
+  (run-process ["solc" "--optimize" "--bin" "--abi" "-o" dstdir "--overwrite" srcfile]
+    coprocess: close-output-port
+    directory: srcdir
+    stdout-redirection: #f)
+  (void))
 
 (def test-contract-source (subpath gerbil-ethereum-src "t/test_contract.sol"))
 (def test-contract-bin (run-path "t/ethereum/HelloWorld.bin"))
