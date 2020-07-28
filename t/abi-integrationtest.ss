@@ -11,7 +11,7 @@
   (def srcdir (path-directory src))
   (def srcfile (path-strip-directory src))
   (create-directory* dstdir)
-  (run-process ["env" "solc" "--optimize" "--bin" "--abi" "-o" dstdir "--overwrite" srcfile]
+  (run-process ["solc" "--optimize" "--bin" "--abi" "-o" dstdir "--overwrite" srcfile]
     coprocess: close-output-port
     directory: srcdir
     stdout-redirection: #f)
