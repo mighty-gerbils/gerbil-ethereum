@@ -36,28 +36,28 @@
     ;; is worth it if we actually use that 0 at least twice in the source code.
     GETPC #|0|# ; -- 0
     ;; Abort if the caller isn't the contract's owner
-    [&address owner] CALLER EQ [jumpi1 'loop-init]
+    owner CALLER EQ [&jumpi1 'loop-init]
     DUP1 #|0|# REVERT
 
     ;; Initialize the loop invariant
-    [jumplabel 'loop-init] ;; -- 0
+    [&jumpdest 'loop-init] ;; -- 0
     1 96 DUP2 #|1|# DUP1 #|1|# DUP3 #|96|# SHL SUB CALLDATASIZE DUP5
     ;; -- 0 size 2**96-1 96 1 0
-    [jump1 'loop-entry] ;; jump to entry, skipping inter-loop action
+    [&jump1 'loop-entry] ;; jump to entry, skipping inter-loop action
 
     ;; The loop: inter-loop action
-    [jumplabel 'loop]
+    [&jumpdest 'loop]
     32 ADD
 
     ;; The entry point of the loop: check condition
-    [jumplabel 'loop-entry] ;; -- cursor size 2**96-1 96 1 0
+    [&jumpdest 'loop-entry] ;; -- cursor size 2**96-1 96 1 0
     ;; If less then continue to loop-body, else return
-    DUP2 #|size|# DUP2 #|cursor|# LT [jumpi1 'loop-body] STOP
+    DUP2 #|size|# DUP2 #|cursor|# LT [&jumpi1 'loop-body] STOP
 
     ;; Loop body: take the next 256-bit argument.
     ;; Top 160 are address, lower 96 are value in wei.
     ;; Prepare the arguments to a transfer call.
-    [jumplabel 'loop-body] ;; -- cursor size 2**96-1 96 1 0
+    [&jumpdest 'loop-body] ;; -- cursor size 2**96-1 96 1 0
     DUP6 #|0|# DUP1 #|0|# DUP1 #|0|# DUP1 #|0|# DUP5 #|cursor|# CALLDATALOAD
     DUP1 #|data|# DUP9 #|2**96-1|# AND
     ;; -- value data 0 0 0 0 cursor size 2**96-1 96 1 0
@@ -66,7 +66,7 @@
     CALL
 
     ;; loop if successful, revert everything if failed.
-    [jumpi1 'loop]
+    [&jumpi1 'loop]
     ;; -- cursor size 2**96-1 96 1 0
     DUP6 DUP1 REVERT]))
 

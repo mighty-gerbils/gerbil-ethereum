@@ -3,7 +3,7 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
   :std/misc/bytes :std/sugar
-  :clan/number :clan/poo/poo :clan/poo/io
+  :clan/base :clan/number :clan/poo/poo :clan/poo/io
   ./types ./ethereum)
 
 ;; In the future, segments can be nested, and
@@ -299,31 +299,35 @@
   (#xfe INVALID 0) ;; Designated invalid instruction
   (#xff SELFDESTRUCT 5000 #t)) ;; Halt execution and register account for later deletion
 
-(def (jumplabel a l)
+(def (&jumpdest a l)
   (&label a l)
   (JUMPDEST a))
-(def (pushlabel1 a l)
+(def (&push-label a l)
+  (if-let (x (hash-get (Assembler-fixups a) l))
+          (&push a x) ;; labels in the past are optimized if short
+          (&push-label2 a l))) ;; otherwise, leave it as a 16-bit fixup
+(def (&push-label1 a l)
   (PUSH1 a)
   (&fixup a 8 l))
-(def (pushlabel2 a l)
+(def (&push-label2 a l)
   (PUSH2 a)
   (&fixup a 16 l))
-(def (jump1 a l)
-  (pushlabel1 a l)
+(def (&jump1 a l)
+  (&push-label1 a l)
   (JUMP a))
-(def (jump2 a l)
-  (pushlabel2 a l)
+(def (&jump2 a l)
+  (&push-label2 a l)
   (JUMP a))
-(def (jumpi1 a l)
-  (pushlabel1 a l)
+(def (&jumpi1 a l)
+  (&push-label1 a l)
   (JUMPI a))
-(def (jumpi2 a l)
-  (pushlabel2 a l)
+(def (&jumpi2 a l)
+  (&push-label2 a l)
   (JUMPI a))
 ;; NB: fixed size for now, even if the address starts with zeros,
 ;; because the current assembler cannot deal with dynamic sizes
-(def (&address a address)
-  (&push a (nat<-bytes address)))
+(def (&push-bytes a bytes)
+  (&push a (nat<-bytes bytes)))
 (def (&z a z)
   (cond
    ((and (> 0 z) (< (integer-length z) 240))
@@ -342,14 +346,17 @@
 (def (&directive a directive)
   (cond
    ((exact-integer? directive) (&push a directive))
-   ((bytes? directive) (&bytes a directive))
+   ((bytes? directive) (&push-bytes a directive))
    ((procedure? directive) (directive a))
    ((pair? directive) (apply (car directive) a (cdr directive)))
+   ((symbol? directive) (&push-label a directive))
+   ((member directive '(#f #!void ())) (void))
    (else (error "invalid directive" directive))))
 
 (def (&directives a directives)
   (for-each (cut &directive a <>) directives))
-(def (&begin . l) (lambda (a) (&directives a l)))
+(def (&begin* l) (cut &directives <> l))
+(def (&begin . l) (&begin* l))
 
 (def (assemble directives)
   (def a (new-assembler))

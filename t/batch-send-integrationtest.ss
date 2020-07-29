@@ -16,7 +16,7 @@
   (printf (if (>= balance amount)
             "~a has ~a ether already. Good.\n"
             "~a has ~a ether only. Funding.\n")
-          (nicknamed-string<-address address) (string<-decimal balance scale: -18))
+          (nicknamed-string<-address address) (string<-decimal (/ balance one-ether-in-wei)))
   (if (>= balance amount)
     [] [[address (- amount balance)]]))
 

@@ -11,8 +11,8 @@
 
 ;; jumplabel-len : Nat
 ;; jump2-len : Nat
-(def jumplabel-len 1)
-(def jump2-len 4)
+(def &jumpdest-len 1)
+(def &jump2-len 4)
 
 ;; test-labels : [Assqof Symbol Nat] -> TestSuite
 (def (test-labels names/nats)
@@ -27,29 +27,29 @@
      (unless (and (integer? nat) (not (negative? nat))) (error 'nat->i-code))
      ; if directly on one of the nats, it's on the JUMPDEST, not after
      (def n-labels-before (count (lambda (n) (< n nat)) nats))
-     (+ (* nat jump2-len) (* n-labels-before jumplabel-len)))
+     (+ (* nat &jump2-len) (* n-labels-before &jumpdest-len)))
    (def instrs
      (flatten1
       (for/collect ((i (in-range (1+ n-jumps))))
-        (def instr-jump [jump2 (list-ref names (modulo i n-labels))])
+        (def instr-jump [&jump2 (list-ref names (modulo i n-labels))])
         (def ?name-label (assq i nats/names))
-        (cond (?name-label [[jumplabel (cdr ?name-label)] instr-jump])
+        (cond (?name-label [[&jumpdest (cdr ?name-label)] instr-jump])
               (else        [instr-jump])))))
    (def code (assemble instrs))
    (test-case "check code length"
-     (check-equal? (u8vector-length code) (+ (nat->i-code (last nats)) jumplabel-len jump2-len)))
-   (test-case "check JUMPDEST on every jumplabel"
+     (check-equal? (u8vector-length code) (+ (nat->i-code (last nats)) &jumpdest-len &jump2-len)))
+   (test-case "check JUMPDEST on every &jumpdest"
      (for ((nat nats))
        (def i-code (nat->i-code nat))
-       (def j-code (+ i-code jumplabel-len))
+       (def j-code (+ i-code &jumpdest-len))
        ;; #x5b is JUMPDEST
        (check-equal? (subu8vector code i-code j-code) #u8(#x5b))))
-   (test-case "check jump2 code pointers"
+   (test-case "check &jump2 code pointers"
      (for ((i (in-range n-jumps)))
        (def nat-jump (list-ref nats (modulo i n-labels)))
        (def i-code-dest (nat->i-code nat-jump))
-       (def i-code-jump (+ (nat->i-code i) (if (member i nats) jumplabel-len 0)))
-       (def j-code-jump (+ i-code-jump jump2-len))
+       (def i-code-jump (+ (nat->i-code i) (if (member i nats) &jumpdest-len 0)))
+       (def j-code-jump (+ i-code-jump &jump2-len))
        (check-equal? (subu8vector code i-code-jump j-code-jump)
                      ;; #x61 is PUSH2, #x56 is JUMP
                      (u8vector-append #u8(#x61) (bytes<-nat i-code-dest 2) #u8(#x56)))))))
