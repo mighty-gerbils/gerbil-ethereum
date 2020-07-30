@@ -2,7 +2,52 @@
 (import
   :gerbil/gambit/bytes :gerbil/gambit/exact
   :std/sugar
-  ./assembly)
+  :clan/number :clan/syntax :clan/poo/poo
+  ./network-config ./assembly)
+
+;; We're going to define a hierarchical ABI for contracts, with
+;;
+;; * Tiny "inline" functions that are expanded inline, operate on stack (what we use below, mostly).
+;;   signature is written: instack1 instack2 instack3 ... --> outstack1 outstack2 outstack3 ...
+;;   where the leftmost is top of stack (as in evm.md), and elements indicate stack contents
+;;
+;; * Small "static" functions that use the stack as both data and return stack, local data stack,
+;;   that live within a contract invocation.
+;;   The signature is also written: instack1 instack2 instack3 ... --> outstack1 outstack2 outstack3 ...
+;;   except that one of the inputs is typically a return address ret@C in current code segment,
+;;   typically the rightmost argument. The return values if any are left on work stack.
+;;   If there are any, last is swapped with the return address just before the JUMP that returns;
+;;   often, to avoid lots of swapping in the callee, extra values are left on stack
+;;   that the caller must clean after.
+;;   + overhead of calling 'subroutineaddr jump [&jumpdest 'retaddr] [8B, 15G]
+;;   + overhead of being called and returning: [&jumpdest 'subroutineaddr] ... JUMP [2B, 9G]
+;;   + overhead of shuffling arguments around: SWAPn, SWAPn [2B, 6G]
+;;   All in all, a small function costs [12B, 30G] for the call and return,
+;;   so definitely inline anything below that,
+;;   and beyond, depending on how many times the function appears, starting with 2.
+;;
+;; * Medium "contract-level" functions that live across contract invocation
+;;   overhead of calling + returning: copying frames, etc.
+;;   These are quite expensive, cost starts at tens of thousands of gas.
+;;   They are also limited to what fits in a single contract.
+;;   They follow a calling convention with global runtime registers,
+;;   then fixed frame address up to contract-dependent address,
+;;   then heap.
+;;   TODO:
+;;   + convention for more than 2 participants.
+;;   + convention for content-addressed heap persistence across frames.
+;;
+;; * Large "cross-contract" that involve DELEGATECALL and possibly CREATE2 to break the code size barrier.
+;;   Notably useful for state channels
+;;   Expensive in GAS, plus double-copying of arguments from CALLDATA to memory to CALLDATA.
+;;   But OK if only used in case of disputes, where the loser covers the fees.
+;;
+;; * Huge "virtualized" functions that use a VM on top of the EVM with challenge for execution verification.
+;;   OK for huge computations, in the style of TrueBit, Fluence.
+;;
+;; This file includes some tiny blocks, supports defining small functions,
+;; and provides runtime infrastructure to define medium functions.
+
 
 ;; Local memory can only be accessed 32-byte (or, for writes, also 1 byte) at a time,
 ;; and masking / merging is rather expensive, so for often-used stuff, it makes sense
@@ -45,54 +90,58 @@
    ((zero? n-bytes) (&begin POP)) ;; [1B, 2G]
    ((= n-bytes 1) (&begin addr MSTORE8)) ;; [4B, 6G] or for small addresses [3B, 6G]
    ((= n-bytes 2) (&begin DUP1 8 SHR addr MSTORE8 (1+ addr) MSTORE8)) ;; [12B, 21G]
-   ;;((= n-bytes 3) (&begin DUP1 16 SHR addr MSTORE8 (&mstore16at (1+ addr)))) ;; [20B, 36G]
-   (else ;; [16B, 38G]
-    (let (n-bits (* 8 n-bytes))
-      (&begin (- 256 n-bits) SHL (+ addr n-bytes) MLOAD n-bits SHR OR addr MSTORE))))) ;; [15B, 36G]
+   ;;((= n-bytes 3) (&begin DUP1 16 SHR addr MSTORE8 (&mstore16at (1+ addr)))) ;; [20B, 36G], suboptimal
+   (else (let (n-bits (* 8 n-bytes)) ;; [15B, 27G]
+           (&begin (- 256 n-bits) SHL (+ addr n-bytes) MLOAD n-bits SHR OR addr MSTORE)))))
 
-;; Generic initialization code for stateless contracts of less than 255 bytes.
+;; Like &mstore, but is allowed (not obliged) to overwrite memory after it with padding bytes
+(def (&mstore/pad-after n-bytes)
+  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
+  (cond
+   ((= n-bytes 32) MSTORE) ;; [1B, 3G]
+   ((= n-bytes 1) MSTORE8) ;; [1B, 3G]
+   ((zero? n-bytes) MSTORE8) ;; [1B, 3G]
+   (else (&begin SWAP1 (- 256 (* 8 n-bytes)) SHL SWAP1 MSTORE)))) ;; [6B, 15G]
+
+;; Like &mstoreat, but is allowed (not obliged) to overwrite memory after it with padding bytes
+(def (&mstoreat/pad-after n-bytes addr)
+  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
+  (cond
+   ((= n-bytes 32) (&begin addr MSTORE)) ;; [4B, 6G] or for small addresses [3B, 6G]
+   ((= n-bytes 1) (&begin addr MSTORE8)) ;; [4B, 6G] or for small addresses [3B, 6G]
+   ((zero? n-bytes) (&begin POP)) ;; [1B, 2G]
+   (else (&begin (- 256 (* 8 n-bytes)) SHL addr MSTORE)))) ;; [7B, 12G]
+
+;; Given the assembled runtime code as a vector for a contract,
+;; assemble code to initialize the contract;
+;; NB: any storage initialization must happen BEFORE that.
+(def (&trivial-contract-init contract-runtime)
+  (&begin
+   ;; Push args for RETURN; doing it in this order saves one byte and some gas
+   (bytes-length contract-runtime) 0 #|memory address for the code: 0|# ;;-- 0 length
+
+   ;; Push args for CODECOPY; the DUP's for length and memory target are where the savings are
+   DUP2 #|length|# [&push-label1 'runtime-start] DUP3 #|length|# ;;-- 0 start length 0 length
+
+   ;; Initialize the contract by returning the memory array containing the runtime code
+   CODECOPY RETURN
+
+   ;; Inline code for the runtime as a code constant in the init code
+   [&label 'runtime-start] #| @ 10 |# [&bytes contract-runtime]))
+
+;; Generic initialization code for stateless contracts
 ;; : Bytes <- Bytes
-(def (constant-stateless-small-contract-init contract-runtime)
-  (assert! (< (bytes-length contract-runtime) 256))
-  (assemble
-   [;; Push args for RETURN; doing it in this order saves one byte and some gas
-    (bytes-length contract-runtime) 0 ;; memory address for the code
-    ;; -- 0 length
-
-    ;; Push args for CODECOPY; the DUP's for length and memory target are where the savings are
-    DUP2 #| length |# [&push-label1 'runtime-start] DUP3 ;; memory target address: 0
-    ;; -- 0 start length 0 length
-
-    ;; Initialize the contract by returning the memory array containing the runtime code
-    CODECOPY RETURN
-
-    ;; Inline code for the runtime as a code constant in the init code
-    [&label 'runtime-start] #| @ 10 |# [&bytes contract-runtime]]))
-
+(def (stateless-contract-init contract-runtime)
+  (assemble (&trivial-contract-init contract-runtime)))
 
 ;; Generic initialization code for stateful contracts of any allowable size (<= 24KiB),
 ;; where the initial state is a single merklized data point.
 ;; : Bytes <- Bytes32 Bytes
-(def (simple-contract-init state-digest contract-runtime)
-  (assemble
-   [;; Save the state
-    state-digest 0 SSTORE
-    ;; Push args for RETURN; doing it in this order saves one byte and some gas
-    (bytes-length contract-runtime) 0 ;; memory address for the code
-    ;; -- 0 length
-
-    ;; Push args for CODECOPY; the DUP's for length and memory target are where the savings are
-    DUP2 #| length |# [&push-label1 'runtime-start] DUP3 #| 0 as memory target address |#
-    ;; -- 0 start length 0 length
-
-    ;; Initialize the contract by returning the memory array containing the runtime code
-    CODECOPY RETURN
-
-    ;; Inline code for the runtime as a code constant in the init code
-    [&label 'runtime-start] #| @ 10 |# [&bytes contract-runtime]]))
+(def (stateful-contract-init state-digest contract-runtime)
+  (assemble [state-digest 0 SSTORE (&trivial-contract-init contract-runtime)]))
 
 ;; local-memory-layout for solidity:
-;; 0x00 - 0x3f (64 bytes): scratch space for hashing methods
+;; 0x00 - 0x3f (64 bytes): scratch space for pair-hashing methods
 ;; 0x40 - 0x5f (32 bytes): currently allocated memory size (aka. free memory pointer)
 ;; 0x60 - 0x7f (32 bytes): zero slot (why does solidity need that at all???)
 ;;
@@ -101,13 +150,14 @@
 (def calldatapointer@ 32) ;; (32 bytes): pointer within CALLDATA to yet unread published information
 (def calldatanew@ 64) ;; (32 bytes): pointer to new information within CALLDATA (everything before was seen)
 (def deposit@ 96) ;; (32 bytes): required deposit so far
-(def frame@ 128) ;; or do we want it variable?
+(def frame@ 128) ;; (N bytes) call frame for current function. Also address of jump destination (2 bytes)
+(def last-action-block@ 130) ;; (4 bytes) block at which last action took place
 ;; 128 - N-1: as many temporary variables as needed in the program, N is a program constant.
 ;; N - N+M: reserved for frame variables
 ;; M - end: heap
 
-;; call stack has fixed layout:
-;; - 0
+;; TODO: dynamic generate the layout depending on which runtime features necessitate which registers,
+;; and which compile-time features define the frame.
 
 ;; We log the entire CALLDATA zone in one go. The upside is to save on extra 375 per LOG0 cost
 ;; and simplify the calling and publish convention, so we don't have to track and log individual messages.
@@ -125,7 +175,7 @@
 (def &simple-contract-prelude ;; [39B, ?G]
   (&begin
    ;; Init vs running convention!
-   ;; Put some values on stack while they're cheap.
+   ;; Put some values on stack while they're extra cheap.
    GETPC GETPC GETPC 240 ;; -- 240 2 1 0
    ;; Get state frame size, starting with PC, 16 bit
    DUP4 #|0|# CALLDATALOAD DUP2 #|240|# SHR frame@ ;; -- frame@ sz 240 2 1 0
@@ -149,8 +199,9 @@
 ;; -- length-in-words destination source return-address
 ;; The function copies data in memory, assuming the destination is below the source or there is no overlap,
 ;; and the length is in multiple of 32-byte-words, and it's ok if this includes padding.
-;; We assumes this code will be compiled into the first 256 bytes of code.
-(def &unsafe-memcopy
+;; We assumes this code will be compiled into the first 256 bytes of code, if present
+;; By contrast, a series of mloadat, mstoreat 32 bytes at a time is [8*LEN B,12*LEN G]
+(def &define-unsafe-memcopy
   (&begin
    [&jumpdest 'unsafe-memcopy-body]
    1 SUB ;; -- len-1 dest src
@@ -181,8 +232,8 @@
   ;; Scheme pseudocode: (lambda (participant) (require! (eqv? (CALLER) participant)))
   (&begin CALLER EQ &require!)) ;; [6B, 21G]
 
-;; safely add two UInt256, checking for overflow
-(def &safe-add/256
+;; Safely add two UInt256, checking for overflow
+(def &safe-add
   ;; Scheme pseudocode: (lambda (x y) (def s (+ x y)) (require! (< (integer-length s) 256)) s)
   ;; (unless (> 2**256 (+ x y)) (abort))
   ;; (unless (>= (- 2**256 1) (+ x y)) (abort))
@@ -196,7 +247,7 @@
 (def (&safe-add/n-bits n-bits)
   (assert! (and (exact-integer? n-bits) (<= 0 n-bits 256)))
   (cond
-   ((= n-bits 256) &safe-add/256) ;; [8B, 28G]
+   ((= n-bits 256) &safe-add) ;; [8B, 28G]
    ((zero? n-bits) POP) ;; [1B, 2G]
    (else (&begin ADD DUP1 n-bits SHR &require-not!)))) ;; [8B, 25G]
 
@@ -205,10 +256,63 @@
 (def &safe-sub ;; [7B, 25G]
   (&begin DUP2 DUP2 LT &require-not! SUB))
 
+(def generate-label-counter 0)
+(def (generate-label (g 'g))
+  (symbolify g "_" (post-increment! generate-label-counter)))
+
+;; Multiply two UInt256, abort if the product overflows UInt256.
+(def (&safe-mul) ;; [23B, 72G]
+  (let ((safe-mul-body (generate-label 'safe-mul-body))
+        (safe-mul-end (generate-label 'safe-mul-end)))
+    (&begin ;; -- x y
+     DUP2 safe-mul-body JUMPI POP safe-mul-end JUMP ;; [10B, 29G]
+     [&jumpdest safe-mul-body] ;; [1B, 1G]
+     DUP2 #|y|# DUP2 #|x|# MUL ;; -- xy x y [3B, 11G]
+     SWAP2 #|y x xy|# DUP3 #|xy|# DIV ;; -- xy/y x xy [3B, 11G]
+     EQ &require! [&jumpdest safe-mul-end]))) ;; -- xy [6B, 20G]
+
 (def &deposit!
   ;; Scheme pseudocode: (lambda (amount) (increment! deposit amount))
   ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
-  (&begin deposit@ MLOAD &safe-add/256 deposit@ MSTORE)) ;; [14B, 40G]
+  (&begin deposit@ MLOAD &safe-add deposit@ MSTORE)) ;; [14B, 40G]
+
+(def &send-ethers!
+  (&begin ;; -- address value
+   0 DUP1 DUP1 SWAP5 DUP2 SWAP5 GAS ;; -- gas address value 0 0 0 0
+   CALL &require!)) ;; -- Transfer!
+
+;; TODO: group the withdrawals at the end, like the deposit checks?
+(def &withdraw! &send-ethers!)
+
+(def &mload/signature ;; v r s <-- signature@
+  (&begin
+   DUP1 MLOAD ;; -- r sig@ ;; load the first word of sig
+   DUP2 32 ADD MLOAD ;; -- s r sig@ ;; load the second word of sig
+   SWAP3 64 ADD (&mload 1))) ;; v r s ;; load the last byte of sig
+
+;; Validate on-stack signature
+(def &validate-sig-data ;; v r s <-- v r s
+  (&begin
+   DUP1 27 SUB 2 GT ;; check that v is 27 or 28, which prevents malleability (not 29 or 30)
+   #x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0 DUP5 GT ;; s <= s_max
+   OR &require-not!))
+
+;; call precompiled contract #1 to recover the signer and message from a signature
+(def &ecrecover0 ;; -- v r s digest --> address success
+  (&begin
+   &brk ;; -- brk digest v r s
+   SWAP1 #|digest|# DUP2 #|brk|# MSTORE ;; -- brk v r s
+   SWAP1 #|v|# DUP2 #|brk|# 32 ADD MSTORE ;; -- brk r s
+   SWAP1 #|r|# DUP2 #|brk|# 64 ADD MSTORE ;; -- brk s
+   SWAP1 #|s|# DUP2 #|brk|# 96 ADD MSTORE ;; -- brk
+   32 DUP2 #|brk|# 128 DUP2 #|brk|# 0 1 GAS ;; -- gas address value argstart:brk argwidth:128 retstart:brk retwidth:32 brk
+   STATICCALL SWAP1 MLOAD))
+
+(def &isValidSignature ;; -- signature digest signer --> bool
+  (&begin ;; -- signature digest signer
+   &mload/signature ;; -- v r s digest signer
+   DUP4 #|digest|# &ecrecover0 ;; -- address success digest signer
+   DUP4 #|signer|# EQ AND SWAP1 POP SWAP1 POP)) ;; -- bool
 
 (def (&unsafe-post-increment-at! addr increment)
   (&begin addr MLOAD DUP1 increment ADD addr MSTORE)) ;; for small address, small size [10B, 21G]
@@ -226,10 +330,6 @@
    ;; But first, optimize the lot of memory into less memory
    (else (&begin (- 256 (* 8 n-bytes)) SHL (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))))
 
-(def &digest-frame
-  ;; (lambda (begin-brk) (digest-memory from: begin-brk (current-brk)))
-  (&begin &brk DUP2 SUB SWAP1 SHA3))
-
 (def (&read-published-datum (n-bytes 32))
   ;; Scheme pseudocode: (lambda () (extract-top-bytes (calldata-ref (post-increment! calldatapointer n)) n))
   (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
@@ -238,16 +338,39 @@
     (&begin calldatapointer@ MLOAD DUP1 #| calldatapointer@ |# 32 + calldatapointer@ MSTORE CALLDATALOAD
             (when (< n-bytes 32) (&begin (* 8 (- 32 n-bytes)) SHR)))))
 
-;; Logging the data, simple version, optimal for messages less than 6000 bytes of data.
-(def &simple-logging
+(def &read-published-data-to-mem
+  (&begin ;; -- memaddr size
+   calldatapointer@ MLOAD DUP1 #|calldatapointer@|# DUP4 #|size|# +
+   ;; DUP1 CALLDATASIZE LT &require-not! ;;---we don't actually need to validate that: ethereum will pad with zeroes on overflow, and the rest of the program will see if it's valid.
+   calldatapointer@ MSTORE SWAP1 CALLDATACOPY))
+
+;; NB: must be put just *before* the &define-*-logging, so it will fall through it
+;; if the tail call is to be handled by another participant
+(def &define-tail-call
   (&begin
-   [&jumpdest 'commit-contract-call]
+   [&jumpdest 'stop-contract-call]
+   STOP
+   [&jumpdest 'tail-call-body]
+   frame@ ADD brk@ MSTORE ;; BEWARE: we can only reset the brk because we don't preserve heap data!
+   (&mloadat 16 frame@) JUMP
+   [&jumpdest 'tail-call]
+   ;; -- frame-length TODO: at standard place in frame, info about who is or isn't timing out
+   ;; and/or make it a standard part of the cp0 calling convention to catch such.
+   (&read-published-datum 1) 'tail-call-body JUMPI
+   frame@ SHA3 0 SSTORE
+   'stop-contract-call
+   [&jumpi1 'commit-contract-call])) ;; update the state, then commit and finally stop
+
+;; Logging the data, simple version, optimal for messages less than 6000 bytes of data.
+(def &define-simple-logging
+  (&begin
+   [&jumpdest 'commit-contract-call] ;; -- return-address
    &check-sufficient-deposit ;; First, check deposit
    calldatanew@ MLOAD CALLDATASIZE DUP2 SUB ;; -- logsz cdn
-   0 DUP2 #|logsz|# DUP4 #|cdn|# DUP3 #|0|# CALLDATACOPY LOG0 STOP))
+   0 DUP2 #|logsz|# DUP4 #|cdn|# DUP3 #|0|# CALLDATACOPY LOG0 JUMP))
 
 ;; Logging the data
-(def &variable-size-logging
+(def &define-variable-size-logging
   (&begin
    [&jumpdest 'commit-contract-call]
    &check-sufficient-deposit ;; First, check the deposit
@@ -274,7 +397,7 @@
    ;; B = 64 ((275 L + 5 sqrt(11) sqrt(L (275 L - 4194304)) - 2097152)^(1/3) + 16384/(275 L + 5 sqrt(11) sqrt(L (275 L - 4194304)) - 2097152)^(1/3) - 128)
    ;; We can plot it:
    ;; https://www.wolframalpha.com/input/?i=plot+%7C+64+%28%28275+L+%2B+5+sqrt%2811%29+sqrt%28L+%28275+L+-+4194304%29%29+-+2097152%29%5E%281%2F3%29+%2B+16384%2F%28275+L+%2B+5+sqrt%2811%29+sqrt%28L+%28275+L+-+4194304%29%29+-+2097152%29%5E%281%2F3%29+-+128%29%2C+L+from+0+to+360000&assumption=%7B%22F%22%2C+%22Plot%22%2C+%22plotvariable%22%7D+-%3E%22L%22&assumption=%22FSelect%22+-%3E+%7B%7B%22Plot%22%7D%7D&assumption=%7B%22F%22%2C+%22Plot%22%2C+%22plotlowerrange%22%7D+-%3E%2232%22&assumption=%7B%22C%22%2C+%22plot%22%7D+-%3E+%7B%22Calculator%22%7D&assumption=%7B%22F%22%2C+%22Plot%22%2C+%22plotfunction%22%7D+-%3E%2264+%28%28275+L+%2B+5+sqrt%2811%29+sqrt%28L+%28275+L+-+4194304%29%29+-+2097152%29%5E%281%2F3%29+%2B+16384%2F%28275+L+%2B+5+sqrt%2811%29+sqrt%28L+%28275+L+-+4194304%29%29+-+2097152%29%5E%281%2F3%29+-+128%29%22&assumption=%7B%22F%22%2C+%22Plot%22%2C+%22plotupperrange%22%7D+-%3E%22360000%22
-   ;; It grows slowly from 0 to about 30000 for L=360000.
+   ;; It grows slowly from 0 to a bit over 30000 for L=360000.
    ;;
    ;; Instead of having the contract itself minimize a polynomial according to some elaborate formula,
    ;; we can just let the user specify their buffer size as a parameter (within meaningful limits);
@@ -288,7 +411,7 @@
    ;; Loop:
    [&jumpdest 'logbuf] ;; -- logsz cdn bufsz
    ;; If there's no more data, stop.
-   DUP1 #|logsz|# [&jumpi1 'logbuf1] STOP [&jumpdest 'logbuf1] ;; -- logsz cdn bufsz
+   DUP1 #|logsz|# [&jumpi1 'logbuf1] POP POP POP JUMP [&jumpdest 'logbuf1] ;; -- logsz cdn bufsz
    ;; compute the message size: msgsz = min(cdsz, bufsz)
    DUP3 #|bufsz|# DUP2 #|logsz|# LT [&jumpi1 'minbl] SWAP1
    [&jumpdest 'minbl] POP ;; -- msgsz logsz cdn bufsz
@@ -298,3 +421,41 @@
    SWAP3 #|cdn logsz msgsz|# DUP3 #|msgsz|# ADD SWAP3 #|msgsz logsz cdn|# SWAP1 SUB ;; -- logsz cdn bufsz
    ;; loop!
    [&jump1 'logbuf]))
+
+(def (timeout-in-blocks)
+  (.@ (current-ethereum-network) timeoutInBlocks))
+
+(def (penny-collector-address)
+  (.@ (current-ethereum-network) pennyCollector))
+
+;; Define the end-contract library function, if reachable.
+(def (&define-end-contract)
+  (&begin
+   [&jumpdest 'suicide]
+   (penny-collector-address) ;; send any leftover money to this address!
+   SELFDESTRUCT
+   [&jumpdest 'end-contract]
+   0 0 SSTORE 'suicide [&jump1 'commit-contract-call]))
+
+(def &end-contract!
+  (&begin [&jumpdest 'end-contract])) ;; [2B; 10G]
+
+(def &save-last-action-block ;; -->
+  (&begin NUMBER (&mstoreat 4 last-action-block@))) ;; [17B, 29G]
+
+;; abort unless saved data indicates a timeout
+(def (&check-timeout!) ;; -->
+  (&begin (timeout-in-blocks) (&mloadat 4 last-action-block@) NUMBER SUB LT &require-not!))
+
+;; For two-participant contracts only
+(def (&define-check-participant-or-timeout)
+  (&begin
+   [&jumpdest 'check-participant-or-timeout] ;; obliged-actor@ other-actor@ ret@C --> other-actor@
+   (&mload 20) CALLER EQ SWAP3 #|ret@C|# JUMPI ;; if the caller matches, return to normal program
+   ;; TODO: support some amount being in escrow for the obliged-actor and returned to him
+   ;; Also support ERC20s, etc.
+   (&check-timeout!) (&mload 20) SELFDESTRUCT)) ;; give all the money to the other guy.
+
+(def (&check-participant-or-timeout! must-act: obliged-actor or-end-in-favor-of: other-actor)
+  (let (ret (generate-label 'check-participant-or-timeout-return))
+    (&begin ret other-actor obliged-actor 'check-participant-or-timeout JUMP [&jumpdest ret])))

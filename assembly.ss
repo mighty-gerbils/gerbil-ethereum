@@ -360,7 +360,10 @@
 
 (def (assemble directives)
   (def a (new-assembler))
-  (&directives a directives)
+  (cond
+   ((procedure? directives) (directives a))
+   ((list? directives) (&directives a directives))
+   (else (error "invalid directives")))
   (hash-for-each (lambda (offset fixup) (do-fixup a offset (car fixup) (cdr fixup)))
                  (Assembler-fixups a))
   (segment-contents (Assembler-segment a)))

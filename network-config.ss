@@ -7,7 +7,7 @@
   (only-in :clan/poo/mop define-type)
   (only-in :clan/poo/number JsInt)
   (only-in :clan/poo/type List Maybe)
-  ./types)
+  ./types ./ethereum)
 
 ;; TODO: move to another file.
 ;; TODO: for end-user reporting, use error contexts as ported from quux or cl-scripting.
@@ -37,7 +37,8 @@
    confirmationsString: [String] ;; a string description of the above
    blockPollingPeriodInSeconds: [JsInt] ;; how many seconds to wait before polling for more blocks
    txExplorerUrl: [String] ;; string-append 0xTxHash for transaction information
-   addressExplorerUrl: [String])) ;; string-append 0xAddress for address information
+   addressExplorerUrl: [String] ;; string-append 0xAddress for address information
+   pennyCollector: [Address])) ;; who will get the pennies leftover from self-destructing contracts.
 
 (def current-ethereum-network (make-parameter #f))
 

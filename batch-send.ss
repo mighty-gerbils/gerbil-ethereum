@@ -77,7 +77,7 @@
 ;; Beware: the code produced is not relocatable.
 
 ;; Create the runtime code for a batch contract associated to given owner
-(def batch-contract-init (rcompose batch-contract-runtime constant-stateless-small-contract-init))
+(def batch-contract-init (rcompose batch-contract-runtime stateless-contract-init))
 
 ;; Ensure that there is a batch transfer contract associated with the owner
 ;; on the blockchain and saved to the working database, and
