@@ -2,7 +2,7 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
-  :std/misc/bytes :std/sugar
+  :std/misc/bytes :std/misc/number :std/sugar
   :clan/base :clan/number :clan/poo/poo :clan/poo/io
   ./types ./ethereum)
 

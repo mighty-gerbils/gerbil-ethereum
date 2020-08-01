@@ -1,8 +1,8 @@
 (export #t)
 (import
   :gerbil/gambit/bytes :gerbil/gambit/exact
-  :std/sugar
-  :clan/number :clan/syntax :clan/poo/poo
+  :std/misc/number :std/sugar
+  :clan/syntax :clan/poo/poo
   ./network-config ./assembly)
 
 ;; We're going to define a hierarchical ABI for contracts, with

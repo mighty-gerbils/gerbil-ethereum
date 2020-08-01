@@ -11,8 +11,8 @@
 
 (import
   :gerbil/gambit/bytes
-  :std/misc/repr :std/srfi/1 :std/sugar
-  :clan/io :clan/number :clan/poo/poo :clan/poo/mop
+  :std/misc/number :std/misc/repr :std/srfi/1 :std/sugar
+  :clan/io :clan/poo/poo :clan/poo/mop
   :clan/crypto/keccak)
 
 
