@@ -130,83 +130,43 @@
 ;; TODO: look at how OMiseGo does it, Andrew Redden tells me they have something public
 ;; (and he has something private).
 
-(defstruct $TransactionStatus () transparent: #t)
-(defstruct (TxWanted $TransactionStatus) (PreTransaction) transparent: #t)
-(defstruct (TxSigned $TransactionStatus) (PreTransaction SignedTransaction) transparent: #t)
-(defstruct (TxConfirmed $TransactionStatus) (PreTransaction SignedTransaction TransactionReceipt) transparent: #t)
-(defstruct (TxFailed $TransactionStatus) (TransactionStatus Exception) transparent: #t)
+(define-type ExceptionOrString
+  {(:: @ [methods.bytes<-marshal Type.])
+   .element?: (lambda (e) (or (exception? e) (string? e)))
+   .sexp<-: normalize-exn
+   .marshal: (lambda (e port) (marshal String (normalize-exn e) port))
+   .unmarshal: (lambda (port) (unmarshal String port))})
+
+(define-type TransactionStatus
+  (Sum
+   TxWanted: PreTransaction
+   TxSigned: (Tuple PreTransaction SignedTransaction)
+   TxConfirmed: (Tuple PreTransaction SignedTransaction TransactionReceipt)
+   TxFailed: (Tuple (delay-type TransactionStatus) ExceptionOrString)))
+(define-sum-constructors TransactionStatus TxWanted TxSigned TxConfirmed TxFailed)
 
 (def (normalize-exn e)
   (if (string? e) e
       (with-output-to-string (lambda () (display-exception e)))))
 
-(define-type TransactionStatus
-  {(:: @ [methods.bytes<-marshal Type.])
-   .element?: $TransactionStatus?
-   ;; TODO: provide automation for sum types!
-   .sexp<-:
-   (match <>
-     ((TxWanted pre) ['TxWanted (sexp<- PreTransaction pre)])
-     ((TxSigned pre signed) ['TxSigned (sexp<- PreTransaction pre)
-                                       (sexp<- SignedTransaction signed)])
-     ((TxConfirmed pre signed receipt)
-      ['TxConfirmed (sexp<- PreTransaction pre) (sexp<- SignedTransaction signed)
-                    (sexp<- TransactionReceipt receipt)])
-     ((TxFailed status e)
-      ['TxFailed (.sexp<- status) (normalize-exn e)]))
-   .marshal:
-   (lambda (x port)
-     (match x
-       ((TxWanted pre)
-        (write-byte 0 port)
-        (marshal PreTransaction pre port))
-       ((TxSigned pre signed)
-        (write-byte 1 port)
-        (marshal PreTransaction pre port)
-        (marshal SignedTransaction signed port))
-       ((TxConfirmed pre signed receipt)
-        (write-byte 2 port)
-        (marshal PreTransaction pre port)
-        (marshal SignedTransaction signed port)
-        (marshal TransactionReceipt receipt port))
-       ((TxFailed status e)
-        (write-byte 3 port)
-        (.marshal status port)
-        ;; TODO: find a better way to handle the exception!!!
-        (marshal String (normalize-exn e) port))))
-   .unmarshal:
-   (lambda (port)
-     (case (read-byte port)
-       ((0) (TxWanted (unmarshal PreTransaction port)))
-       ((1) (let* ((pre (unmarshal PreTransaction port))
-                   (signed (unmarshal SignedTransaction port)))
-              (TxSigned pre signed)))
-       ((2) (let* ((pre (unmarshal PreTransaction port))
-                   (signed (unmarshal SignedTransaction port))
-                   (receipt (unmarshal TransactionReceipt port)))
-              (TxConfirmed pre signed receipt)))
-       ((3) (let* ((status (.unmarshal port))
-                   (e (unmarshal String port)))
-              (TxFailed status e)))))})
-
 (def transaction-status-ongoing?
   (match <>
-    ((TxWanted _) #t)
-    ((TxSigned _ _) #t)
+    ((TransactionStatus-TxWanted _) #t)
+    ((TransactionStatus-TxSigned _) #t)
     (_ #f)))
 
 (def transaction-status-final?
   (match <>
-    ((TxConfirmed _ _ _) #t)
-    ((TxFailed _ _) #t)
+    ((TransactionStatus-TxConfirmed _) #t)
+    ((TransactionStatus-TxFailed _) #t)
     (_ #f)))
 
 (def PreTransaction<-TransactionStatus
   (match <>
-    ((TxWanted preTx) preTx)
-    ((TxSigned preTx _) preTx)
-    ((TxConfirmed preTx _ _) preTx)
-    ((TxFailed ots _) (PreTransaction<-TransactionStatus ots)))) ;; ots must be TxWanted or TxSigned
+    ((TransactionStatus-TxWanted preTx) preTx)
+    ((TransactionStatus-TxSigned (vector preTx _)) preTx)
+    ((TransactionStatus-TxConfirmed (vector preTx _ _)) preTx)
+    ((TransactionStatus-TxFailed (vector ots _)) (PreTransaction<-TransactionStatus ots)))) ;; ots must be TxWanted or TxSigned
 
 (def (sender<-TransactionStatus status)
   (.@ (PreTransaction<-TransactionStatus status) sender))
@@ -250,15 +210,15 @@
              (def (continue status) (update status) (loop status))
              (def (invalidate transaction-status e)
                (.call NonceTracker reset user)
-               (continue (TxFailed transaction-status e)))
+               (continue (TransactionStatus-TxFailed (vector transaction-status e))))
              (match status
-               ((TxWanted pretx)
+               ((TransactionStatus-TxWanted pretx)
                 (match (with-result (make-signed-transaction pretx))
                   ((failure e) (invalidate status e))
-                  ((some stx) (continue (TxSigned pretx stx)))))
-               ((TxSigned pretx signed)
+                  ((some stx) (continue (TransactionStatus-TxSigned (vector pretx stx))))))
+               ((TransactionStatus-TxSigned (vector pretx signed))
                 (match (with-result
-                        (retry retry-window: 0.05 max-window: 30.0 max-retries: +inf.0
+                        (retry retry-window: 0.05 max-window: 30.0 max-retries: 10 ; +inf.0
                           (fun (try-confirm)
                             (def result (with-result (send-and-confirm-transaction user signed)))
                             (match result
@@ -270,9 +230,9 @@
                                  result
                                  (raise e)))))))
                   ((some (some receipt))
-                   (continue (TxConfirmed pretx signed receipt)))
+                   (continue (TransactionStatus-TxConfirmed (vector pretx signed receipt))))
                   ((some (failure (? NonceTooLow?)))
-                   (continue (TxWanted pretx)))
+                   (continue (TransactionStatus-TxWanted pretx)))
                   ((some (failure e))
                    (invalidate status e))
                   ((failure e)
@@ -374,13 +334,13 @@
 ;; TODO: do it transactionally. Reserve a ticket number first?
 ;; : TransactionTracker.Key TransactionTracker <- Address PreTransaction
 (def (issue-pre-transaction pre)
-  (.call UserTransactionsTracker add-transaction (.@ pre sender) (TxWanted pre)))
+  (.call UserTransactionsTracker add-transaction (.@ pre sender) (TransactionStatus-TxWanted pre)))
 
 ;; : Transaction SignedTransaction TransactionReceipt <- FinalTransactionStatus
 (def (check-transaction-confirmed final-transaction-status)
   (match final-transaction-status
-    ((TxConfirmed _ _ _) final-transaction-status)
-    ((TxFailed _) (raise final-transaction-status))))
+    ((TransactionStatus-TxConfirmed _) final-transaction-status)
+    ((TransactionStatus-TxFailed _) (raise final-transaction-status))))
 
 ;; : Transaction SignedTransaction TransactionReceipt <- TransactionTracker
 (def (track-transaction tracker)
@@ -388,7 +348,9 @@
 
 ;; : TransactionReceipt <- TransactionTracker
 (def (receipt<-tracker tracker)
-  (TxConfirmed-TransactionReceipt (track-transaction tracker)))
+  (match (track-transaction tracker)
+    ((TransactionStatus-TxConfirmed (vector _ _ TransactionReceipt))
+     TransactionReceipt)))
 
 ;; : TransactionReceipt <- PreTransaction
 (def (post-transaction pre-transaction)

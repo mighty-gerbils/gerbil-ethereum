@@ -24,6 +24,22 @@
 ;; --- something for types in general, including Record, Union, Maybe
 ;; --- something for ethereum types in particular
 
+(.def (DelayedType @ [Type.] sexp .get-delegate)
+  .element? (lambda (v) (element? (.get-delegate) v))
+  .validate (case-lambda
+              ((v) (validate (.get-delegate) v))
+              ((v ctx) (validate (.get-delegate) v ctx)))
+  .sexp<-: (lambda (v) (sexp<- (.get-delegate) v))
+  .json<-: (lambda (v) (json<- (.get-delegate) v))
+  .<-json: (lambda (j) (<-json (.get-delegate) j))
+  .bytes<-: (lambda (v) (bytes<- (.get-delegate) v))
+  .<-bytes: (lambda (b) (<-bytes (.get-delegate) b))
+  .marshal: (lambda (v out) (marshal (.get-delegate) v out))
+  .unmarshal: (lambda (in) (unmarshal (.get-delegate) in)))
+
+(defrule (delay-type type-expr)
+  {(:: @ [DelayedType]) sexp: 'type-expr .get-delegate: (lambda () type-expr)})
+
 ;; Variable-length Nat
 (.def (Nat @ [methods.bytes<-marshal poo.Nat] .validate)
   .sexp<-: (lambda (x) `(nat<-0x ,(0x<-nat x)))
