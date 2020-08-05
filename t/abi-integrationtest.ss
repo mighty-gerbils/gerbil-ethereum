@@ -43,9 +43,9 @@
   (test-suite "integration test for ethereum/abi"
     (test-case "Contract creation failure due to insufficient gas"
       (check-exception (post-transaction (create-contract croesus (test-contract-bytes) gas: 21000))
-                       (match <> ((TxFailed _ (? IntrinsicGasTooLow?)) #t) (_ #f)))
+                       (match <> ((TransactionStatus-TxFailed (vector _ (? IntrinsicGasTooLow?))) #t) (_ #f)))
       (check-exception (post-transaction (create-contract croesus (test-contract-bytes) gas: 100000))
-                       (match <> ((TxFailed _ (? TransactionRejected?)) #t) (_ #f))))
+                       (match <> ((TransactionStatus-TxFailed (vector _ (? TransactionRejected?))) #t) (_ #f))))
     (test-case "Call contract function hello with no argument"
       (ensure-contract)
       (def pretx (call-function croesus contract

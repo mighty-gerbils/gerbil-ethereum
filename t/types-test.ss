@@ -4,7 +4,7 @@
   :gerbil/gambit/bytes
   :gerbil/gambit/exceptions
   :std/error :std/text/hex :std/sort :std/srfi/1 :std/sugar :std/test
-  :clan/base :clan/poo/poo :clan/poo/io (only-in :clan/poo/mop define-type)
+  :clan/base :clan/poo/poo :clan/poo/io :clan/poo/brace (only-in :clan/poo/mop define-type)
   ../types ../hex)
 
 (define-type EthereumRpcConfig
@@ -20,6 +20,21 @@
    t: (Tuple UInt8 UInt8)
    h: (Tuple UInt8 UInt8 UInt8)))
 (define-sum-constructors Zoth z o t h)
+
+(define-type LOU8
+  (Sum
+   empty: (Tuple)
+   cons: (Record first: [UInt8] rest: [(delay-type LOU8)])))
+(define-sum-constructors LOU8 empty cons)
+
+(def (list<-LOU8 lou8)
+  (match lou8
+    ((LOU8-empty #()) [])
+    ((LOU8-cons {(first) (rest)}) (cons first (list<-LOU8 rest)))))
+(def (LOU8<-list l)
+  (match l
+    ([] (LOU8-empty #()))
+    ([first . rst] (LOU8-cons {(first) rest: (LOU8<-list rst)}))))
 
 (def (sort-alist alist) (sort alist (comparing-key test: string<? key: car)))
 
@@ -69,4 +84,13 @@
       (check-rep ja<-0x 0x<-ja "0x00" '(("tag" . "z") ("value" . ())))
       (check-rep ja<-0x 0x<-ja "0x0137" '(("tag" . "o") ("value" . ("0x37"))))
       (check-rep ja<-0x 0x<-ja "0x025990" '(("tag" . "t") ("value" . ("0x59" "0x90"))))
+      (check-equal? (element? LOU8 (LOU8-empty #())) #t)
+      (check-equal? (element? LOU8 (LOU8-cons {first: 21 rest: (LOU8-empty #())})) #t)
+      (check-equal? (element? LOU8 (LOU8-cons {first: 21 rest: 34})) #f)
+      (check-equal? (element? LOU8 (LOU8-cons {first: 21 rest: (LOU8-cons {first: 34 rest: (LOU8-empty #())})})) #t)
+      (def 0xlou8<-list (compose 0x<-bytes (.@ LOU8 .bytes<-) LOU8<-list))
+      (def list<-0xlou8 (compose list<-LOU8 (.@ LOU8 .<-bytes) bytes<-0x))
+      (check-rep list<-0xlou8 0xlou8<-list "0x00" [])
+      (check-rep list<-0xlou8 0xlou8<-list "0x013700" [55])
+      (check-rep list<-0xlou8 0xlou8<-list "0x0159019001e900" [89 144 233])
       )))
