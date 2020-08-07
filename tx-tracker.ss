@@ -218,7 +218,7 @@
                   ((some stx) (continue (TransactionStatus-TxSigned (vector pretx stx))))))
                ((TransactionStatus-TxSigned (vector pretx signed))
                 (match (with-result
-                        (retry retry-window: 0.05 max-window: 30.0 max-retries: 10 ; +inf.0
+                        (retry retry-window: 0.05 max-window: 30.0 max-retries: +inf.0
                           (fun (try-confirm)
                             (def result (with-result (send-and-confirm-transaction user signed)))
                             (match result
