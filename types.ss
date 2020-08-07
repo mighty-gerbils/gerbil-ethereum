@@ -10,7 +10,7 @@
   :std/format :std/iter :std/misc/bytes :std/misc/completion :std/misc/hash :std/misc/list
   :std/sort :std/srfi/1 :std/srfi/43 :std/sugar :std/text/json
   :clan/base :clan/io :clan/json :clan/list
-  :clan/maybe :clan/number :clan/syntax
+  :clan/maybe :clan/number :clan/syntax :clan/with-id
   :clan/poo/poo :clan/poo/io
   (only-in :clan/poo/mop
            Type Type. proto Class Class. Slot
@@ -24,7 +24,7 @@
 ;; --- something for types in general, including Record, Union, Maybe
 ;; --- something for ethereum types in particular
 
-(.def (DelayedType @ [Type.] sexp .get-delegate)
+(.def (DelayedType @ [Type.] .get-delegate)
   .element? (lambda (v) (element? (.get-delegate) v))
   .validate (case-lambda
               ((v) (validate (.get-delegate) v))
@@ -304,12 +304,12 @@
 (defrule (Enum values ...) {(:: @ Enum.) vals: '(values ...)})
 
 ;; Sum : {Kw Type} ... -> Type
+;; Sum types aka tagged unions, each kw is a tag
 (def (Sum . plist)
   ;; a : [Assocof Symbol Type]
   (def a (map (match <> ([kw . type] (cons (symbolify kw) type))) (alist<-plist plist)))
   (def tag-marsh-t (poo.UInt (integer-length (max 0 (1- (length a))))))
-  (def t
-    {(:: @ [methods.bytes<-marshal Type.])
+  {(:: @ [methods.bytes<-marshal Type.])
       sexp: ['Sum . plist]
       variants: (.<-alist a)
       variant-names: (map car a)
@@ -341,7 +341,6 @@
                     (def tag (list-ref variant-names tag-n))
                     (def value (unmarshal (.ref variants tag) port))
                     (make tag value))})
-  t)
 
 (begin-syntax
   (def ((sum-constructor-match-transformer tag-sym) stx)
@@ -350,16 +349,13 @@
   (def ((sum-constructor-expr-transformer sum-id tag-sym) stx)
     (syntax-case stx ()
       ((_ e) (with-syntax ((sum sum-id) (tag* tag-sym)) #'(.call sum make 'tag* e))))))
-(defsyntax define-sum-constructors
-  (lambda (stx)
-    (syntax-case stx ()
-      ((_ sum-id variant-id ...)
-       (with-syntax (((sum-variant-id ...) (stx-map (cut format-id #'sum-id "~a-~a" #'sum-id <>) #'(variant-id ...))))
-         #'(begin
-             (defsyntax-for-match sum-variant-id
-               (sum-constructor-match-transformer 'variant-id)
-               (sum-constructor-expr-transformer #'sum-id 'variant-id))
-             ...))))))
+(defrule (define-sum-constructors sum-id variant-id ...)
+  (begin
+    (with-id sum-id ((sum-variant-id #'sum-id "-" #'variant-id))
+      (defsyntax-for-match sum-variant-id
+        (sum-constructor-match-transformer 'variant-id)
+        (sum-constructor-expr-transformer #'sum-id 'variant-id)))
+    ...))
 
 (.def (FixedVector. @ [methods.bytes<-marshal Type.] type size)
   sexp: `(Vector ,(.@ type sexp) ,(.@ type size))
@@ -437,12 +433,6 @@
   (if size
     {(:: @ FixedVector.) (type) (size)}
     {(:: @ DynamicVector.) (type)}))
-
-;; TODO:
-#;(def (TaggedUnion . plist)
-  (def a (map/car sym<-kw (alist<-plist plist)))
-  (def tag-bits (integer-length (1- (length a))))
-  ...)
 
 ;; index-of : [Listof Any] Any -> (U Index #f)
 (def (index-of lst e)
