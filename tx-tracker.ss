@@ -4,9 +4,9 @@
   :gerbil/gambit/bytes :gerbil/gambit/exceptions :gerbil/gambit/threads
   :std/error :std/misc/completion :std/text/hex
   :clan/base :clan/concurrency :clan/exception
-  :clan/failure :clan/option :clan/maybe
+  :clan/failure :clan/option
   :clan/net/json-rpc
-  :clan/poo/poo :clan/poo/brace :clan/poo/io
+  :clan/poo/poo :clan/poo/brace :clan/poo/io :clan/poo/trie
   (only-in :clan/poo/mop Lens slot-lens sexp<- Type. define-type)
   :clan/persist/db :clan/persist/persist
   ./hex ./types ./signing ./known-addresses ./ethereum ./json-rpc ./nonce-tracker ./transaction)
@@ -284,8 +284,8 @@
   resume-transactions:
   (lambda (user state)
     (without-tx
-    (for-each/maybe (fun (for-txsn txsn) (.call TransactionTracker activate {(user) (txsn)}))
-                    (.call NatSet .min-elt (.@ state ongoing-transactions) (void)))))
+      (for-each/option (fun (for-txsn txsn) (.call TransactionTracker activate {user txsn}))
+                       (.call NatSet .min-elt/opt (.@ state ongoing-transactions)))))
 
   ;; Remove a transaction, as a cleanup to call at the end of it when it's stable.
   ;; : Unit <- Address Nat TX
@@ -294,7 +294,7 @@
     (action user
             (fun (remove-transaction get-state set-state! tx)
               (def state (get-state))
-              (when (.call NatSet .has? (.@ state ongoing-transactions) txsn)
+              (when (.call NatSet .elt? (.@ state ongoing-transactions) txsn)
                 (let (new-state
                       (.call Lens .modify (slot-lens 'ongoing-transactions)
                              (cut .call NatSet .remove <> txsn) state))
@@ -325,7 +325,7 @@
        (def new-state
         (!> state
             (cut .call Lens .modify
-                 (slot-lens 'ongoing-transactions) (cut .call NatSet .add <> txsn) <>)
+                 (slot-lens 'ongoing-transactions) (cut .call NatSet .cons txsn <>) <>)
             (cut .call Lens .modify
                  (slot-lens 'transaction-counter) 1+ <>)))
        (set-state! new-state)

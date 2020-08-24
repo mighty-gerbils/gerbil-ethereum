@@ -1,6 +1,9 @@
 #!/usr/bin/env gxi
 ;; Run your own local private copy of Ethereum as a node on localhost, for testing purposes
 
+;; TODO: learn from the following script: https://github.com/dapphub/dapptools/blob/master/src/dapp/libexec/dapp/dapp---testnet-launch
+;; TODO: implement another script that starts an entire network with many nodes and some given geometry
+
 (import
   :gerbil/gambit/exceptions :gerbil/gambit/ports :gerbil/gambit/threads
   :std/format :std/getopt :std/misc/list :std/misc/ports :std/misc/process :std/srfi/13 :std/sugar

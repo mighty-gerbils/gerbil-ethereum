@@ -11,7 +11,7 @@
   :std/sort :std/srfi/1 :std/srfi/43 :std/sugar :std/text/json
   :clan/base :clan/io :clan/json :clan/list
   :clan/maybe :clan/number :clan/syntax :clan/with-id
-  :clan/poo/poo :clan/poo/io
+  :clan/poo/poo :clan/poo/io :clan/poo/rationaldict
   (only-in :clan/poo/mop
            Type Type. proto Class Class. Slot
            .defgeneric validate element? .method define-type sexp<-)
@@ -25,8 +25,8 @@
 ;; --- something for ethereum types in particular
 
 (.def (DelayedType @ [Type.] .get-delegate)
-  .element? (lambda (v) (element? (.get-delegate) v))
-  .validate (case-lambda
+  .element?: (lambda (v) (element? (.get-delegate) v))
+  .validate: (case-lambda
               ((v) (validate (.get-delegate) v))
               ((v ctx) (validate (.get-delegate) v ctx)))
   .sexp<-: (lambda (v) (sexp<- (.get-delegate) v))
@@ -46,9 +46,7 @@
   .json<-: 0x<-nat
   .<-json: (compose .validate nat<-0x))
 
-(.def (NatSet @ poo.IntSet)
-  sexp: 'NatSet
-  .Int: Nat)
+(.def (NatSet @ RationalSet) sexp: 'NatSet Elt: Nat)
 
 (def (ensure-zeroes bytes start len)
   (for (i (in-range len))
