@@ -35,7 +35,7 @@
         (def ?name-label (assq i nats/names))
         (cond (?name-label [[&jumpdest (cdr ?name-label)] instr-jump])
               (else        [instr-jump])))))
-   (def code (assemble instrs))
+   (def code (assemble/bytes instrs))
    (test-case "check code length"
      (check-equal? (u8vector-length code) (+ (nat->i-code (last nats)) &jumpdest-len &jump2-len)))
    (test-case "check JUMPDEST on every &jumpdest"

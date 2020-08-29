@@ -30,7 +30,7 @@
 ;; Create the runtime code for a batch contract associated to given owner
 ;; : Bytes <- Address
 (def (batch-contract-runtime owner)
-  (assemble
+  (assemble/bytes
    [;; At instruction 0, so push 0 on stack while it's extra cheap!
     ;; a non-zero contract byte costs 220, a zero one only costs 204, so the GETPC optimization
     ;; is worth it if we actually use that 0 at least twice in the source code.

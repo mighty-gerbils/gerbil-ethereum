@@ -19,6 +19,7 @@
    .json<-: 0x<-address
    .sexp<-: (lambda (x) `(address<-0x ,(0x<-address x)))
   })
+(define-type Block UInt32) ;; block number: in practice fits in 32 bits, though officially UInt256
 (register-simple-eth-type Address)
 
 ;; TODO: mixin the prototype with a formula that caches the abi bytes4 selector.

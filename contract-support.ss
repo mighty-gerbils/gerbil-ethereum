@@ -2,8 +2,9 @@
 (import
   :gerbil/gambit/bytes :gerbil/gambit/exact
   :std/misc/number :std/sugar
-  :clan/syntax :clan/poo/poo
-  ./network-config ./assembly)
+  :clan/base :clan/with-id
+  :clan/poo/poo (only-in :clan/poo/mop Type)
+  ./network-config ./assembly ./ethereum ./types)
 
 ;; We're going to define a hierarchical ABI for contracts, with
 ;;
@@ -62,7 +63,9 @@
    ((= n-bytes 32) MLOAD) ;; [1B, 3G]
    (else (&begin MLOAD (- 256 (* 8 n-bytes)) SHR)))) ;; [4B, 9G]
 
-(def (&mloadat n-bytes addr)
+(def (&mloadat addr (n-bytes 32))
+  (when (poo? n-bytes) ;; accept a fixed-size type descriptor
+    (set! n-bytes (.@ n-bytes .length-in-bytes)))
   (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
   (cond
    ((zero? n-bytes) 0) ;; [2B, 3G]
@@ -83,7 +86,7 @@
       ;; [16B, 38G] -- note that we could skip the ending POP
       (&begin DUP1 n-bytes ADD MLOAD n-bits SHR DUP3 (- 256 n-bits) SHL OR SWAP1 MSTORE POP)))))
 
-(def (&mstoreat n-bytes addr)
+(def (&mstoreat addr (n-bytes 32))
   (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
   (cond
    ((= n-bytes 32) (&begin addr MSTORE)) ;; [4B, 6G] or for small addresses [3B, 6G]
@@ -104,7 +107,7 @@
    (else (&begin SWAP1 (- 256 (* 8 n-bytes)) SHL SWAP1 MSTORE)))) ;; [6B, 15G]
 
 ;; Like &mstoreat, but is allowed (not obliged) to overwrite memory after it with padding bytes
-(def (&mstoreat/pad-after n-bytes addr)
+(def (&mstoreat/pad-after addr (n-bytes 32))
   (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
   (cond
    ((= n-bytes 32) (&begin addr MSTORE)) ;; [4B, 6G] or for small addresses [3B, 6G]
@@ -132,29 +135,75 @@
 ;; Generic initialization code for stateless contracts
 ;; : Bytes <- Bytes
 (def (stateless-contract-init contract-runtime)
-  (assemble (&trivial-contract-init contract-runtime)))
+  (assemble/bytes (&trivial-contract-init contract-runtime)))
 
 ;; Generic initialization code for stateful contracts of any allowable size (<= 24KiB),
 ;; where the initial state is a single merklized data point.
 ;; : Bytes <- Bytes32 Bytes
 (def (stateful-contract-init state-digest contract-runtime)
-  (assemble [state-digest 0 SSTORE (&trivial-contract-init contract-runtime)]))
+  (assemble/bytes [state-digest 0 SSTORE (&trivial-contract-init contract-runtime)]))
 
-;; local-memory-layout for solidity:
+(def (param-length type-or-length)
+  (cond ((exact-integer? type-or-length) type-or-length)
+        ((element? Type type-or-length) (.@ type-or-length .length-in-bytes))
+        (else (invalid 'param-length type-or-length))))
+
+(def (param-type type-or-length)
+  (cond ((exact-integer? type-or-length) (UIntN (* 8 type-or-length)))
+        ((element? Type type-or-length) type-or-length)
+        (else (invalid 'param-type type-or-length))))
+
+;; TODO: support intermediate-speed variables that pad-after?
+(defrule (define-consecutive-addresses ctx start end (param type-or-length) ...)
+  (begin
+    (def end start)
+    (with-id ctx
+        ((type #'param '-type)
+         (length #'param '-length)
+         (address #'param '@)
+         (getter #'param)
+         (setter #'param '-set!))
+      (def type (param-type type-or-length))
+      (def length (param-length type-or-length))
+      (def address (post-increment! end length))
+      (def getter (&mloadat address length))
+      (def setter (&mstoreat address length))) ...
+    (void)))
+
+;; Local memory layout for solidity:
 ;; 0x00 - 0x3f (64 bytes): scratch space for pair-hashing methods
 ;; 0x40 - 0x5f (32 bytes): currently allocated memory size (aka. free memory pointer)
 ;; 0x60 - 0x7f (32 bytes): zero slot (why does solidity need that at all???)
-;;
-;; local-memory-layout for glow:
-(def brk@ 0) ;; (32 bytes): brk, free memory pointer
-(def calldatapointer@ 32) ;; (32 bytes): pointer within CALLDATA to yet unread published information
-(def calldatanew@ 64) ;; (32 bytes): pointer to new information within CALLDATA (everything before was seen)
-(def deposit@ 96) ;; (32 bytes): required deposit so far
-(def frame@ 128) ;; (N bytes) call frame for current function. Also address of jump destination (2 bytes)
-(def last-action-block@ 130) ;; (4 bytes) block at which last action took place
-;; 128 - N-1: as many temporary variables as needed in the program, N is a program constant.
-;; N - N+M: reserved for frame variables
-;; M - end: heap
+
+;; The local memory layout for glow has much more structure.
+;; First, some global registers.
+;; Their actual sizes (in comment) could be cut shorter, but we probably want cheap access.
+(define-consecutive-addresses frame@ 0 frame@
+  (brk 32 #|3|#) ;; The free memory pointer.
+  (calldatapointer 32 #|3|#) ;; Pointer within CALLDATA to yet unread published information.
+  (calldatanew 32 #|3|#) ;; Pointer to new information within CALLDATA (everything before was seen).
+  (deposit 32 #|12|#)) ;; Required deposit so far.
+
+;; Second, the frame state as merkleized. These are the fields present in all frames:
+(define-consecutive-addresses frame@ frame@ params-start@
+  (pc 2) ;; Code segment address from which to continue evaluation
+  (last-action-block Block)) ;; Block at which the last action took place
+;; Then there will be per-frame parameter fields, to be defined in the proper scope with:
+(defrule (define-frame-params ctx params ...)
+  (with-id ctx (params-end@)
+    (define-consecutive-addresses ctx params-start@ params-end@ params ...)))
+;; Then there will be per-frame locals and temporaries, to be defined in the proper scope with:
+(defrule (define-frame-locals ctx locals ...)
+  (with-id ctx (params-end@ locals-end@)
+    (define-consecutive-addresses ctx params-end@ locals-end@ locals ...)
+    (register-frame-size locals-end@)))
+;; Finally, after the (max ...) of the sizes of all frames including locals,
+;; there will be the dynamic brk area (so, we must initialize brk to that early on).
+(def brk-start (make-parameter #f))
+(def (register-frame-size frame-end@)
+  (def b (brk-start))
+  (box-set! b (max (unbox b) frame-end@)))
+
 
 ;; TODO: dynamic generate the layout depending on which runtime features necessitate which registers,
 ;; and which compile-time features define the frame.
@@ -256,10 +305,6 @@
 (def &safe-sub ;; [7B, 25G]
   (&begin DUP2 DUP2 LT &require-not! SUB))
 
-(def generate-label-counter 0)
-(def (generate-label (g 'g))
-  (symbolify g "_" (post-increment! generate-label-counter)))
-
 ;; Multiply two UInt256, abort if the product overflows UInt256.
 (def (&safe-mul) ;; [23B, 72G]
   (let ((safe-mul-body (generate-label 'safe-mul-body))
@@ -352,7 +397,7 @@
    STOP
    [&jumpdest 'tail-call-body]
    frame@ ADD brk@ MSTORE ;; BEWARE: we can only reset the brk because we don't preserve heap data!
-   (&mloadat 16 frame@) JUMP
+   (&mloadat frame@ 2) JUMP
    [&jumpdest 'tail-call]
    ;; -- frame-length TODO: at standard place in frame, info about who is or isn't timing out
    ;; and/or make it a standard part of the cp0 calling convention to catch such.
@@ -441,11 +486,11 @@
   (&begin [&jumpdest 'end-contract])) ;; [2B; 10G]
 
 (def &save-last-action-block ;; -->
-  (&begin NUMBER (&mstoreat 4 last-action-block@))) ;; [17B, 29G]
+  (&begin NUMBER last-action-block-set!)) ;; [17B, 29G]
 
 ;; abort unless saved data indicates a timeout
 (def (&check-timeout!) ;; -->
-  (&begin (timeout-in-blocks) (&mloadat 4 last-action-block@) NUMBER SUB LT &require-not!))
+  (&begin (timeout-in-blocks) (&mloadat last-action-block@ 4) NUMBER SUB LT &require-not!))
 
 ;; For two-participant contracts only
 (def (&define-check-participant-or-timeout)
@@ -457,5 +502,4 @@
    (&check-timeout!) (&mload 20) SELFDESTRUCT)) ;; give all the money to the other guy.
 
 (def (&check-participant-or-timeout! must-act: obliged-actor or-end-in-favor-of: other-actor)
-  (let (ret (generate-label 'check-participant-or-timeout-return))
-    (&begin ret other-actor obliged-actor 'check-participant-or-timeout JUMP [&jumpdest ret])))
+  (&call 'check-participant-or-timeout other-actor obliged-actor))

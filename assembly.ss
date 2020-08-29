@@ -3,7 +3,8 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
   :std/misc/bytes :std/misc/number :std/sugar
-  :clan/base :clan/number :clan/poo/poo :clan/poo/io
+  :clan/base :clan/number :clan/syntax
+  :clan/poo/poo :clan/poo/io
   ./types ./ethereum)
 
 ;; In the future, segments can be nested, and
@@ -97,6 +98,8 @@
   (assert! (<= 1 n-bytes 32))
   (&byte a (+ #x5F n-bytes))
   (&int a i n-bytes))
+(def (&push-bytes a bytes)
+  (&push a (nat<-bytes bytes)))
 
 (def (current-offset a)
   (Segment-fill-pointer (Assembler-segment a)))
@@ -128,10 +131,9 @@
   (&int a 0 (n-bytes<-n-bits n-bits))
   (hash-put! (Assembler-fixups a) offset (cons expr n-bits)))
 
-(def (&label a l)
+(def (&label a l (offset (current-offset a)))
   (def labels (Assembler-labels a))
   (def label-offset (hash-get labels l))
-  (def offset (current-offset a))
   (if label-offset
     (error "label already defined" l offset label-offset)
     (hash-put! labels l offset)))
@@ -324,10 +326,6 @@
 (def (&jumpi2 a l)
   (&push-label2 a l)
   (JUMPI a))
-;; NB: fixed size for now, even if the address starts with zeros,
-;; because the current assembler cannot deal with dynamic sizes
-(def (&push-bytes a bytes)
-  (&push a (nat<-bytes bytes)))
 (def (&z a z)
   (cond
    ((and (> 0 z) (< (integer-length z) 240))
@@ -358,6 +356,14 @@
 (def (&begin* l) (cut &directives <> l))
 (def (&begin . l) (&begin* l))
 
+(def generate-label-counter 0)
+(def (generate-label (g 'g))
+  (symbolify g "_" (post-increment! generate-label-counter)))
+
+(def (&call routine . args)
+  (def ret (generate-label 'ret))
+  (&begin ret (&begin* args) routine JUMP [&jumpdest ret]))
+
 (def (assemble directives)
   (def a (new-assembler))
   (cond
@@ -366,4 +372,6 @@
    (else (error "invalid directives")))
   (hash-for-each (lambda (offset fixup) (do-fixup a offset (car fixup) (cdr fixup)))
                  (Assembler-fixups a))
-  (segment-contents (Assembler-segment a)))
+  (values (segment-contents (Assembler-segment a)) (Assembler-labels a)))
+
+(def (assemble/bytes directives) (first-value (assemble directives)))
