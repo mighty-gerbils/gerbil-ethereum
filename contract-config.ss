@@ -40,7 +40,7 @@
   (def contract-address (.@ receipt contractAddress))
   (def creation-block (.@ receipt blockNumber))
   (def code-hash (keccak256<-bytes (.@ transaction-info input)))
-  {(contract-address) (code-hash) (creation-hash) (creation-block)})
+  {contract-address code-hash creation-hash creation-block})
 
 ;; Digest <- PreTransaction
 (def (code-hash<-create-contract pretx)

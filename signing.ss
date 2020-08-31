@@ -49,13 +49,12 @@
 
 (def (marshal-signature signature port)
   (defvalues (bytes recid) (bytes<-secp256k1-recoverable-signature signature))
-  (write-byte (+ recid 27) port) ;; TODO: handle the way that ethereum uses an offset different from 27
-  (write-bytes bytes port))
+  (write-bytes bytes port)
+  (write-byte (+ recid 27) port)) ;; TODO: handle the way that ethereum uses an offset different from 27?
 
 (def (unmarshal-signature port)
+  (def compact (read-bytes 64 port))
   (def recid (- (read-byte port) 27))
-  (def compact (make-bytes 64))
-  (read-bytes compact port)
   (secp256k1-recoverable-signature<-bytes compact recid))
 
 (.def (Signature @ [methods.bytes<-marshal Type.])
@@ -68,14 +67,20 @@
   (Record payload: [Any] signature: [Signature]))
 
 ;; Signature <- 'a:Type SecKey 'a
-(def (make-signature type secret-key data)
-  (def message32 (keccak256<-bytes (bytes<- type data)))
+(def (make-message-signature secret-key message32)
   (make-secp256k1-recoverable-signature message32 secret-key))
+
+;; Signature <- 'a:Type SecKey 'a
+(def (make-signature type secret-key data)
+  (make-message-signature secret-key (keccak256<-bytes (bytes<- type data))))
+
+;; Bool <- Address Signature Digest
+(def (message-signature-valid? address signature message32)
+  (with-catch false
+    (lambda ()
+      (def pubkey (secp256k1-recover signature message32))
+      (equal? address (address<-public-key pubkey)))))
 
 ;; Bool <- 'a:Type Address Signature 'a
 (def (signature-valid? type address signature data)
-  (with-catch false
-    (lambda ()
-      (def message32 (keccak256<-bytes (bytes<- type data)))
-      (def pubkey (secp256k1-recover signature message32))
-      (equal? address (address<-public-key pubkey)))))
+  (message-signature-valid? address signature (keccak256<-bytes (bytes<- type data))))

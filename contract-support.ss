@@ -6,6 +6,12 @@
   :clan/poo/poo (only-in :clan/poo/mop Type)
   ./network-config ./assembly ./ethereum ./types)
 
+;; TODO:
+;; * better assembler with segments, etc.?
+;; * functions that are automatically inlined if called once, or even if tailed-called once.
+;; * temporaries that are automatically un-allocated if only used once, immediately (or after shuffling?)
+
+
 ;; We're going to define a hierarchical ABI for contracts, with
 ;;
 ;; * Tiny "inline" functions that are expanded inline, operate on stack (what we use below, mostly).
@@ -167,8 +173,7 @@
       (def length (param-length type-or-length))
       (def address (post-increment! end length))
       (def getter (&mloadat address length))
-      (def setter (&mstoreat address length))) ...
-    (void)))
+      (def setter (&mstoreat address length))) ...))
 
 ;; Local memory layout for solidity:
 ;; 0x00 - 0x3f (64 bytes): scratch space for pair-hashing methods
@@ -231,12 +236,13 @@
    ;; copy frame to memory
    DUP2 #|sz|# DUP5 #|2|# DUP3 #|frame@|# CALLDATACOPY ;; -- frame@ sz 240 2 1 0
    ;; store calldatapointer
-   DUP2 #|sz|# DUP5 #|2|# ADD calldatapointer@ MSTORE ;; -- frame@ sz 240 2 1 0
+   DUP2 #|sz|# DUP5 #|2|# ADD calldatapointer-set! ;; -- frame@ sz 240 2 1 0
    ;; save the brk variable
    DUP2 #|sz|# DUP2 #|frame@|# ADD DUP8 #|brk@,==0|# MSTORE ;; -- frame@ sz 240 2 1 0
    ;; compute the digest of the frame just restored
    SHA3 ;; -- digest 240 2 1 0
    ;; compare to saved merkleized state, jump to saved label if it matches
+   ;; BEWARE: we assume the variable *before* the frame is not initialized, and still 0.
    DUP5 #|0|# SLOAD EQ (- frame@ 30) MLOAD JUMPI ;; -- stack at destination: -- 240 2 1 0
 
    ;; Abort. We explicitly PUSH1 0 for the first rather than DUPn,
@@ -357,7 +363,7 @@
   (&begin ;; -- signature digest signer
    &mload/signature ;; -- v r s digest signer
    DUP4 #|digest|# &ecrecover0 ;; -- address success digest signer
-   DUP4 #|signer|# EQ AND SWAP1 POP SWAP1 POP)) ;; -- bool
+   DUP4 #|signer|# EQ AND SWAP2 POP POP)) ;; -- bool
 
 (def (&unsafe-post-increment-at! addr increment)
   (&begin addr MLOAD DUP1 increment ADD addr MSTORE)) ;; for small address, small size [10B, 21G]
@@ -483,23 +489,27 @@
    0 0 SSTORE 'suicide [&jump1 'commit-contract-call]))
 
 (def &end-contract!
-  (&begin [&jumpdest 'end-contract])) ;; [2B; 10G]
+  (&begin [&jump 'end-contract])) ;; [2B; 10G]
 
 (def &save-last-action-block ;; -->
   (&begin NUMBER last-action-block-set!)) ;; [17B, 29G]
 
 ;; abort unless saved data indicates a timeout
 (def (&check-timeout!) ;; -->
-  (&begin (timeout-in-blocks) (&mloadat last-action-block@ 4) NUMBER SUB LT &require-not!))
+  (&begin (timeout-in-blocks) ;; TODO: negotiate the timeout between users?
+          last-action-block NUMBER SUB
+          LT &require-not!))
 
 ;; For two-participant contracts only
 (def (&define-check-participant-or-timeout)
-  (&begin
-   [&jumpdest 'check-participant-or-timeout] ;; obliged-actor@ other-actor@ ret@C --> other-actor@
+  (&begin ;; obliged-actor@ other-actor@ ret@C --> other-actor@
+   [&jumpdest 'check-participant-or-timeout]
    (&mload 20) CALLER EQ SWAP3 #|ret@C|# JUMPI ;; if the caller matches, return to normal program
    ;; TODO: support some amount being in escrow for the obliged-actor and returned to him
    ;; Also support ERC20s, etc.
    (&check-timeout!) (&mload 20) SELFDESTRUCT)) ;; give all the money to the other guy.
 
 (def (&check-participant-or-timeout! must-act: obliged-actor or-end-in-favor-of: other-actor)
-  (&call 'check-participant-or-timeout other-actor obliged-actor))
+  (&begin
+   (&call 'check-participant-or-timeout other-actor obliged-actor)
+   POP)) ;; pop the other-actor@ left on the stack

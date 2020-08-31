@@ -41,6 +41,8 @@
 (def (keypair<-address address)
   (hash-get keypair-by-address address))
 ;; (or (keypair<-address address) (error "No registered keypair for address" address))
+(def (secret-key<-address address)
+  (keypair-secret-key (keypair<-address address)))
 
 ;; TODO: Add a layer of encryption for these files.
 (def (register-file-keypairs file)
