@@ -9,7 +9,7 @@
   :clan/persist/content-addressing
   ./assembly ./types ./ethereum ./signing ./known-addresses ./network-config
   ./json-rpc ./transaction ./tx-tracker
-  ./abi ./contract-config ./contract-support ./assets)
+  ./abi ./contract-config ./contract-runtime ./assets)
 
 ;;TODO:
 ;; Start by a more stupid interpreter???
@@ -19,7 +19,20 @@
 ;; multiple messages can be batched, and aborted together.
 ;; define-interaction participants: state: frames: behavior
 (defrule (define-interaction foo ...) (void))
+
+;; receive-message : PersistentContinuation <- \
+;;   context:CTX \
+;;   reader:(Fun PersistentContinuation AssetDiffs <- Address InPort) \
+;;   deadline-block:Block \
+;;   on-timeout:(Fun PersistentContinuation <- Exception)
 (def (receive-message . _) (void))
+
+;; send-message : <-
+;;   content:CTX \
+;;   to:Address \
+;;   writer:(Fun <- OutPort) \
+;;   continuation:PersistentContinuation
+;;
 (def (send-message . _) (void))
 (def (register-context-contract ctx contract-config) (void))
 
@@ -72,6 +85,7 @@
      (price Ether)))
   (def contract-bytes
     (stateful-contract-init initial-state payForSignature--contract-runtime))
+
   (def pretx
     (create-contract Buyer contract-bytes))
   (def receipt

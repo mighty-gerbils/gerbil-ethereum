@@ -4,7 +4,7 @@
   :gerbil/gambit/bytes
   :clan/base :clan/poo/poo (only-in :clan/poo/mop) :clan/poo/io
   ./hex ./types ./ethereum ./known-addresses
-  ./assembly ./transaction ./tx-tracker ./contract-config ./contract-support)
+  ./assembly ./transaction ./tx-tracker ./contract-config ./contract-runtime)
 
 ;;; EVM Contract for batch transfers.
 ;;

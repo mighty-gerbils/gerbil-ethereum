@@ -56,71 +56,6 @@
 ;; and provides runtime infrastructure to define medium functions.
 
 
-;; Local memory can only be accessed 32-byte (or, for writes, also 1 byte) at a time,
-;; and masking / merging is rather expensive, so for often-used stuff, it makes sense
-;; to waste memory to save some gas. On the other hand, the cost of local memory is ultimately
-;; quadratic in the total size, so for regular data (vs often-used global registers),
-;; it pays to be compact.
-;; Reading is cheap enough:
-(def (&mload n-bytes)
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
-  (cond
-   ((zero? n-bytes) (&begin POP 0)) ;; [3B, 5G]
-   ((= n-bytes 32) MLOAD) ;; [1B, 3G]
-   (else (&begin MLOAD (- 256 (* 8 n-bytes)) SHR)))) ;; [4B, 9G]
-
-(def (&mloadat addr (n-bytes 32))
-  (when (poo? n-bytes) ;; accept a fixed-size type descriptor
-    (set! n-bytes (.@ n-bytes .length-in-bytes)))
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
-  (cond
-   ((zero? n-bytes) 0) ;; [2B, 3G]
-   ((= n-bytes 32) (&begin addr MLOAD)) ;; [4B, 6G] or for small addresses [3B, 6G]
-   (else (&begin addr MLOAD (- 256 (* 8 n-bytes)) SHR)))) ;; [7B, 12G] or for small addresses [6B, 12G]
-
-(def (&mstore n-bytes)
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
-  (cond
-   ((zero? n-bytes) (&begin POP POP)) ;; [2B, 4G]
-   ((= n-bytes 1) MSTORE8) ;; [1B, 3G]
-   ((= n-bytes 2) (&begin DUP2 8 SHR DUP2 MSTORE8 1 ADD MSTORE8)) ;; [10B, 24G]
-   ;;(= n-bytes 3) (&begin DUP2 16 SHR DUP2 MSTORE8 1 ADD &mstore16)) ;; [19B, 45G]
-   ((= n-bytes 32) MSTORE) ;; [1B, 3G]
-   (else ;; [16B, 38G]
-    (let (n-bits (* 8 n-bytes))
-      ;;(&begin SWAP1 scratch0@ MSTORE DUP1 n-bytes ADD MLOAD scratch1@ MSTORE (- scratch1@ n-bytes) MLOAD SWAP1 MSTORE) ;; [17B, 39G]
-      ;; [16B, 38G] -- note that we could skip the ending POP
-      (&begin DUP1 n-bytes ADD MLOAD n-bits SHR DUP3 (- 256 n-bits) SHL OR SWAP1 MSTORE POP)))))
-
-(def (&mstoreat addr (n-bytes 32))
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
-  (cond
-   ((= n-bytes 32) (&begin addr MSTORE)) ;; [4B, 6G] or for small addresses [3B, 6G]
-   ((zero? n-bytes) (&begin POP)) ;; [1B, 2G]
-   ((= n-bytes 1) (&begin addr MSTORE8)) ;; [4B, 6G] or for small addresses [3B, 6G]
-   ((= n-bytes 2) (&begin DUP1 8 SHR addr MSTORE8 (1+ addr) MSTORE8)) ;; [12B, 21G]
-   ;;((= n-bytes 3) (&begin DUP1 16 SHR addr MSTORE8 (&mstore16at (1+ addr)))) ;; [20B, 36G], suboptimal
-   (else (let (n-bits (* 8 n-bytes)) ;; [15B, 27G]
-           (&begin (- 256 n-bits) SHL (+ addr n-bytes) MLOAD n-bits SHR OR addr MSTORE)))))
-
-;; Like &mstore, but is allowed (not obliged) to overwrite memory after it with padding bytes
-(def (&mstore/pad-after n-bytes)
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
-  (cond
-   ((= n-bytes 32) MSTORE) ;; [1B, 3G]
-   ((= n-bytes 1) MSTORE8) ;; [1B, 3G]
-   ((zero? n-bytes) MSTORE8) ;; [1B, 3G]
-   (else (&begin SWAP1 (- 256 (* 8 n-bytes)) SHL SWAP1 MSTORE)))) ;; [6B, 15G]
-
-;; Like &mstoreat, but is allowed (not obliged) to overwrite memory after it with padding bytes
-(def (&mstoreat/pad-after addr (n-bytes 32))
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
-  (cond
-   ((= n-bytes 32) (&begin addr MSTORE)) ;; [4B, 6G] or for small addresses [3B, 6G]
-   ((= n-bytes 1) (&begin addr MSTORE8)) ;; [4B, 6G] or for small addresses [3B, 6G]
-   ((zero? n-bytes) (&begin POP)) ;; [1B, 2G]
-   (else (&begin (- 256 (* 8 n-bytes)) SHL addr MSTORE)))) ;; [7B, 12G]
-
 ;; Given the assembled runtime code as a vector for a contract,
 ;; assemble code to initialize the contract;
 ;; NB: any storage initialization must happen BEFORE that.
@@ -215,7 +150,7 @@
 
 ;; We log the entire CALLDATA zone in one go. The upside is to save on extra 375 per LOG0 cost
 ;; and simplify the calling and publish convention, so we don't have to track and log individual messages.
-;; The downside is the quadratic cost to memory, 3N+N^2/512.
+;; The downside is the quadratic cost to memory, 3N+N^2/512 where N is the number of 32-byte words used.
 ;; Our strategy pays as long as we keep the memory under 438 words or so.
 ;; For large contracts with lots of data, it may pay to divide the logging into segments.
 ;; We'll figure that later (TODO!).
@@ -480,6 +415,11 @@
   (.@ (current-ethereum-network) pennyCollector))
 
 ;; Define the end-contract library function, if reachable.
+;; TODO: one and only one of end-contract or tail-call shall just precede the commit-contract-call function!
+;; Might depend on the contract which--usually the tail-call, except when
+;; it's a trivial contract like buy-sig. Maybe have a notion of segments that either precede another one,
+;; or can be anywhere with a jump in the end, with an expected use frequency function
+;; to prefer one the most used one over the alternatives?
 (def (&define-end-contract)
   (&begin
    [&jumpdest 'suicide]

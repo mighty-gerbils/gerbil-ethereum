@@ -11,6 +11,8 @@
   :clan/persist/db :clan/persist/persist
   ./hex ./types ./signing ./known-addresses ./ethereum ./json-rpc ./nonce-tracker ./transaction)
 
+;; TODO: Invoking a *persistent* continuation upon completion.
+;;
 ;; TODO: A much better state machine to get wanted transactions confirmed.
 ;;
 ;; It is a very bad idea to have more than one ongoing transaction in the mempool:
