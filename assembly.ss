@@ -20,7 +20,8 @@
 ;; 24576, limit set by EIP 170 https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
 (def max-segment-size #x6000)
 
-;; TODO: use pure functional arrays? Doubly linked list of sub-segments? Balanced tree?
+;; TODO: use mutable extensible vectors? pure functional arrays?
+;; Doubly linked list of sub-segments? Balanced tree that maintains intervals?
 ;; A segment is one of:
 ;; a u8vector, used literally as values
 ;; a list of a segment descriptor and segments
@@ -192,7 +193,7 @@
   (#x1c SHR #t) ;; logical shift right
   (#x1d SAR #t) ;; arithmetic shift right
   ;; #x1e - #x1f  Unused
-  (#x20 SHA3 30 #t) ;; Compute Keccak-256 hash
+  (#x20 SHA3 30 #t) ;; Compute Keccak-256 hash. Cost: 30+6/word
   ;; #x21 - #x2f  Unused
   (#x30 ADDRESS 2) ;; Get address of currently executing account
   (#x31 BALANCE 400) ;; Get balance of the given account

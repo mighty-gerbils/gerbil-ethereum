@@ -7,6 +7,7 @@
   :clan/failure :clan/option
   :clan/net/json-rpc
   :clan/poo/poo :clan/poo/brace :clan/poo/io :clan/poo/trie
+  (only-in :clan/poo/type Sum define-sum-constructors)
   (only-in :clan/poo/mop Lens slot-lens sexp<- Type. define-type)
   :clan/persist/db :clan/persist/persist
   ./hex ./types ./signing ./known-addresses ./ethereum ./json-rpc ./nonce-tracker ./transaction)

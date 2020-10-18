@@ -24,7 +24,7 @@
   :clan/poo/poo :clan/poo/brace :clan/poo/io
   (only-in :clan/poo/mop define-type)
   (only-in :clan/poo/number Real)
-  (only-in :clan/poo/type List Maybe Unit Or Map Json False)
+  (only-in :clan/poo/type List Maybe Unit Or Map Json False Union)
   ./types ./signing ./ethereum ./network-config
   )
 

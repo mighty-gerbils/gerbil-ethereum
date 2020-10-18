@@ -6,7 +6,8 @@
   (only-in :clan/poo/type Map)
   ./hex ./types ./signing)
 
-;; TODO: handle collisions, exceptions
+;; TODO: handle collisions, exceptions.
+;; TODO: make these tables Scheme parameters?
 (def address-by-nickname (make-hash-table))
 (def nickname-by-address (make-hash-table))
 (def (register-address nickname address)
@@ -29,7 +30,9 @@
 
 
 
+;; TODO: make this table Scheme parameters?
 (def keypair-by-address (make-hash-table))
+
 (def (register-keypair nickname keypair)
   (def address (keypair-address keypair))
   (hash-put! keypair-by-address address keypair)

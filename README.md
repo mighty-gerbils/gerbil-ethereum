@@ -8,7 +8,7 @@ and relies on an existing node such as Geth or Parity to implement the Ethereum 
 ### Copyright and License
 
 Copyright 2020 Mutual Knowledge Systems, Inc. All rights reserved.
-Glow is distributed under the Apache License, version 2.0. See the file [LICENSE](LICENSE).
+Gerbil-Ethereum is distributed under the Apache License, version 2.0. See the file [LICENSE](LICENSE).
 
 ### What does Gerbil Ethereum do?
 

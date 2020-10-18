@@ -43,3 +43,12 @@ TODO for Gerbil-Ethereum
 
 * Add example applications.
 
+* Compute costs: since ISTANBUL, the marginal cost of publishing an otherwise unused 32-byte word
+  costs 16/byte (minus 12/256 for the occasional 0, so about 15.95) plus 4 for the memory,
+  so 510.5 for the data, plus 3 for copying to memory, plus 6 for hashing, so 523.5 total.
+  That's now less than the 800 to read from storage (used to be 68/byte vs 200/word).
+  And then, if we pack it as 20-bytes, it's even better (we save 12 zeros, or 48 gas,
+  plus 12/32 times 13, so 4.875, but lose 6gas per load, plus 21 per store, only 6 if can padafter).
+  For deep merkleized data, it's still better to store one word than reveal a tens of nodes,
+  one for each level of the tree--but unless the data is short, it might be better to merkleize
+  the entry for the node.

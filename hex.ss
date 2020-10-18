@@ -109,7 +109,7 @@
   hex-digits)
 
 (def (validate-address-0x hs)
-  ;; see https://www.quora.com/How-can-we-do-Ethereum-address-validation *)
+  ;; see https://www.quora.com/How-can-we-do-Ethereum-address-validation
   ;; which says to check a bit of the hash, but means byte
   (unless (string-prefix? "0x" hs) (error "Not a 0x string" hs))
   (unless (= (string-length hs) 42) (error "invalid address string length" hs))

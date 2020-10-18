@@ -11,7 +11,6 @@
 ;; * functions that are automatically inlined if called once, or even if tailed-called once.
 ;; * temporaries that are automatically un-allocated if only used once, immediately (or after shuffling?)
 
-
 ;; We're going to define a hierarchical ABI for contracts, with
 ;;
 ;; * Tiny "inline" functions that are expanded inline, operate on stack (what we use below, mostly).
@@ -151,7 +150,7 @@
 ;; We log the entire CALLDATA zone in one go. The upside is to save on extra 375 per LOG0 cost
 ;; and simplify the calling and publish convention, so we don't have to track and log individual messages.
 ;; The downside is the quadratic cost to memory, 3N+N^2/512 where N is the number of 32-byte words used.
-;; Our strategy pays as long as we keep the memory under 438 words or so.
+;; Our strategy pays as long as we keep the memory under 438 words or so (14016 bytes).
 ;; For large contracts with lots of data, it may pay to divide the logging into segments.
 ;; We'll figure that later (TODO!).
 ;; One solution would be to run the program first, then at the end,

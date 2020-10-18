@@ -5,7 +5,7 @@
   :clan/maybe
   :clan/poo/poo :clan/poo/io :clan/poo/brace
   (only-in :clan/poo/mop sexp<-)
-  (prefix-in :clan/poo/type poo.)
+  (only-in :clan/poo/type Sum define-sum-constructors)
   ./types ./hex)
 
 ;; TODO: implement and use a "newtype"
