@@ -51,8 +51,7 @@
 (create-directory* geth-logs-directory)
 
 (def geth-arguments
-  ["--dev"
-   (when/list (and geth-dev-period (< 0 geth-dev-period))
+  [(when/list (and geth-dev-period (< 0 geth-dev-period))
               ["--dev.period" (number->string geth-dev-period)])...
   "--fakepow"
   "--verbosity" "4" ;; 3: info, 4: debug
@@ -71,6 +70,7 @@
   "--nat" "any"
   "--ipcpath" ".ethereum/geth.ipc"
   "--vmdebug"
+  "--dev" "console"
   ])
 
 (create-directory* geth-logs-directory)
