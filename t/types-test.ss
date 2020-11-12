@@ -4,6 +4,7 @@
   :gerbil/gambit/bytes
   :gerbil/gambit/exceptions
   :std/error :std/text/hex :std/text/json :std/sort :std/srfi/1 :std/sugar :std/test
+  :std/misc/hash
   :clan/base :clan/poo/poo :clan/poo/io :clan/poo/brace (only-in :clan/poo/mop define-type)
   ../types ../hex)
 
@@ -71,14 +72,16 @@
       (check-equal? (element? Zoth (Zoth-h #(5 -1 13))) #f)
       (parameterize ((json-symbolic-keys #t))
         (check-equal? (element? Zoth (<-json Zoth (string->json-object "{\"tag\": \"z\", \"value\": []}"))) #t)
-        (check-equal? (hash->list/sort (<-json Zoth (string->json-object "{\"tag\": \"z\", \"value\": []}"))
-                                       symbol<?)
-                      '((tag . "z") (value . ()))))
+        (check-equal? (hash->list/sort (json<- Zoth (Zoth-z #())) symbol<?)
+                      '((tag . "z") (value . ())))
+        (check-equal? (.sorted-alist (<-json Zoth (hash (tag "z") (value []))))
+                      '((tag . z) (value . #()))))
       (parameterize ((json-symbolic-keys #f))
         (check-equal? (element? Zoth (<-json Zoth (string->json-object "{\"tag\": \"z\", \"value\": []}"))) #t)
-        (check-equal? (hash->list/sort (<-json Zoth (string->json-object "{\"tag\": \"z\", \"value\": []}"))
-                                       string<?)
-                      '(("tag" . "z") ("value" . ()))))
+        (check-equal? (hash->list/sort (json<- Zoth (Zoth-z #())) string<?)
+                      '(("tag" . "z") ("value" . ())))
+        (check-equal? (.sorted-alist (<-json Zoth (hash ("tag" "z") ("value" []))))
+                      '((tag . z) (value . #()))))
       (check-equal? (sort-alist (hash->list (.call Zoth .json<- (Zoth-z #()))))
                     '(("tag" . "z") ("value" . ())))
       (check-equal? (sort-alist (hash->list (.call Zoth .json<- (Zoth-o #(1)))))
