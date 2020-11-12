@@ -1,5 +1,6 @@
 (export #t)
-(export Type. .defgeneric validate element? .method define-type)
+(export Type. .defgeneric validate element? .method define-type
+        Sum define-sum-constructors)
 
 ;; We are shadowing existing types. Should we monkey-patch them instead? Let's hope not.
 
@@ -18,6 +19,7 @@
   (prefix-in (only-in :clan/poo/mop Bool String Symbol) poo.)
   (prefix-in (only-in :clan/poo/number Nat UInt. UInt IntSet) poo.)
   (prefix-in :clan/poo/type poo.)
+  (only-in :clan/poo/type Sum define-sum-constructors)
   :clan/poo/brace
   ./hex ./abi)
 
