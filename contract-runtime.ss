@@ -282,6 +282,22 @@
    #x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0 DUP5 GT ;; s <= s_max
    OR &require-not!))
 
+(def (&unsafe-post-increment-at! addr increment)
+  (&begin addr MLOAD DUP1 increment ADD addr MSTORE)) ;; for small address, small size [10B, 21G]
+
+(def &brk (&begin brk@ MLOAD)) ;; [3B, 6G]
+(def (&brk-cons n-bytes)
+  ;; Note the optimization wherein we can write extra zeros *after* the destination address
+  ;; since we're mixing data with yet unwritten zeroes anyway
+  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
+  (cond
+   ((zero? n-bytes) POP)
+   ((= n-bytes 1) (&begin (&unsafe-post-increment-at! brk@ n-bytes) MSTORE8))
+   ((= n-bytes 32) (&begin (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))
+   ;; TODO: for programs that use a lot of memory, optimize the last few of these to not use memory?
+   ;; But first, optimize the lot of memory into less memory
+   (else (&begin (- 256 (* 8 n-bytes)) SHL (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))))
+
 ;; call precompiled contract #1 to recover the signer and message from a signature
 (def &ecrecover0 ;; -- v r s digest --> address success
   (&begin
@@ -298,22 +314,6 @@
    &mload/signature ;; -- v r s digest signer
    DUP4 #|digest|# &ecrecover0 ;; -- address success digest signer
    DUP4 #|signer|# EQ AND SWAP2 POP POP)) ;; -- bool
-
-(def (&unsafe-post-increment-at! addr increment)
-  (&begin addr MLOAD DUP1 increment ADD addr MSTORE)) ;; for small address, small size [10B, 21G]
-
-(def &brk (&begin brk@ MLOAD)) ;; [3B, 6G]
-(def (&brk-cons n-bytes)
-  ;; Note the optimization wherein we can write extra zeros *after* the destination address
-  ;; since we're mixing data with yet unwritten zeroes anyway
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
-  (cond
-   ((zero? n-bytes) POP)
-   ((= n-bytes 1) (&begin (&unsafe-post-increment-at! brk@ n-bytes) MSTORE8))
-   ((= n-bytes 32) (&begin (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))
-   ;; TODO: for programs that use a lot of memory, optimize the last few of these to not use memory?
-   ;; But first, optimize the lot of memory into less memory
-   (else (&begin (- 256 (* 8 n-bytes)) SHL (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))))
 
 (def (&read-published-datum (n-bytes 32))
   ;; Scheme pseudocode: (lambda () (extract-top-bytes (calldata-ref (post-increment! calldatapointer n)) n))
