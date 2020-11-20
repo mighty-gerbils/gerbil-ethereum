@@ -325,7 +325,7 @@
 
 (def &read-published-data-to-mem
   (&begin ;; -- memaddr size
-   calldatapointer@ MLOAD DUP1 #|calldatapointer@|# DUP4 #|size|# +
+   calldatapointer@ MLOAD DUP1 #|calldatapointer@|# DUP4 #|size|# ADD
    ;; DUP1 CALLDATASIZE LT &require-not! ;;---we don't actually need to validate that: ethereum will pad with zeroes on overflow, and the rest of the program will see if it's valid.
    calldatapointer@ MSTORE SWAP1 CALLDATACOPY))
 
