@@ -106,8 +106,11 @@
       (def type (param-type type-or-length))
       (def length (param-length type-or-length))
       (def address (post-increment! end length))
-      (def getter (&mloadat address length))
-      (def setter (&mstoreat address length))) ...))
+      (def getter (if (<= 1 length 32) (&mloadat address length)
+                      (lambda _ (error "Variable too large to be loaded on stack" '#'param length))))
+      (def setter (if (<= 1 length 32) (&mstoreat address length)
+                      (lambda _ (error "Variable too large to be stored from stack" '#'param length)))))
+    ...))
 
 ;; Local memory layout for solidity:
 ;; 0x00 - 0x3f (64 bytes): scratch space for pair-hashing methods
@@ -439,7 +442,8 @@
           last-action-block NUMBER SUB
           LT &require-not!))
 
-;; For two-participant contracts only
+;; BEWARE! This is for two-participant contracts only,
+;; where all the money is on the table, no other assets than Ether.
 (def (&define-check-participant-or-timeout)
   (&begin ;; obliged-actor@ other-actor@ ret@C --> other-actor@
    [&jumpdest 'check-participant-or-timeout]
