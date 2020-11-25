@@ -237,7 +237,7 @@
 ;; *Assuming* x y are both non-negative integers of integer-length n-bits or less,
 ;; abort unless their sum is also of integer-length n-bits, return the sum
 (def (&safe-add/n-bits n-bits)
-  (assert! (and (exact-integer? n-bits) (<= 0 n-bits 256)))
+  (assert! (and (exact-integer? n-bits) (<= 0 n-bits 256)) "Bad n-bits for &safe-add/n-bits")
   (cond
    ((= n-bits 256) &safe-add) ;; [8B, 28G]
    ((zero? n-bits) POP) ;; [1B, 2G]
@@ -292,7 +292,7 @@
 (def (&brk-cons n-bytes)
   ;; Note the optimization wherein we can write extra zeros *after* the destination address
   ;; since we're mixing data with yet unwritten zeroes anyway
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
+  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &brk-cons")
   (cond
    ((zero? n-bytes) POP)
    ((= n-bytes 1) (&begin (&unsafe-post-increment-at! brk@ n-bytes) MSTORE8))

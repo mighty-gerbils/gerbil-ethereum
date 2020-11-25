@@ -389,7 +389,7 @@
 ;; it pays to be compact.
 ;; Reading is cheap enough:
 (def (&mload n-bytes)
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
+  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mload")
   (cond
    ((zero? n-bytes) (&begin POP 0)) ;; [3B, 5G]
    ((= n-bytes 32) MLOAD) ;; [1B, 3G]
@@ -398,14 +398,14 @@
 (def (&mloadat addr (n-bytes 32))
   (when (poo? n-bytes) ;; accept a fixed-size type descriptor
     (set! n-bytes (.@ n-bytes .length-in-bytes)))
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
+  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mloadat")
   (cond
    ((zero? n-bytes) 0) ;; [2B, 3G]
    ((= n-bytes 32) (&begin addr MLOAD)) ;; [4B, 6G] or for small addresses [3B, 6G]
    (else (&begin addr MLOAD (- 256 (* 8 n-bytes)) SHR)))) ;; [7B, 12G] or for small addresses [6B, 12G]
 
 (def (&mstore n-bytes)
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
+  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &store")
   (cond
    ((zero? n-bytes) (&begin POP POP)) ;; [2B, 4G]
    ((= n-bytes 1) MSTORE8) ;; [1B, 3G]
@@ -419,7 +419,7 @@
       (&begin DUP1 n-bytes ADD MLOAD n-bits SHR DUP3 (- 256 n-bits) SHL OR SWAP1 MSTORE POP)))))
 
 (def (&mstoreat addr (n-bytes 32))
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
+  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &storeat")
   (cond
    ((= n-bytes 32) (&begin addr MSTORE)) ;; [4B, 6G] or for small addresses [3B, 6G]
    ((zero? n-bytes) (&begin POP)) ;; [1B, 2G]
@@ -431,7 +431,7 @@
 
 ;; Like &mstore, but is allowed (not obliged) to overwrite memory after it with padding bytes
 (def (&mstore/pad-after n-bytes)
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
+  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mstore/pad-after")
   (cond
    ((= n-bytes 32) MSTORE) ;; [1B, 3G]
    ((= n-bytes 1) MSTORE8) ;; [1B, 3G]
@@ -440,7 +440,7 @@
 
 ;; Like &mstoreat, but is allowed (not obliged) to overwrite memory after it with padding bytes
 (def (&mstoreat/pad-after addr (n-bytes 32))
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
+  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mstoreat/pad-after")
   (cond
    ((= n-bytes 32) (&begin addr MSTORE)) ;; [4B, 6G] or for small addresses [3B, 6G]
    ((= n-bytes 1) (&begin addr MSTORE8)) ;; [4B, 6G] or for small addresses [3B, 6G]
