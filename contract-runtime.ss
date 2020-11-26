@@ -93,9 +93,23 @@
         ((element? Type type-or-length) type-or-length)
         (else (invalid 'param-type type-or-length))))
 
+;; ctx is a lexical context in which for each of the specified contract-level parameters,
+;; assembly-level variables will be defined for type, length, address, getter and setter.
+;; start is an expression the value of which will be the address for the first parameter
+;; end is an identifier which will be defined as the next available address after these parameters.
+;; For each each parameter, param is a identifier and
+;; type-or-length is an expression evaluating to either a type descriptor or a length (integer).
+;; The respective type, length, address, getter and setter identifiers for each parameter
+;; will be defined in the lexical context ctx, and will be computed by appending to the param identifier
+;; the respective suffixes "-types" "-length " "@" "" "-set!".
+;; The getter and setter will only be usefully defined if the length is between 0 and 32 included.
 ;; TODO: support intermediate-speed variables that pad-after?
 (defrule (define-consecutive-addresses ctx start end (param type-or-length) ...)
   (begin
+    ;; Variable with a name provided by the macro caller above,
+    ;; that is initialized to start and is incremented by the length of each variable,
+    ;; so that by the end of the evaluation of the expansion of this macro, it will have the value
+    ;; of the end of the parameter block indeed.
     (def end start)
     (with-id ctx
         ((type #'param '-type)
@@ -106,9 +120,9 @@
       (def type (param-type type-or-length))
       (def length (param-length type-or-length))
       (def address (post-increment! end length))
-      (def getter (if (<= 1 length 32) (&mloadat address length)
+      (def getter (if (<= 0 length 32) (&mloadat address length)
                       (lambda _ (error "Variable too large to be loaded on stack" '#'param length))))
-      (def setter (if (<= 1 length 32) (&mstoreat address length)
+      (def setter (if (<= 0 length 32) (&mstoreat address length)
                       (lambda _ (error "Variable too large to be stored from stack" '#'param length)))))
     ...))
 
@@ -120,16 +134,22 @@
 ;; The local memory layout for glow has much more structure.
 ;; First, some global registers.
 ;; Their actual sizes (in comment) could be cut shorter, but we probably want cheap access.
-(define-consecutive-addresses frame@ 0 frame@
+
+;; Otherwise redundant context variable, to make the following uses of d-c-a clearer.
+;; We could have used any of the variables above or below as context, including frame@.
+(def this-ctx (void))
+
+(define-consecutive-addresses this-ctx 0 frame@
   (brk 32 #|3|#) ;; The free memory pointer.
   (calldatapointer 32 #|3|#) ;; Pointer within CALLDATA to yet unread published information.
   (calldatanew 32 #|3|#) ;; Pointer to new information within CALLDATA (everything before was seen).
   (deposit 32 #|12|#)) ;; Required deposit so far.
 
 ;; Second, the frame state as merkleized. These are the fields present in all frames:
-(define-consecutive-addresses frame@ frame@ params-start@
+(define-consecutive-addresses this-ctx frame@ params-start@
   (pc 2) ;; Code segment address from which to continue evaluation
   (last-action-block Block)) ;; Block at which the last action took place
+
 ;; Then there will be per-frame parameter fields, to be defined in the proper scope with:
 (defrule (define-frame-params ctx params ...)
   (with-id ctx (params-end@)
