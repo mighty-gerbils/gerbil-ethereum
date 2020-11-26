@@ -1,7 +1,7 @@
 // This contract is used for tests only
 // SPDX-License-Identifier: Apache2.0
 // TODO: move it to a test directory? Under src/legilogic_ethereum ?
-pragma solidity ^0.6.4;
+pragma solidity ^0.7.4;
 
 contract HelloWorld {
     function hello() public pure returns (string memory) {
