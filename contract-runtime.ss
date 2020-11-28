@@ -54,6 +54,34 @@
 ;; This file includes some tiny blocks, supports defining small functions,
 ;; and provides runtime infrastructure to define medium functions.
 
+;; As for the calling convention of the contract from the outside world,
+;; each contract call contains as its bytes argument an input buffer,
+;; which will be read and interpreted by the contract code as follows:
+;;   1. A call frame, with all the data required to restart computation,
+;;      prepended by a 2-byte frame length.
+;;      The frame starts with the pc and the last-action-block,
+;;      then contains the values of frame-specific variables.
+;;      (So far, all values are stored as a fixed number of bytes
+;;      depending on their type, with no padding.)
+;;      If the frame matches the saved state, the program resumes, otherwise it aborts.
+;;   2. *In the future*, to handle arbitrary recursive DAGs of data, the calling
+;;      participant can reveal an arbitrary subgraph of a merkleized DAG in working memory,
+;;      in a TBD format that will be validated by the program (that will otherwise abort).
+;;   3. The program will continue, and the frame then contains any variable published
+;;      in the current code block, in order of publication (with same type-dependent encoding),
+;;      from which the program will read the published data.
+;;   4. At the end of the code block, the program either terminates or reaches a new state,
+;;      stored in a fixed-address scratch area after the frame variables and locals.
+;;   5. If the program reached a new state, it expects either a 0 or a 1 as input,
+;;      to specify whether the same participant continues with the next code block or stops.
+;;   6. If the program continues, it will overwrite the fixed address frame area
+;;       with data from the fixed address scratch area, then recursing to step 3.
+;;   7. If the program stops, then the program saves the digest of the frame to persistent state,
+;;      logs all the data after frame restoration, and commits the transaction.
+;;
+;; Note: which of 0 or 1 to mean continue vs stop depends on whether we want to optimize
+;; for the one-block case (0 is stop) or the multiple-block case (0 is continue),
+;; something we could even in the future decide on a contract-per-contract basis.
 
 ;; Given the assembled runtime code as a vector for a contract,
 ;; assemble code to initialize the contract;
