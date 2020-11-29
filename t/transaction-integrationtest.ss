@@ -9,7 +9,7 @@
   ./path-config ./signing-test)
 
 ;; Use the Private Ethereum Testnet
-(load-ethereum-networks (subpath gerbil-ethereum-src "t/ethereum_networks.json"))
+(load-ethereum-networks (config-path "ethereum_networks.json"))
 (ensure-ethereum-network "pet")
 
 ;; Poll for ethereum server
