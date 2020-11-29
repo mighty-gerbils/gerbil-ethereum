@@ -1,10 +1,14 @@
 (export #t)
 
 (import
-  :gerbil/gambit/system
+  :std/sugar :gerbil/gambit/system
   :clan/path :clan/path-config :clan/source)
 
-(def gerbil-ethereum-src (path-parent (path-normalized-directory (this-source-file))))
+(def gerbil-ethereum-src
+  (try
+    (path-parent (path-normalized-directory (this-source-file)))
+    (catch (_)
+      (source-directory))))
 (set! source-directory (lambda () gerbil-ethereum-src))
 (set! home-directory (lambda () gerbil-ethereum-src))
 
