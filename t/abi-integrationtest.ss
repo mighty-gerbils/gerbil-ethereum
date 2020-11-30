@@ -5,7 +5,7 @@
   :std/misc/list :std/misc/ports :std/misc/process :std/srfi/1 :std/sugar :std/test :std/text/hex
   :clan/list :clan/path :clan/path-config :clan/poo/poo
   ../hex ../types ../ethereum ../signing ../json-rpc ../transaction ../abi ../tx-tracker
-  ./path-config ./signing-test ./transaction-integrationtest)
+  ./signing-test ./transaction-integrationtest)
 
 (def (compile-solidity src dstdir)
   (def srcdir (path-directory src))
@@ -15,7 +15,8 @@
     directory: srcdir)
   (void))
 
-(def test-contract-source (subpath gerbil-ethereum-src "t/test_contract.sol"))
+;; TODO: either install the damn file with the build, or be able to locate it via nix or gxpkg
+(def test-contract-source (source-path "t/test_contract.sol"))
 (def test-contract-bin (run-path "t/ethereum/HelloWorld.bin"))
 
 (def (modification-time file)
