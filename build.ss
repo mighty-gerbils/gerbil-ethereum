@@ -8,7 +8,7 @@
 
 (import :clan/building)
 
-(def (files) (cons "t/path-config.ss" (all-gerbil-modules)))
+(def (files) (all-gerbil-modules))
 
 (init-build-environment!
  name: "Gerbil-ethereum"
