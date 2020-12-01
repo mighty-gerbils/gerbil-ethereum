@@ -6,7 +6,7 @@
   :clan/poo/io
   :clan/persist/db
   ../types ../network-config ../signing ../known-addresses ../json-rpc ../transaction
-  ./path-config ./signing-test)
+  ./signing-test)
 
 ;; Use the Private Ethereum Testnet
 (load-ethereum-networks (config-path "ethereum_networks.json"))

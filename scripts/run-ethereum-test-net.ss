@@ -8,9 +8,12 @@
   :gerbil/gambit/exceptions :gerbil/gambit/ports :gerbil/gambit/threads
   :std/format :std/getopt :std/misc/list :std/misc/ports :std/misc/process :std/srfi/13 :std/sugar
   :clan/base :clan/files :clan/maybe :clan/multicall
-  :clan/path-config :clan/shell
-  :clan/net/json-rpc
-  :mukn/ethereum/t/path-config)
+  :clan/path :clan/path-config :clan/shell :clan/source
+  :clan/net/json-rpc)
+
+;; If the home directory isn't otherwise set, we must be running from unconfigured source code,
+;; and we'll use the top of this source code hierarchy as home.
+(home-directory-default! (cut path-parent (path-simplify-directory (this-source-file))))
 
 (def geth-port 30303)
 (def geth-rpc-port 8545)

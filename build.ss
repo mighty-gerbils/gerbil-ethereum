@@ -8,7 +8,9 @@
 
 (import :clan/building)
 
-(def (files) (cons "t/path-config.ss" (all-gerbil-modules)))
+;; TODO: Should we add [copy: "config/ethereum_networks.json"] as a spec item?
+(def (files)
+  [(all-gerbil-modules) ... "scripts/run-ethereum-test-net.ss"])
 
 (init-build-environment!
  name: "Gerbil-ethereum"

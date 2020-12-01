@@ -92,10 +92,10 @@
    (bytes-length contract-runtime) 0 #|memory address for the code: 0|# ;;-- 0 length
 
    ;; Push args for CODECOPY; the DUP's for length and memory target are where the savings are
-   DUP2 #|length|# [&push-label1 'runtime-start] DUP3 #|length|# ;;-- 0 start length 0 length
+   DUP2 #|length|# [&push-label1 'runtime-start] DUP3 #|0|# ;;-- 0 start length 0 length
 
    ;; Initialize the contract by returning the memory array containing the runtime code
-   CODECOPY RETURN
+   CODECOPY RETURN ;;just before the return: -- 0 length
 
    ;; Inline code for the runtime as a code constant in the init code
    [&label 'runtime-start] #| @ 10 |# [&bytes contract-runtime]))
