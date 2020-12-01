@@ -15,13 +15,16 @@
     directory: srcdir)
   (void))
 
+(def gerbil-ethereum-src (or (getenv "GERBIL_ETHEREUM_SRC" #f)
+                             (source-directory)))
+
 ;; TODO: either install the damn file with the build, or be able to locate it via nix or gxpkg
-(def test-contract-source (source-path "t/test_contract.sol"))
+(def test-contract-source (subpath gerbil-ethereum-src "t/test_contract.sol"))
 (def test-contract-bin (run-path "t/ethereum/HelloWorld.bin"))
 
 (def (modification-time file)
   (let/cc return
-    (def info (with-catch (lambda (_) (return #f)) (lambda () (file-info file #t))))
+    (def info (with-catch false (cut file-info file #t)))
     (time->seconds (file-info-last-modification-time info))))
 
 (def (test-contract-bytes)
