@@ -66,7 +66,9 @@
   "--nousb"
   "--networkid" "17"
   "--nat" "any"
-  "--ipcpath" ".ethereum/geth.ipc"])
+  "--ipcpath" ".ethereum/geth.ipc"
+  "--vmdebug"
+  ])
 
 (create-directory* geth-logs-directory)
 

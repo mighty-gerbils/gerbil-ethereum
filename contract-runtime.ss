@@ -223,7 +223,7 @@
    ;; store calldatapointer
    DUP2 #|sz|# DUP5 #|2|# ADD calldatapointer-set! ;; -- frame@ sz 240 2 1 0
    ;; save the brk variable
-   DUP2 #|sz|# DUP2 #|frame@|# ADD DUP8 #|brk@,==0|# MSTORE ;; -- frame@ sz 240 2 1 0
+   DUP2 #|sz|# DUP2 #|frame@|# ADD DUP7 #|brk@,==0|# MSTORE ;; -- frame@ sz 240 2 1 0
    ;; compute the digest of the frame just restored
    SHA3 ;; -- digest 240 2 1 0
    ;; compare to saved merkleized state, jump to saved label if it matches
@@ -474,9 +474,12 @@
   (&begin
    [&jumpdest 'suicide]
    (penny-collector-address) ;; send any leftover money to this address!
-   SELFDESTRUCT
+   &SELFDESTRUCT
    [&jumpdest 'end-contract]
    0 0 SSTORE 'suicide [&jump1 'commit-contract-call]))
+
+(def &SELFDESTRUCT
+  (&begin BALANCE 0 0 RETURN SELFDESTRUCT))
 
 (def &end-contract!
   (&begin [&jump 'end-contract])) ;; [2B; 10G]
@@ -488,17 +491,17 @@
 (def (&check-timeout!) ;; -->
   (&begin (timeout-in-blocks) ;; TODO: negotiate the timeout between users?
           last-action-block NUMBER SUB
-          LT &require-not!))
+          SLT &require-not!))
 
 ;; BEWARE! This is for two-participant contracts only,
 ;; where all the money is on the table, no other assets than Ether.
 (def (&define-check-participant-or-timeout)
   (&begin ;; obliged-actor@ other-actor@ ret@C --> other-actor@
    [&jumpdest 'check-participant-or-timeout]
-   (&mload 20) CALLER EQ SWAP3 #|ret@C|# JUMPI ;; if the caller matches, return to normal program
+   (&mload 20) CALLER EQ SWAP1 SWAP2 #|ret@C|# JUMPI ;; if the caller matches, return to normal program
    ;; TODO: support some amount being in escrow for the obliged-actor and returned to him
    ;; Also support ERC20s, etc.
-   (&check-timeout!) (&mload 20) SELFDESTRUCT)) ;; give all the money to the other guy.
+   (&check-timeout!) (&mload 20) &SELFDESTRUCT)) ;; give all the money to the other guy.
 
 (def (&check-participant-or-timeout! must-act: obliged-actor or-end-in-favor-of: other-actor)
   (&begin

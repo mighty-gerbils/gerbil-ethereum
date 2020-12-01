@@ -87,7 +87,7 @@
     (stateful-contract-init initial-state payForSignature--contract-runtime))
 
   (def pretx
-    (create-contract Buyer contract-bytes))
+    (create-contract Buyer contract-bytes value: price))
   (def receipt
     (post-transaction pretx))
   (def contract-config
