@@ -220,8 +220,10 @@
    DUP4 #|0|# CALLDATALOAD DUP2 #|240|# SHR frame@ ;; -- frame@ sz 240 2 1 0
    ;; copy frame to memory
    DUP2 #|sz|# DUP5 #|2|# DUP3 #|frame@|# CALLDATACOPY ;; -- frame@ sz 240 2 1 0
-   ;; store calldatapointer
-   DUP2 #|sz|# DUP5 #|2|# ADD calldatapointer-set! ;; -- frame@ sz 240 2 1 0
+   ;; store calldatapointer and calldatanew
+   ;; TODO: in the future, optionally allow for DAG subset reveal
+   DUP2 #|sz|# DUP5 #|2|# ADD ;; -- calldatanew frame@ sz 240 2 1 0
+   DUP1 calldatanew-set! calldatapointer-set! ;; -- frame@ sz 240 2 1 0
    ;; save the brk variable
    DUP2 #|sz|# DUP2 #|frame@|# ADD DUP7 #|brk@,==0|# MSTORE ;; -- frame@ sz 240 2 1 0
    ;; compute the digest of the frame just restored
@@ -402,8 +404,13 @@
   (&begin
    [&jumpdest 'commit-contract-call] ;; -- return-address
    &check-sufficient-deposit ;; First, check deposit
-   calldatanew@ MLOAD CALLDATASIZE DUP2 SUB ;; -- logsz cdn
-   0 DUP2 #|logsz|# DUP4 #|cdn|# DUP3 #|0|# CALLDATACOPY LOG0 JUMP))
+   calldatanew DUP1 CALLDATASIZE SUB ;; -- logsz cdn ret
+   SWAP1 ;; -- cdn logsz ret
+   DUP2 ;; logsz cdn logsz ret
+   0 SWAP2 ;; -- cdn logsz 0 logsz ret
+   DUP3 ;; -- 0 cdn logsz 0 logsz ret
+   CALLDATACOPY ;; -- 0 logsz ret
+   LOG0 JUMP))
 
 ;; Logging the data
 (def &define-variable-size-logging
@@ -443,7 +450,7 @@
    ;; less than it costs to use a second byte for precision.
    MSIZE 16384 DUP2 DUP2 GT [&jumpi1 'maxm1] SWAP1
    [&jumpdest 'maxm1] POP ;; -- bufsz
-   calldatanew@ MLOAD CALLDATASIZE DUP2 SUB ;; -- logsz cdn bufsz
+   calldatanew DUP1 CALLDATASIZE SUB ;; -- logsz cdn bufsz
    ;; Loop:
    [&jumpdest 'logbuf] ;; -- logsz cdn bufsz
    ;; If there's no more data, stop.
@@ -454,7 +461,7 @@
    ;; Log a message
    DUP1 #|msgsz|# 0 DUP2 #|msgsz|# DUP6 #|cdn|# DUP3 #|0|# CALLDATACOPY LOG0 ;; -- msgsz logsz cdn bufsz
    ;; Adjust logsz and cdn
-   SWAP3 #|cdn logsz msgsz|# DUP3 #|msgsz|# ADD SWAP3 #|msgsz logsz cdn|# SWAP1 SUB ;; -- logsz cdn bufsz
+   SWAP2 #|cdn logsz msgsz|# DUP3 #|msgsz|# ADD SWAP2 #|msgsz logsz cdn|# SWAP1 SUB ;; -- logsz cdn bufsz
    ;; loop!
    [&jump1 'logbuf]))
 
