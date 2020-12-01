@@ -109,7 +109,6 @@
     ((Operation-CallFunction {(to) (data)}) (values to data))))
 
 (def (TransactionParameters<-Operation from operation value)
-  (displayln "TransactionParameters<-Operation")
   (defvalues (to data) (ToData<-Operation operation))
   ;; TransactionParameters
   {(from) (to) (value) (data)
@@ -203,7 +202,6 @@
    data: [(Maybe Bytes) optional: #t default: (void)]))
 
 (def (CallParameter<-Operation from operation)
-  (displayln "CallParameter<-Operation")
   (defvalues (to data) (ToData<-Operation operation))
   {(from) (to) (data) gas: (void) gasPrice: (void) value: (void)}) ;; CallParameter
 
