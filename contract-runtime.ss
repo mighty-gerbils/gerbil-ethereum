@@ -92,10 +92,10 @@
    (bytes-length contract-runtime) 0 #|memory address for the code: 0|# ;;-- 0 length
 
    ;; Push args for CODECOPY; the DUP's for length and memory target are where the savings are
-   DUP2 #|length|# [&push-label1 'runtime-start] DUP3 #|length|# ;;-- 0 start length 0 length
+   DUP2 #|length|# [&push-label1 'runtime-start] DUP3 #|0|# ;;-- 0 start length 0 length
 
    ;; Initialize the contract by returning the memory array containing the runtime code
-   CODECOPY RETURN
+   CODECOPY RETURN ;;just before the return: -- 0 length
 
    ;; Inline code for the runtime as a code constant in the init code
    [&label 'runtime-start] #| @ 10 |# [&bytes contract-runtime]))
@@ -223,7 +223,7 @@
    ;; store calldatapointer
    DUP2 #|sz|# DUP5 #|2|# ADD calldatapointer-set! ;; -- frame@ sz 240 2 1 0
    ;; save the brk variable
-   DUP2 #|sz|# DUP2 #|frame@|# ADD DUP8 #|brk@,==0|# MSTORE ;; -- frame@ sz 240 2 1 0
+   DUP2 #|sz|# DUP2 #|frame@|# ADD DUP7 #|brk@,==0|# MSTORE ;; -- frame@ sz 240 2 1 0
    ;; compute the digest of the frame just restored
    SHA3 ;; -- digest 240 2 1 0
    ;; compare to saved merkleized state, jump to saved label if it matches
