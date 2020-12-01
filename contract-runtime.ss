@@ -464,6 +464,12 @@
 (def (penny-collector-address)
   (.@ (current-ethereum-network) pennyCollector))
 
+;; FOR DEBUGGING ONLY -- temporary replacement for SELFDESTRUCT
+;; so the remix interface won't be confused by the attempts at debugging
+;; a now defunct contract.
+(def &SELFDESTRUCT
+  (&begin BALANCE 0 0 RETURN SELFDESTRUCT))
+
 ;; Define the end-contract library function, if reachable.
 ;; TODO: one and only one of end-contract or tail-call shall just precede the commit-contract-call function!
 ;; Might depend on the contract which--usually the tail-call, except when
@@ -478,9 +484,6 @@
    [&jumpdest 'end-contract]
    0 0 SSTORE 'suicide [&jump1 'commit-contract-call]))
 
-(def &SELFDESTRUCT
-  (&begin BALANCE 0 0 RETURN SELFDESTRUCT))
-
 (def &end-contract!
   (&begin [&jump 'end-contract])) ;; [2B; 10G]
 
@@ -489,21 +492,25 @@
 
 ;; abort unless saved data indicates a timeout
 (def (&check-timeout!) ;; -->
-  (&begin (timeout-in-blocks) ;; TODO: negotiate the timeout between users?
-          last-action-block NUMBER SUB
-          SLT &require-not!))
+  (&begin
+   ;; TODO: negotiate the timeout between users,
+   ;; rather than hard-wiring it to the network as below?
+   (timeout-in-blocks) last-action-block ADD ;; using &safe-add is probably redundant there.
+   NUMBER LT &require-not!))
 
 ;; BEWARE! This is for two-participant contracts only,
 ;; where all the money is on the table, no other assets than Ether.
 (def (&define-check-participant-or-timeout)
   (&begin ;; obliged-actor@ other-actor@ ret@C --> other-actor@
    [&jumpdest 'check-participant-or-timeout]
-   (&mload 20) CALLER EQ SWAP1 SWAP2 #|ret@C|# JUMPI ;; if the caller matches, return to normal program
+   (&mload 20) CALLER EQ #|-- ok? other@ ret@C|# SWAP1 SWAP2 #|-- ret@C ok? other@ |#
+   JUMPI ;; if the caller matches, return to the program. Jump or not, the stack is: -- other-actor@
    ;; TODO: support some amount being in escrow for the obliged-actor and returned to him
    ;; Also support ERC20s, etc.
    (&check-timeout!) (&mload 20) &SELFDESTRUCT)) ;; give all the money to the other guy.
 
-(def (&check-participant-or-timeout! must-act: obliged-actor or-end-in-favor-of: other-actor)
+;; BEWARE: this function passes the actors by address reference, not by address value
+(def (&check-participant-or-timeout! must-act: obliged-actor@ or-end-in-favor-of: other-actor@)
   (&begin
-   (&call 'check-participant-or-timeout other-actor obliged-actor)
+   (&call 'check-participant-or-timeout other-actor@ obliged-actor@)
    POP)) ;; pop the other-actor@ left on the stack
