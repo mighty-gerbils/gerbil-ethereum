@@ -9,7 +9,7 @@
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
   :gerbil/gambit/hash :gerbil/gambit/ports
   :std/format :std/iter :std/misc/bytes :std/misc/completion :std/misc/hash :std/misc/list
-  :std/sort :std/srfi/1 :std/srfi/43 :std/sugar :std/text/json
+  :std/sort :std/srfi/1 :std/srfi/13 :std/srfi/43 :std/sugar :std/text/json
   :clan/base :clan/io :clan/json :clan/list
   :clan/maybe :clan/number :clan/syntax :clan/with-id
   :clan/poo/poo :clan/poo/io :clan/poo/rationaldict
@@ -42,11 +42,23 @@
 (defrule (delay-type type-expr)
   {(:: @ [DelayedType]) sexp: 'type-expr .get-delegate: (lambda () type-expr)})
 
+(def (number<-json j)
+  (cond
+    ((number? j) j)
+    ((string? j)
+     (cond
+       ((string-prefix? "0x" j) (nat<-0x j))
+       ((string-prefix? "#" j) (string->number (string-drop j 1)))
+       (else (string->number j))))
+    (else
+     (error 'number<-json
+       (format "expected a number or a string representing a number, given ~a" (json-object->string j))))))
+
 ;; Variable-length Nat
 (.def (Nat @ [methods.bytes<-marshal poo.Nat] .validate)
   .sexp<-: (lambda (x) `(nat<-0x ,(0x<-nat x)))
   .json<-: 0x<-nat
-  .<-json: (compose .validate nat<-0x))
+  .<-json: (compose .validate number<-json))
 
 (.def (NatSet @ RationalSet) sexp: 'NatSet Elt: Nat)
 
@@ -61,7 +73,7 @@
 ;; Integer types
 (.def (UInt. @ [poo.UInt.] .length-in-bits .length-in-bytes .validate)
   .json<-: 0x<-nat
-  .<-json: (compose .validate nat<-0x)
+  .<-json: (compose .validate number<-json)
   .ethabi-name: (format "uint~d" .length-in-bits)
   .ethabi-display-type: (cut display .ethabi-name <>)
   .ethabi-head-length: 32

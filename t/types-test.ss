@@ -47,6 +47,14 @@
 (def types-test
   (test-suite "test suite for ethereum/types"
    (parameterize ((json-symbolic-keys #f))
+    (test-case "Nat"
+      (check-equal? (<-json Nat "0x0") 0)
+      (check-equal? (<-json Nat 0) 0)
+      (check-equal? (<-json Nat "0x15") 21)
+      (check-equal? (<-json Nat 21) 21)
+      (check-rep (.@ Nat .<-json) (.@ Nat .json<-) "0x22" 34)
+      (check-rep (.@ Nat .<-json) (.@ Nat .json<-) "0x37" 55)
+      (check-rep (.@ Nat .<-json) (.@ Nat .json<-) "0x50" 80))
     (test-case "Record"
       (check-rep (compose .sorted-alist (.@ EthereumRpcConfig .<-json) list->hash-table)
                  (compose sort-alist hash->list (.@ EthereumRpcConfig .json<-) .<-alist)
