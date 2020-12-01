@@ -324,7 +324,7 @@
   (&begin
    DUP1 MLOAD ;; -- r sig@ ;; load the first word of sig
    DUP2 32 ADD MLOAD ;; -- s r sig@ ;; load the second word of sig
-   SWAP3 64 ADD (&mload 1))) ;; v r s ;; load the last byte of sig
+   SWAP2 64 ADD (&mload 1))) ;; v r s ;; load the last byte of sig
 
 ;; Validate on-stack signature
 (def &validate-sig-data ;; v r s <-- v r s
