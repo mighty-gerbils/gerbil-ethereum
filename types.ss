@@ -45,11 +45,9 @@
 (def (number<-json j)
   (cond
     ((number? j) j)
-    ((string? j)
-     (cond
-       ((string-prefix? "0x" j) (nat<-0x j))
-       ((string-prefix? "#" j) (string->number (string-drop j 1)))
-       (else (string->number j))))
+    ;; TODO: if necessary, `"#5050"` and `"5050"` cases from
+    ;; https://ethereum-tests.readthedocs.io/en/latest/test_types/rlp_tests.html
+    ((string? j) (nat<-0x j))
     (else
      (error 'number<-json
        (format "expected a number or a string representing a number, given ~a" (json-object->string j))))))
