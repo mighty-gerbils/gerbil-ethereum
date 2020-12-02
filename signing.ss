@@ -18,7 +18,7 @@
    .<-bytes: (λ (b) (secp256k1-secret-key (validate Bytes32 b)))
    .marshal: (λ (x port) (marshal Bytes32 (secp256k1-secret-key-data x) port))
    .unmarshal: (λ (port) (secp256k1-secret-key (unmarshal Bytes32 port)))
-   .sexp<-: (lambda (x) `(<-bytes SecretKey ,(.bytes<- x)))
+   .sexp<-: (lambda (x) `(<-json SecretKey ,(.json<- x)))
    .json<-: (compose 0x<-bytes .bytes<-)
    .<-json: (compose .<-bytes bytes<-0x)
    .string<-: .json<-
@@ -97,7 +97,7 @@
    .element?: (lambda (x) (and (secp256k1-sig? x) (element? Bytes65 (secp256k1-sig-data x))))
    .marshal: marshal-signature
    .unmarshal: unmarshal-signature
-   .sexp<-: (lambda (x) `(<-bytes Signature ,(.bytes<- x)))
+   .sexp<-: (lambda (x) `(<-json Signature ,(.json<- x)))
    .json<-: (compose 0x<-bytes .bytes<-)
    .<-json: (compose .<-bytes bytes<-0x))
 
