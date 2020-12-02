@@ -73,7 +73,7 @@
       (def logs (.@ receipt logs))
       (def receipt-log (first-and-only logs))
       (def log-contract-address (.@ receipt-log address))
-      (check-equal-bytes? log-contract-address contract)
+      (check-equal? log-contract-address contract)
       (def topic-event (first-and-only (.@ receipt-log topics)))
       (check-equal-bytes? topic-event (digest<-function-signature ["greetingsEvent" String]))
       ;; the log data is the encoding of the parameter passed to the event

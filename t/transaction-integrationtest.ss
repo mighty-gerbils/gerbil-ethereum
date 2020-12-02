@@ -24,11 +24,9 @@
 
 (register-keypair
  "Croesus"
- (keypair ;; KLUGE: Fake public and secret key data. We only use the address via Geth.
-  croesus
-  (<-json PublicKey "0x020000000000000000000000000000000000000000000000000000000000000001")
-  (<-json SecretKey "0x0000000000000000000000000000000000000000000000000000000000000001")
-  ""))
+ (keypair ;; SPECIAL: no public and secret key data. We only use the address via Geth withits password
+  ;; TODO: extract the private data from geth storage somehow?
+  croesus #f #f (import-password/string "")))
 
 ;; Ensure Geth can issue transactions for all test accounts
 (for-each ensure-eth-signing-key test-addresses)

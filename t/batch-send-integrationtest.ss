@@ -1,7 +1,7 @@
 (export #t)
 
 (import
-  :std/format :std/srfi/1 :std/test
+  :std/format :std/iter :std/misc/list-builder :std/srfi/1 :std/sugar :std/test
   :clan/persist/db :clan/decimal
   ../ethereum ../known-addresses ../json-rpc ../batch-send
   ./signing-test ./transaction-integrationtest)
@@ -11,18 +11,27 @@
 (def (display-balance display address balance)
   (display (nicknamed-string<-address address) balance))
 
-(def (get-address-missing-amount amount address)
+(def (get-address-missing-amount min-balance target-balance address)
+  (assert! (<= min-balance target-balance))
   (def balance (eth_getBalance address 'pending))
-  (printf (if (>= balance amount)
+  (printf (if (>= balance min-balance)
             "~a has ~a ether already. Good.\n"
             "~a has ~a ether only. Funding.\n")
           (nicknamed-string<-address address) (string<-decimal (/ balance one-ether-in-wei)))
-  (if (>= balance amount)
-    [] [[address (- amount balance)]]))
+  (if (>= balance min-balance) 0 (- target-balance balance)))
 
-(def (ensure-addresses-prefunded (croesus croesus) (min-balance one-ether-in-wei) (addresses test-addresses))
-  (batch-send croesus (append-map (cut get-address-missing-amount min-balance <>) addresses)
-              log: displayln))
+;; target-balance is more than min-balance, so we can go faster by not re-funding everytime.
+(def (ensure-addresses-prefunded
+      from: (croesus croesus)
+      to: (addresses test-addresses)
+      min-balance: (min-balance one-ether-in-wei)
+      target-balance: (target-balance (* 2 min-balance)))
+  (def needful-transfers
+    (with-list-builder (c)
+      (for (a addresses)
+        (let (b (get-address-missing-amount min-balance target-balance a))
+          (when (> b 0) (c [a b]))))))
+  (batch-send croesus needful-transfers log: displayln))
 
 (ensure-addresses-prefunded)
 
@@ -33,6 +42,7 @@
       (def balances-before (map (cut eth_getBalance <> 'pending) addresses))
       (def target-amount (+ (apply max balances-before) (expt 10 15))) ;; add one thousandth of an ETH in wei
       (printf "target-amount: ~a\n" target-amount)
-      (ensure-addresses-prefunded croesus target-amount addresses)
+      (ensure-addresses-prefunded from: croesus to: addresses
+                                  min-balance: target-amount target-balance: target-amount)
       (def balances-after (map (cut eth_getBalance <> 'pending) addresses))
       (check-equal? balances-after (make-list (length addresses) target-amount)))))

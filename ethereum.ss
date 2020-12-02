@@ -6,19 +6,13 @@
   :clan/poo/poo :clan/poo/io :clan/poo/brace
   (only-in :clan/poo/mop sexp<-)
   (only-in :clan/poo/type Sum define-sum-constructors)
-  ./types ./hex)
+  ./types ./hex ./signing)
 
 ;; TODO: implement and use a "newtype"
 (define-type Quantity UInt256)
 (define-type UInt UInt256)
 (define-type Digest Bytes32)
 (define-type Data Bytes)
-(define-type Address
-  {(:: @ Bytes20)
-   ethabi: "address"
-   .json<-: 0x<-address
-   .sexp<-: (lambda (x) `(address<-0x ,(0x<-address x)))
-  })
 (define-type Block UInt32) ;; block number: in practice fits in 32 bits, though officially UInt256
 (register-simple-eth-type Address)
 

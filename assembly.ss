@@ -5,7 +5,7 @@
   :std/misc/bytes :std/misc/number :std/sugar
   :clan/base :clan/number :clan/syntax
   :clan/poo/poo :clan/poo/io
-  ./types ./ethereum)
+  ./types ./ethereum ./signing)
 
 ;; In the future, segments can be nested, and
 ;; offset would be relative to a subsegment of a segment,
@@ -363,6 +363,7 @@
   (cond
    ((exact-integer? directive) (&push a directive))
    ((bytes? directive) (&push-bytes a directive))
+   ((address? directive) (&push-bytes  a (bytes<- Address directive)))
    ((procedure? directive) (directive a))
    ((pair? directive) (apply (car directive) a (cdr directive)))
    ((symbol? directive) (&push-label a directive))

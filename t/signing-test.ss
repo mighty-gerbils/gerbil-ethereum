@@ -1,10 +1,10 @@
 (export #t)
 
 (import
-  :gerbil/gambit/exceptions
-  :std/format :std/sugar
-  :std/test
-  :clan/poo/poo :clan/poo/brace :clan/poo/io
+  :gerbil/gambit/exceptions :gerbil/gambit/ports
+  :std/format :std/misc/list :std/misc/repr :std/sugar :std/test
+  :clan/exception
+  :clan/poo/poo :clan/poo/brace :clan/poo/io (only-in :clan/poo/mop sexp<- json<-)
   ../hex ../types ../ethereum ../known-addresses ../signing)
 
 (def (kp x) (keypair<-secret-key (bytes<-0x x) ""))
@@ -30,15 +30,35 @@
 ;; Register test keypairs
 (for-each (cut apply register-keypair <>) test-keypairs)
 
+(def (string<-exception e)
+  (call-with-output-string (lambda (port) (display-exception e port))))
+
+(def (show-representations name x (type #f))
+  (printf "~a:\n  display: ~a\n  write: ~s\n  pr: ~r\n" name x x x)
+  (defrule (X foo) (with-catch string<-exception (lambda () foo)))
+  (when type (printf "  json: ~a\n  sexp: ~a\n"
+                     (X (json-string<- type x)) (X (object->string (sexp<- type x))))))
+
 (def signing-test
   (test-suite "Test suite for ethereum/signing"
     (test-case "check test users"
-      (defrule (check-user name keys address pubkey)
-        (let* ((data (format "some arbitrary string for ~a to sign" name))
-               (signature (make-signature String (keypair-secret-key keys) data)))
-          (check-equal? (json<- PublicKey (keypair-public-key keys)) pubkey)
-          (check-equal? (json<- Address (keypair-address keys)) address)
-          (check-equal? (signature-valid? String (keypair-address keys) signature data) #t)))
+      (defrule (check-user name keys addressj pubkeyj)
+        (with-logged-exceptions ()
+          (show-representations keypair: keys Keypair)
+          (def data (format "some arbitrary string for ~a to sign" name))
+          (def address (keypair-address keys))
+          (show-representations address: address Address)
+          (def pubkey (keypair-public-key keys))
+          (show-representations pubkey: pubkey PublicKey)
+          (def seckey (keypair-secret-key keys))
+          (show-representations seckey: seckey SecretKey)
+          (def passwd (keypair-password keys))
+          (show-representations password: passwd Password)
+          (def signature (make-signature String seckey data))
+          (show-representations signature: signature Signature)
+          (check-equal? (json<- PublicKey pubkey) pubkeyj)
+          (check-equal? (json<- Address address) addressj)
+          (check-equal? (signature-valid? String address signature data) #t)))
       (check-user "Alice" alice-keys "0xC54e86DFFb87B9736E2E35DD85c775358F1c31CE"
                   "0x045562695c85f88f6cbaec121d2a3da6666c5dc8540d86358bd569a1882bbe6ddcf45b76f5643133939c8e7a339947ca1b115290d577343023d79c256dbc54bc97")
       (check-user "Bob" bob-keys "0x9CcaEd210CE8c0Cb49c5Ad1C4f583406c264BA69"

@@ -21,7 +21,8 @@
   (unless keypair
     (error "No registered keypair for address" 'ensure-eth-signing-key address))
   (try
-   (personal_importRawKey (hex-encode (keypair-secret-key keypair)) (keypair-password keypair)
+   (personal_importRawKey (hex-encode (export-secret-key/bytes (keypair-secret-key keypair)))
+                          (export-password/string (keypair-password keypair))
                           timeout: timeout log: log)
    (catch (json-rpc-error? e)
      (unless (equal? (json-rpc-error-message e) "account already exists")
@@ -34,7 +35,7 @@
 (def (unlock-account address duration: (duration 5) log: (log #f))
   (when log (log "ethereum-transaction: unlock-account ~a ~a" address duration))
   (def keypair (keypair<-address address))
-  (personal_unlockAccount address (keypair-password keypair) duration))
+  (personal_unlockAccount address (export-password/string (keypair-password keypair)) duration))
 
 ;; : Bool <- TransactionReceipt
 (def (successful-receipt? receipt)
@@ -111,7 +112,8 @@
   (def address (.@ transaction tx-header sender))
   (def kp (keypair<-address address))
   (unless kp (error "Couldn't find registered keypair" (json<- Address address)))
-  (personal_signTransaction (TransactionParameters<-Transaction transaction) (keypair-password kp)))
+  (personal_signTransaction (TransactionParameters<-Transaction transaction)
+                            (export-password/string (keypair-password kp))))
 
 ;; : TransactionReceipt <- Address Digest
 (def (confirmed-or-known-issue sender hash)

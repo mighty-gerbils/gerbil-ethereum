@@ -473,9 +473,8 @@
 
 ;; FOR DEBUGGING ONLY -- temporary replacement for SELFDESTRUCT
 ;; so the remix interface won't be confused by the attempts at debugging
-;; a now defunct contract.
-(def &SELFDESTRUCT
-  (&begin BALANCE 0 0 RETURN SELFDESTRUCT))
+;; a now-defunct contract.
+;;;;(def &SELFDESTRUCT (&begin BALANCE 0 0 RETURN SELFDESTRUCT))
 
 ;; Define the end-contract library function, if reachable.
 ;; TODO: one and only one of end-contract or tail-call shall just precede the commit-contract-call function!
@@ -487,7 +486,7 @@
   (&begin
    [&jumpdest 'suicide]
    (penny-collector-address) ;; send any leftover money to this address!
-   &SELFDESTRUCT
+   SELFDESTRUCT
    [&jumpdest 'end-contract]
    0 0 SSTORE 'suicide [&jump1 'commit-contract-call]))
 
@@ -514,7 +513,7 @@
    JUMPI ;; if the caller matches, return to the program. Jump or not, the stack is: -- other-actor@
    ;; TODO: support some amount being in escrow for the obliged-actor and returned to him
    ;; Also support ERC20s, etc.
-   (&check-timeout!) (&mload 20) &SELFDESTRUCT)) ;; give all the money to the other guy.
+   (&check-timeout!) (&mload 20) SELFDESTRUCT)) ;; give all the money to the other guy.
 
 ;; BEWARE: this function passes the actors by address reference, not by address value
 (def (&check-participant-or-timeout! must-act: obliged-actor@ or-end-in-favor-of: other-actor@)

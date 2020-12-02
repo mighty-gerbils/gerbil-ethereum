@@ -50,8 +50,8 @@
 
     (test-case "0x <-> address"
       (for-each (lambda (hex)
-                  (check-equal? (0x<-address (bytes<-0x hex)) hex)
-                  (check-equal? (address<-0x hex) (bytes<-0x hex)))
+                  (check-equal? (0x<-address-bytes (bytes<-0x hex)) hex)
+                  (check-equal? (address-bytes<-0x hex) (bytes<-0x hex)))
                 [;; These 4 test vectors are from EIP-55 itself:
                  "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
                  "0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359"
@@ -63,7 +63,7 @@
                  ])
       (for-each (match <>
                   ([hex err]
-                   (check-equal? (with-catch error-message (cut address<-0x hex)) err)))
+                   (check-equal? (with-catch error-message (cut address-bytes<-0x hex)) err)))
                 [["0x9797809415e4b8efea0963e362ff68b9d98f9e00"
                   "Invalid address checksum \"0x9797809415e4b8efea0963e362ff68b9d98f9e00\" 12\n"]
                  ["0x507877C2E26f1387432D067D2DaAfa7D0420d90a"

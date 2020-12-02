@@ -3,7 +3,7 @@
 (import
   :gerbil/gambit/bytes
   :clan/base :clan/poo/poo (only-in :clan/poo/mop) :clan/poo/io
-  ./hex ./types ./ethereum ./known-addresses
+  ./hex ./types ./signing ./known-addresses ./ethereum
   ./assembly ./transaction ./tx-tracker ./contract-config ./contract-runtime)
 
 ;;; EVM Contract for batch transfers.
@@ -84,7 +84,7 @@
 ;; return the ContractConfig for that contract.
 (def (ensure-batch-send-contract owner log: (log #f))
   (def config (ensure-contract-config/db
-               (u8vector-append (string->bytes "BATC") owner)
+               (u8vector-append (string->bytes "BATC") (bytes<- Address owner))
                (create-contract owner (batch-contract-init owner))))
   (when log (log "batch contract for: " (0x<-address owner) " " (nickname<-address owner) " is: "
                   (json-string<- ContractConfig config)))
@@ -93,6 +93,7 @@
 ;; : <- Address (Listof (List Address UInt96))
 (def (batch-send sender transfers log: (log #f))
   (def (fmt address amount)
+    (validate UInt96 amount)
     (bytes-append (bytes<- Address address)
                   (bytes<- UInt96 amount)))
   (def data (apply bytes-append (map (cut apply fmt <>) transfers)))

@@ -96,8 +96,8 @@
 
 ;; Address format with builtin checksum, from EIP-55
 ;; https://github.com/ethereum/EIPs/blob/master/EIPS/eip-55.md
-(def (0x<-address address)
-  (def hex-digits (0x<-bytes address))
+(def (0x<-address-bytes address-bytes)
+  (def hex-digits (0x<-bytes address-bytes))
   (def hashed-digits (keccak256<-string (substring hex-digits 2 42)))
   (for (i (in-range 40))
     (def j (+ i 2))
@@ -126,6 +126,6 @@
                                     (if (even? i) #x80 #x08)))))
       (error "Invalid address checksum" hs (+ i 2))))))
 
-(def (address<-0x hs)
+(def (address-bytes<-0x hs)
   (validate-address-0x hs)
   (bytes<-0x hs))

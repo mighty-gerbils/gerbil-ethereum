@@ -7,7 +7,7 @@
   (only-in :clan/poo/mop define-type)
   :clan/persist/db
   :clan/crypto/keccak
-  ./hex ./types ./known-addresses ./ethereum ./json-rpc ./transaction ./tx-tracker)
+  ./hex ./types ./known-addresses ./signing ./ethereum ./json-rpc ./transaction ./tx-tracker)
 
 (define-type ContractConfig
   (Record

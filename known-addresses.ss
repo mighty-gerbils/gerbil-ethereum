@@ -1,10 +1,54 @@
 (export #t)
 
 (import
-  :std/format :clan/json
-  :clan/poo/io
-  (only-in :clan/poo/type Map)
+  :std/format :std/sort :std/sugar
+  :clan/json
+  :clan/poo/io (only-in :clan/poo/type Map) :clan/poo/brace :clan/poo/poo (only-in :clan/poo/mop sexp<-)
+  :clan/crypto/secp256k1
   ./hex ./types ./signing)
+
+(defstruct keypair (address public-key secret-key password) equal: #t)
+
+(define-type Keypair
+  {(:: @ Type.)
+   ;;Reduced: (Record seckey: [SecretKey] password: [Password])
+   .element?: keypair?
+   .sexp<-: (lambda (kp) `(<-json Keypair ,(.json<- kp))) ;; do NOT export private data
+   .json<-: (lambda (kp) (json<- Address (keypair-address kp)))
+   .<-json: (lambda (j) (keypair<-address (<-json Address j)))})
+
+(def (keypair-reducible? kp)
+  (and (equal? (keypair-address kp)
+               (address<-public-key (keypair-public-key kp)))
+       (equal? (keypair-public-key kp)
+               (secp256k1-pubkey<-seckey (secp256k1-seckey-data (keypair-secret-key kp))))))
+
+;; USE WITH CARE: this function exposes information that is meant to remain private.
+;; Do NOT use lightly anywhere in production but in the most trusted wallet-management layer.
+(def (export-keypair/json kp)
+  (hash ("address" (json<- Address (keypair-address kp)))
+        ("seckey" (json<- SecretKey (keypair-secret-key kp)))
+        ("pubkey" (json<- PublicKey (keypair-public-key kp)))
+        ("password" (json<- Password (keypair-password kp)))))
+(def (import-keypair/json j)
+  (assert! (equal? (sort (hash-keys j) string<?) '("address" "password" "pubkey" "seckey")))
+  (keypair (<-json Address (hash-get j "address"))
+           (<-json SecretKey (hash-get j "seckey"))
+           (<-json PublicKey (hash-get j "pubkey"))
+           (<-json Password (hash-get j "password"))))
+;;Why can't we do that???
+;;(defmethod (@@method :pr Keypair)
+;;  (λ (self (port (current-output-port)) (options (current-representation-options)))
+;;    (write (sexp<- Keypair self) port)))
+
+(def (keypair<-secret-key seckey-data passwd)
+  (validate Bytes32 seckey-data)
+  (validate String passwd)
+  (def seckey (secp256k1-seckey seckey-data))
+  (def pubkey (secp256k1-pubkey<-seckey seckey-data))
+  (def address (address<-public-key pubkey))
+  (keypair address pubkey seckey (password passwd)))
+
 
 ;; TODO: handle collisions, exceptions.
 ;; TODO: make these tables Scheme parameters?

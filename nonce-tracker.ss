@@ -9,7 +9,7 @@
   (only-in :clan/poo/mop define-type Fun)
   (only-in :clan/poo/type Maybe)
   :clan/persist/db :clan/persist/persist
-  ./types ./ethereum ./json-rpc)
+  ./types ./ethereum ./signing ./json-rpc)
 
 (define-type NonceOperation
   (Enum Peek Next Reset))

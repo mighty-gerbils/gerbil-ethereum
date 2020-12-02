@@ -7,7 +7,7 @@
   (only-in :clan/poo/mop define-type)
   (only-in :clan/poo/number JsInt)
   (only-in :clan/poo/type List Maybe)
-  ./types ./ethereum)
+  ./types ./signing ./ethereum)
 
 ;; TODO: move to another file.
 ;; TODO: for end-user reporting, use error contexts as ported from quux or cl-scripting.

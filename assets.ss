@@ -5,7 +5,7 @@
 (export #t)
 (import
   :clan/poo/poo
-  ./assembly ./types ./ethereum ./abi ./contract-runtime)
+  ./assembly ./types ./ethereum ./abi ./contract-runtime ./signing)
 
 (.def (Ether @ UInt96 ;; or should it just be UInt256 ???
        .length-in-bytes .length-in-bits)
