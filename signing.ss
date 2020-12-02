@@ -1,22 +1,53 @@
 (export #t)
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/foreign
-  :std/sugar
+  :std/sugar :std/misc/repr
   :clan/base :clan/poo/poo (only-in :clan/poo/mop Any Type. define-type) :clan/poo/brace :clan/poo/io
   :clan/crypto/keccak :clan/crypto/secp256k1
   ./types ./hex
   )
 
-(define-type SecretKey Bytes32)
+;; NB: We hide secret keys behind an opaque data structure, so the data won't leak as easily.
+(defstruct secp256k1-secret-key (data) print: #f equal: #t)
+(define-type SecretKey
+  {(:: @ [Type.])
+   sexp: 'SecretKey
+   .length-in-bytes: 32
+   .element?: (lambda (x) (and (secp256k1-secret-key? x) (element? Bytes32 (secp256k1-secret-key-data x))))
+   .bytes<-: (λ (x) (secp256k1-secret-key-data x))
+   .<-bytes: (λ (b) (secp256k1-secret-key (validate Bytes32 b)))
+   .marshal: (λ (x port) (marshal Bytes32 (secp256k1-secret-key-data x) port))
+   .unmarshal: (λ (port) (secp256k1-secret-key (unmarshal Bytes32 port)))
+   .sexp<-: (lambda (x) `(<-bytes SecretKey ,(.bytes<- x)))
+   .json<-: (compose 0x<-bytes .bytes<-)
+   .<-json: (compose .<-bytes bytes<-0x)
+   .string<-: .json<-
+   .<-string: .<-json})
 
 ;; Should we store the pubkey as a foreign object, or as bytes to be parsed each time?
+;; TODO: implement :pr methods so we can have easy access to the 0x representation.
 (define-type PublicKey
   {(:: @ [methods.marshal<-bytes Type.])
    .element?: (lambda (x) (and (foreign? x) (equal? (foreign-tags x) '(secp256k1-pubkey*))))
    .bytes<-: bytes<-secp256k1-pubkey
    .<-bytes: secp256k1-pubkey<-bytes
    .json<-: (lambda (x) (json<- Bytes (.bytes<- x)))
-   .<-json: (lambda (x) (.<-bytes (<-json Bytes x)))})
+   .<-json: (lambda (x) (.<-bytes (<-json Bytes x)))
+   .string<-: .json<-
+   .<-string: .<-json})
+
+(defstruct password (string) print: #f equal: #t)
+(define-type Password
+  {(:: @ [methods.marshal<-bytes Type.])
+   sexp: 'Password
+   .element?: (lambda (x) (and (password? x) (element? String (password-string x))))
+   .string<-: password-string
+   .<-string: (compose make-password (.@ String .validate))
+   .bytes<-: (compose (.@ String .bytes<-) .string<-)
+   .<-bytes: (compose .string<- (.@ String .<-bytes))
+   .sexp<-: (lambda (x) `(<-string Password ,(.string<- x)))
+   .json<-: .string<-
+   .<-json: .<-string})
 
 (defstruct keypair (address public-key secret-key password) transparent: #t)
 
@@ -24,9 +55,9 @@
   {(:: @ Type.)
     .element?: keypair?
     .json<-: (lambda (kp) (hash ("seckey" (json<- SecretKey (keypair-secret-key kp)))
-                           ("password" (keypair-password kp))))
+                           ("password" (json<- Password (keypair-password kp)))))
     .<-json: (lambda (h) (keypair<-secret-key (<-json SecretKey (hash-get h "seckey"))
-                                         (hash-get h "password")))})
+                                         (<-json Password (hash-get h "password"))))})
 
 #;(Record
    address: [Address]
@@ -49,10 +80,11 @@
 
 (defstruct secp256k1-signature (data) print: #f equal: #t)
 
+;; TODO: Handle decoding to/from Ethereum-style v,r,s with magic chain-id dependent v.
 (def (marshal-signature signature port)
   (defvalues (bytes recid) (bytes<-secp256k1-recoverable-signature (secp256k1-signature-data signature)))
   (write-bytes bytes port)
-  (write-byte (+ recid 27) port)) ;; TODO: handle the way that ethereum uses an offset different from 27?
+  (write-byte (+ recid 27) port))
 
 (def (unmarshal-signature port)
   (def compact (read-bytes 64 port))
@@ -68,6 +100,11 @@
    .sexp<-: (lambda (x) `(<-bytes Signature ,(.bytes<- x)))
    .json<-: (compose 0x<-bytes .bytes<-)
    .<-json: (compose .<-bytes bytes<-0x))
+
+#; ;;TODO: figure out why this message will work at the REPL but not here even with (import :std/misc/repr) (import :clan/poo/brace) and/or (import (prefix-in (only-in <MOP> @method) @))
+(defmethod (@@method :pr secp256k1-signature)
+  (λ (self (port (current-output-port)) (options (current-representation-options)))
+    (write (sexp<- Signature self) port)))
 
 (define-type Signed
   (Record payload: [Any] signature: [Signature]))
