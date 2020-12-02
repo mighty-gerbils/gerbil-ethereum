@@ -78,23 +78,23 @@
   (def address (address<-public-key public-key))
   (keypair address public-key seckey password))
 
-(defstruct secp256k1-signature (data) print: #f equal: #t)
+(defstruct secp256k1-sig (data) print: #f equal: #t)
 
 ;; TODO: Handle decoding to/from Ethereum-style v,r,s with magic chain-id dependent v.
 (def (marshal-signature signature port)
-  (defvalues (bytes recid) (bytes<-secp256k1-recoverable-signature (secp256k1-signature-data signature)))
+  (defvalues (bytes recid) (bytes<-secp256k1-recoverable-signature (secp256k1-sig-data signature)))
   (write-bytes bytes port)
   (write-byte (+ recid 27) port))
 
 (def (unmarshal-signature port)
   (def compact (read-bytes 64 port))
   (def recid (- (read-byte port) 27))
-  (secp256k1-signature (secp256k1-recoverable-signature<-bytes compact recid)))
+  (secp256k1-sig (secp256k1-recoverable-signature<-bytes compact recid)))
 
 (.def (Signature @ [methods.bytes<-marshal Type.] .bytes<- .<-bytes)
    sexp: 'Signature
    .length-in-bytes: 65
-   .element?: (lambda (x) (and (secp256k1-signature? x) (element? Bytes65 (secp256k1-signature-data x))))
+   .element?: (lambda (x) (and (secp256k1-sig? x) (element? Bytes65 (secp256k1-sig-data x))))
    .marshal: marshal-signature
    .unmarshal: unmarshal-signature
    .sexp<-: (lambda (x) `(<-bytes Signature ,(.bytes<- x)))
@@ -102,7 +102,7 @@
    .<-json: (compose .<-bytes bytes<-0x))
 
 #; ;;TODO: figure out why this message will work at the REPL but not here even with (import :std/misc/repr) (import :clan/poo/brace) and/or (import (prefix-in (only-in <MOP> @method) @))
-(defmethod (@@method :pr secp256k1-signature)
+(defmethod (@@method :pr secp256k1-sig)
   (λ (self (port (current-output-port)) (options (current-representation-options)))
     (write (sexp<- Signature self) port)))
 
@@ -111,7 +111,7 @@
 
 ;; Signature <- 'a:Type SecKey 'a
 (def (make-message-signature secret-key message32)
-  (secp256k1-signature
+  (secp256k1-sig
    (make-secp256k1-recoverable-signature message32 secret-key)))
 
 ;; Signature <- 'a:Type SecKey 'a
@@ -122,7 +122,7 @@
 (def (message-signature-valid? address signature message32)
   (with-catch false
     (lambda ()
-      (def pubkey (secp256k1-recover (secp256k1-signature-data signature) message32))
+      (def pubkey (secp256k1-recover (secp256k1-sig-data signature) message32))
       (equal? address (address<-public-key pubkey)))))
 
 ;; Bool <- 'a:Type Address Signature 'a
