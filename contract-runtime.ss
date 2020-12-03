@@ -504,7 +504,7 @@
 ;; FOR DEBUGGING ONLY -- temporary replacement for SELFDESTRUCT
 ;; so the remix interface won't be confused by the attempts at debugging
 ;; a now-defunct contract.
-;;;;(def &SELFDESTRUCT (&begin BALANCE 0 0 RETURN SELFDESTRUCT))
+(def &SELFDESTRUCT-DEBUG (&begin BALANCE 0 0 RETURN SELFDESTRUCT))
 
 ;; Define the end-contract library function, if reachable.
 ;; TODO: one and only one of end-contract or tail-call shall just precede the commit-contract-call function!
@@ -513,11 +513,11 @@
 ;; or can be anywhere with a jump in the end, with an expected use frequency function
 ;; to prefer one the most used one over the alternatives?
 ;; TESTING STATUS: Used by buy-sig.
-(def (&define-end-contract)
+(def (&define-end-contract debug: (debug #f))
   (&begin
    [&jumpdest 'suicide]
    (penny-collector-address) ;; send any leftover money to this address!
-   SELFDESTRUCT
+   (if debug &SELFDESTRUCT SELFDESTRUCT)
    [&jumpdest 'end-contract]
    0 0 SSTORE 'suicide [&jump1 'commit-contract-call]))
 
