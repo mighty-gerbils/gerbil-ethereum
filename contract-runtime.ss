@@ -504,7 +504,10 @@
 ;; FOR DEBUGGING ONLY -- temporary replacement for SELFDESTRUCT
 ;; so the remix interface won't be confused by the attempts at debugging
 ;; a now-defunct contract.
-(def &SELFDESTRUCT-DEBUG (&begin BALANCE 0 0 RETURN SELFDESTRUCT))
+(def (&SELFDESTRUCT debug: (debug #f))
+  (if debug
+    (&begin BALANCE SWAP1 &send-ethers! 0 0 RETURN SELFDESTRUCT)
+    SELFDESTRUCT))
 
 ;; Define the end-contract library function, if reachable.
 ;; TODO: one and only one of end-contract or tail-call shall just precede the commit-contract-call function!
@@ -517,7 +520,7 @@
   (&begin
    [&jumpdest 'suicide]
    (penny-collector-address) ;; send any leftover money to this address!
-   (if debug &SELFDESTRUCT SELFDESTRUCT)
+   (&SELFDESTRUCT debug: debug)
    [&jumpdest 'end-contract]
    0 0 SSTORE 'suicide [&jump1 'commit-contract-call]))
 
@@ -541,14 +544,14 @@
 ;; BEWARE! This is for two-participant contracts only,
 ;; where all the money is on the table, no other assets than Ether.
 ;; TESTING STATUS: Used by buy-sig. Incompletely untested.
-(def (&define-check-participant-or-timeout)
+(def (&define-check-participant-or-timeout debug: (debug #f))
   (&begin ;; obliged-actor@ other-actor@ ret@C --> other-actor@
    [&jumpdest 'check-participant-or-timeout]
    (&mload 20) CALLER EQ #|-- ok? other@ ret@C|# SWAP1 SWAP2 #|-- ret@C ok? other@ |#
    JUMPI ;; if the caller matches, return to the program. Jump or not, the stack is: -- other-actor@
    ;; TODO: support some amount being in escrow for the obliged-actor and returned to him
    ;; Also support ERC20s, etc.
-   (&check-timeout!) (&mload 20) SELFDESTRUCT)) ;; give all the money to the other guy.
+   (&check-timeout!) (&mload 20) (&SELFDESTRUCT debug: debug))) ;; give all the money to the other guy.
 
 ;; BEWARE: this function passes the actors by address reference, not by address value
 ;; TESTING STATUS: Used by buy-sig.
