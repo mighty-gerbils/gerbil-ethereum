@@ -501,12 +501,20 @@
 (def (penny-collector-address)
   (.@ (current-ethereum-network) pennyCollector))
 
-;; FOR DEBUGGING ONLY -- temporary replacement for SELFDESTRUCT
-;; so the remix interface won't be confused by the attempts at debugging
-;; a now-defunct contract.
-(def (&SELFDESTRUCT debug: (debug #f))
+;; SELFDESTRUCT WITH DEBUG SUPPORT
+;; If debug is true, e.g. for debugging, emulate most of the behavior of SELFDESTRUCT
+;; in a way that won't confuse the remix interface (that won't show code for destroyed contracts):
+;; 1- Send contract balance to temporary replacement for SELFDESTRUCT,
+;; 2- Make the contract unusable (assuming it uses our ABI) by putting 0 in its state digest
+;; 3- Successfully commit the transaction by RETURNing an empty array of bytes.
+;; Discrepancies from actual SELFDESTRUCT:
+;; If the contract doesn't use our ABI, then step 2 is useless and the contract might still be "usable".
+;; Also, a real SELFDESTRUCT costs much less gas and always succeeds to send with no opportunity
+;; for the recipient to either log data or deny the request.
+(def (&SELFDESTRUCT debug: (debug #f)) ;; address -->
   (if debug
-    (&begin BALANCE SWAP1 &send-ethers! 0 0 RETURN SELFDESTRUCT)
+    (&begin BALANCE SWAP1 &send-ethers! ;; 1. send all the remaining ethers to given address
+            0 DUP1 DUP1 DUP1 SSTORE RETURN) ;; 2. blank out next state digest, 3. return empty array.
     SELFDESTRUCT))
 
 ;; Define the end-contract library function, if reachable.
