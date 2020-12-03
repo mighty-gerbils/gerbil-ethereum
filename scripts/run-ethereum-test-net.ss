@@ -1,5 +1,5 @@
 #!/usr/bin/env gxi
-;; Run your own local private copy of Ethereum as a node on localhost, for testing purposes
+;; Run your own local private copy of Go-Ethereum as a node on localhost, for testing purposes
 
 ;; TODO: learn from the following script: https://github.com/dapphub/dapptools/blob/master/src/dapp/libexec/dapp/dapp---testnet-launch
 ;; TODO: implement another script that starts an entire network with many nodes and some given geometry
