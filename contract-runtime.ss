@@ -45,7 +45,8 @@
 ;;
 ;; * Large "cross-contract" that involve DELEGATECALL and possibly CREATE2 to break the code size barrier.
 ;;   Notably useful for state channels
-;;   Expensive in GAS, plus double-copying of arguments from CALLDATA to memory to CALLDATA.
+;;   Expensive in GAS, plus double-copying of arguments from CALLDATA to memory to CALLDATA,
+;;   then of results to memory with RETURNDATACOPY.
 ;;   But OK if only used in case of disputes, where the loser covers the fees.
 ;;
 ;; * Huge "virtualized" functions that use a VM on top of the EVM with challenge for execution verification.
@@ -86,6 +87,7 @@
 ;; Given the assembled runtime code as a vector for a contract,
 ;; assemble code to initialize the contract;
 ;; NB: any storage initialization must happen BEFORE that.
+;; TESTING STATUS: Used by batch-send
 (def (&trivial-contract-init contract-runtime)
   (&begin
    ;; Push args for RETURN; doing it in this order saves one byte and some gas
@@ -102,12 +104,14 @@
 
 ;; Generic initialization code for stateless contracts
 ;; : Bytes <- Bytes
+;; TESTING STATUS: Used by batch-send
 (def (stateless-contract-init contract-runtime)
   (assemble/bytes (&trivial-contract-init contract-runtime)))
 
 ;; Generic initialization code for stateful contracts of any allowable size (<= 24KiB),
 ;; where the initial state is a single merklized data point.
 ;; : Bytes <- Bytes32 Bytes
+;; TESTING STATUS: Used by buy-sig
 (def (stateful-contract-init state-digest contract-runtime)
   (assemble/bytes [state-digest 0 SSTORE (&trivial-contract-init contract-runtime)]))
 
@@ -211,6 +215,7 @@
 ;; TODO: Don't log old merkleized data (top frame, but also other frames), but check it,
 ;; and log new data, albeit maybe in many chunks of ~400 words (~14KB) Find the optimal solution in gas.
 ;;
+;; TESTING STATUS: Used by buy-sig
 (def &simple-contract-prelude ;; [39B, ?G]
   (&begin
    ;; Init vs running convention!
@@ -243,6 +248,7 @@
 ;; and the length is in multiple of 32-byte-words, and it's ok if this includes padding.
 ;; We assumes this code will be compiled into the first 256 bytes of code, if present
 ;; By contrast, a series of mloadat, mstoreat 32 bytes at a time is [8*LEN B,12*LEN G]
+;; TESTING STATUS: Never tested
 (def &define-unsafe-memcopy
   (&begin
    [&jumpdest 'unsafe-memcopy-body]
@@ -255,14 +261,17 @@
 
 ;; If condition is TRUE then abort
 ;; Pseudocode: (lambda (x) (when (truish? x) (abort!)))
+;; TESTING STATUS: Used by buy-sig
 (def &require-not! (&begin 'abort-contract-call JUMPI)) ;; [3B, 13G]
 
 ;; If condition is FALSE then abort
 ;; Pseudocode: (lambda (x) (unless (truish? x) (abort!)))
+;; TESTING STATUS: Used by buy-sig
 (def &require! (&begin ISZERO &require-not!)) ;; [4B, 16G]
 
 ;; Check the requirement that the amount actually deposited in the call (from CALLVALUE) is sufficient
 ;; to cover the amount that the contract believes should have been deposited (from deposit@ MLOAD).
+;; TESTING STATUS: Insufficiently tested
 (def &check-sufficient-deposit
   (&begin deposit@ MLOAD CALLVALUE LT &require-not!)) ;; [8B, 25G]
 
@@ -270,11 +279,13 @@
 ;; whereby whoever posts the message to the blockchain might not be the participant,
 ;; and instead, the participant signs the in-contract message.
 ;;;;(def check-correct-participant/posting-market [participant@ MLOAD ...])
+;; TESTING STATUS: Insufficiently tested
 (def &check-participant!
   ;; Scheme pseudocode: (lambda (participant) (require! (eqv? (CALLER) participant)))
   (&begin CALLER EQ &require!)) ;; [6B, 21G]
 
 ;; Safely add two UInt256, checking for overflow
+;; TESTING STATUS: Insufficiently tested
 (def &safe-add
   ;; Scheme pseudocode: (lambda (x y) (def s (+ x y)) (require! (< (integer-length s) 256)) s)
   ;; (unless (> 2**256 (+ x y)) (abort))
@@ -286,6 +297,7 @@
 
 ;; *Assuming* x y are both non-negative integers of integer-length n-bits or less,
 ;; abort unless their sum is also of integer-length n-bits, return the sum
+;; TESTING STATUS: Wholly untested
 (def (&safe-add/n-bits n-bits)
   (assert! (and (exact-integer? n-bits) (<= 0 n-bits 256)) "Bad n-bits for &safe-add/n-bits")
   (cond
@@ -295,10 +307,12 @@
 
 ;; Assuming x y are both of integer-length n-bits or less,
 ;; abort unless their sum is also of integer-length n-bits, return the sum
+;; TESTING STATUS: Wholly untested
 (def &safe-sub ;; [7B, 25G]
   (&begin DUP2 DUP2 LT &require-not! SUB))
 
 ;; Multiply two UInt256, abort if the product overflows UInt256.
+;; TESTING STATUS: Wholly untested
 (def (&safe-mul) ;; [23B, 72G]
   (let ((safe-mul-body (generate-label 'safe-mul-body))
         (safe-mul-end (generate-label 'safe-mul-end)))
@@ -309,19 +323,23 @@
      SWAP2 #|y x xy|# DUP3 #|xy|# DIV ;; -- xy/y x xy [3B, 11G]
      EQ &require! [&jumpdest safe-mul-end]))) ;; -- xy [6B, 20G]
 
+;; TESTING STATUS: Wholly untested
 (def &deposit!
   ;; Scheme pseudocode: (lambda (amount) (increment! deposit amount))
   ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
   (&begin deposit@ MLOAD &safe-add deposit@ MSTORE)) ;; [14B, 40G]
 
+;; TESTING STATUS: Wholly untested.
 (def &send-ethers!
   (&begin ;; -- address value
    0 DUP1 DUP1 SWAP5 DUP2 SWAP5 GAS ;; -- gas address value 0 0 0 0
    CALL &require!)) ;; -- Transfer!
 
 ;; TODO: group the withdrawals at the end, like the deposit checks?
+;; TESTING STATUS: Wholly untested.
 (def &withdraw! &send-ethers!)
 
+;; TESTING STATUS: Used in buy-sig. TODO: we should also test with a bad signature.
 (def &mload/signature ;; v r s <-- signature@
   (&begin
    DUP1 MLOAD ;; -- r sig@ ;; load the first word of sig
@@ -329,16 +347,21 @@
    SWAP2 64 ADD (&mload 1))) ;; v r s ;; load the last byte of sig
 
 ;; Validate on-stack signature
+;; TESTING STATUS: Wholly untested.
 (def &validate-sig-data ;; v r s <-- v r s
   (&begin
    DUP1 27 SUB 2 GT ;; check that v is 27 or 28, which prevents malleability (not 29 or 30)
    #x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0 DUP5 GT ;; s <= s_max
    OR &require-not!))
 
+;; TESTING STATUS: Wholly untested.
 (def (&unsafe-post-increment-at! addr increment)
   (&begin addr MLOAD DUP1 increment ADD addr MSTORE)) ;; for small address, small size [10B, 21G]
 
+;; TESTING STATUS: Wholly untested. TODO: shouldn't that already be defined by some above macro?
 (def &brk (&begin brk@ MLOAD)) ;; [3B, 6G]
+
+;; TESTING STATUS: Wholly untested.
 (def (&brk-cons n-bytes)
   ;; Note the optimization wherein we can write extra zeros *after* the destination address
   ;; since we're mixing data with yet unwritten zeroes anyway
@@ -352,6 +375,7 @@
    (else (&begin (- 256 (* 8 n-bytes)) SHL (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))))
 
 ;; call precompiled contract #1 to recover the signer and message from a signature
+;; TESTING STATUS: Used by buy-sig
 (def &ecrecover0 ;; -- v r s digest --> address success
   (&begin
    &brk ;; -- brk digest v r s
@@ -362,12 +386,14 @@
    32 DUP2 #|brk|# 128 DUP2 #|brk|# 0 1 GAS ;; -- gas address value argstart:brk argwidth:128 retstart:brk retwidth:32 brk
    STATICCALL SWAP1 MLOAD))
 
+;; TESTING STATUS: Used by buy-sig. TODO: check with bad signature.
 (def &isValidSignature ;; -- signature digest signer --> bool
   (&begin ;; -- signature digest signer
    &mload/signature ;; -- v r s digest signer
    DUP4 #|digest|# &ecrecover0 ;; -- address success digest signer
    DUP4 #|signer|# EQ AND SWAP2 POP POP)) ;; -- bool
 
+;; TESTING STATUS: Wholly untested.
 (def (&read-published-datum (n-bytes 32))
   ;; Scheme pseudocode: (lambda () (extract-top-bytes (calldata-ref (post-increment! calldatapointer n)) n))
   (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
@@ -376,6 +402,7 @@
     (&begin calldatapointer@ MLOAD DUP1 #| calldatapointer@ |# 32 + calldatapointer@ MSTORE CALLDATALOAD
             (when (< n-bytes 32) (&begin (* 8 (- 32 n-bytes)) SHR)))))
 
+;; TESTING STATUS: Used by buy-sig.
 (def &read-published-data-to-mem
   (&begin ;; -- memaddr size
    calldatapointer@ MLOAD DUP1 #|calldatapointer@|# DUP4 #|size|# ADD
@@ -384,6 +411,7 @@
 
 ;; NB: must be put just *before* the &define-*-logging, so it will fall through it
 ;; if the tail call is to be handled by another participant
+;; TESTING STATUS: Wholly untested.
 (def &define-tail-call
   (&begin
    [&jumpdest 'stop-contract-call]
@@ -400,6 +428,7 @@
    [&jumpi1 'commit-contract-call])) ;; update the state, then commit and finally stop
 
 ;; Logging the data, simple version, optimal for messages less than 6000 bytes of data.
+;; TESTING STATUS: Used by buy-sig.
 (def &define-simple-logging
   (&begin
    [&jumpdest 'commit-contract-call] ;; -- return-address
@@ -413,6 +442,7 @@
    LOG0 JUMP))
 
 ;; Logging the data
+;; TESTING STATUS: Wholly untested.
 (def &define-variable-size-logging
   (&begin
    [&jumpdest 'commit-contract-call]
@@ -482,6 +512,7 @@
 ;; it's a trivial contract like buy-sig. Maybe have a notion of segments that either precede another one,
 ;; or can be anywhere with a jump in the end, with an expected use frequency function
 ;; to prefer one the most used one over the alternatives?
+;; TESTING STATUS: Used by buy-sig.
 (def (&define-end-contract)
   (&begin
    [&jumpdest 'suicide]
@@ -490,13 +521,16 @@
    [&jumpdest 'end-contract]
    0 0 SSTORE 'suicide [&jump1 'commit-contract-call]))
 
+;; TESTING STATUS: Used by buy-sig.
 (def &end-contract!
   (&begin [&jump 'end-contract])) ;; [2B; 10G]
 
+;; TESTING STATUS: Wholly untested.
 (def &save-last-action-block ;; -->
   (&begin NUMBER last-action-block-set!)) ;; [17B, 29G]
 
 ;; abort unless saved data indicates a timeout
+;; TESTING STATUS: Used by buy-sig. Incompletely untested.
 (def (&check-timeout!) ;; -->
   (&begin
    ;; TODO: negotiate the timeout between users,
@@ -506,6 +540,7 @@
 
 ;; BEWARE! This is for two-participant contracts only,
 ;; where all the money is on the table, no other assets than Ether.
+;; TESTING STATUS: Used by buy-sig. Incompletely untested.
 (def (&define-check-participant-or-timeout)
   (&begin ;; obliged-actor@ other-actor@ ret@C --> other-actor@
    [&jumpdest 'check-participant-or-timeout]
@@ -516,6 +551,7 @@
    (&check-timeout!) (&mload 20) SELFDESTRUCT)) ;; give all the money to the other guy.
 
 ;; BEWARE: this function passes the actors by address reference, not by address value
+;; TESTING STATUS: Used by buy-sig.
 (def (&check-participant-or-timeout! must-act: obliged-actor@ or-end-in-favor-of: other-actor@)
   (&begin
    (&call 'check-participant-or-timeout other-actor@ obliged-actor@)
