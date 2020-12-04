@@ -1,7 +1,7 @@
 (export #t)
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/foreign
-  :std/misc/repr
+  :std/misc/bytes :std/misc/repr
   :clan/base :clan/poo/poo (only-in :clan/poo/mop Any Type. define-type sexp<-)
   :clan/poo/brace :clan/poo/io
   :clan/crypto/keccak :clan/crypto/secp256k1
@@ -30,7 +30,8 @@
 (def (import-secret-key/json j) (import-secret-key/bytes (<-json Bytes32 j)))
 (def (export-secret-key/json x) (json<- Bytes32 (export-secret-key/bytes x)))
 
-;; Should we store the pubkey as a foreign object, or as bytes to be parsed each time?
+;; Right now, we use the foreign object as the "canonical" in-memory representation.
+;; Should we instead use canonical bytes that parsed into a foreign object on a need basis?
 ;; TODO: implement :pr methods so we can have easy access to the 0x representation.
 (define-type PublicKey
   {(:: @ [methods.marshal<-bytes Type.])
@@ -122,6 +123,20 @@
    .sexp<-: (lambda (x) `(<-json Signature ,(.json<- x)))
    .json<-: (compose 0x<-bytes .bytes<-)
    .<-json: (compose .<-bytes bytes<-0x))
+
+(def (vrs<-signature sig)
+  (def bytes (bytes<- Signature sig))
+  (def v (bytes-ref bytes 64))
+  (def r (u8vector-uint-ref bytes 0 big 32))
+  (def s (u8vector-uint-ref bytes 32 big 32))
+  (values v r s))
+
+(def (signature<-vrs v r s)
+  (def bytes (make-bytes 65))
+  (u8vector-uint-set! bytes 0 r big 32)
+  (u8vector-uint-set! bytes 32 s big 32)
+  (bytes-set! bytes 64 v)
+  (<-bytes Signature bytes))
 
 #; ;;TODO: figure out why this message will work at the REPL but not here even with (import :std/misc/repr) (import :clan/poo/brace) and/or (import (prefix-in (only-in <MOP> @method) @))
 (defmethod (@@method :pr secp256k1-sig)
