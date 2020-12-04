@@ -19,17 +19,15 @@
 ;; Use the test database
 (ensure-db-connection (run-path "testdb"))
 
-;; Create a key for the initial have-it-all user of the Geth test network
-(def croesus (get-first-account))
-
-(register-keypair
- "Croesus"
- (keypair ;; SPECIAL: no public and secret key data. We only use the address via Geth withits password
-  ;; TODO: extract the private data from geth storage somehow?
-  croesus #f #f (import-password/string "")))
-
 ;; Ensure Geth can issue transactions for all test accounts
 (for-each ensure-eth-signing-key test-addresses)
+
+;; Create a key for the initial have-it-all user of the Geth test network
+(def croesus (get-first-account))
+;; SPECIAL: no public and secret key data. We only use the address via Geth withits password
+;; TODO: extract the private data from geth storage somehow?
+(unless (keypair<-address croesus)
+  (register-keypair "Croesus" (keypair croesus #f #f (import-password/string ""))))
 
 (def transaction-integrationtest
   (test-suite "integration test for ethereum/transaction"

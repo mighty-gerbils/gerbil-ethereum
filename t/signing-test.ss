@@ -2,36 +2,46 @@
 
 (import
   :gerbil/gambit/exceptions :gerbil/gambit/ports
-  :std/format :std/misc/list :std/misc/repr :std/sugar :std/test
-  :clan/exception
+  :std/format :std/misc/list :std/misc/repr :std/srfi/13 :std/sugar :std/test
+  :clan/exception :clan/syntax :clan/with-id
   :clan/poo/poo :clan/poo/brace :clan/poo/io (only-in :clan/poo/mop sexp<- json<-)
   ../hex ../types ../ethereum ../known-addresses ../signing)
 
-(def (kp x) (keypair<-secret-key (bytes<-0x x) ""))
+(def (capitalize name)
+  (def Name (string-downcase (stringify name)))
+  (string-set! Name 0 (char-upcase (string-ref Name 0)))
+  Name)
 
-(def trent-keys (kp "0xb6fb0b7e61363ee2f748161338f56953e8aa42642e9990eff17e7de9aa895786"))
-(def trent-address (keypair-address trent-keys))
-(def alice-keys (kp "0xfdc8f15b2dd9229b0b9246094393afc23b3b705c07e674f6cb614120d1627818"))
-(def alice-address (keypair-address alice-keys))
-(def bob-keys (kp "0x9b21b9b06ba77824b8ba6a815f5a075229a708ae88ba7fd935c968fe2c3df172"))
-(def bob-address (keypair-address bob-keys))
-(def yolanda-keys (kp "0xaedcdea2b91de24d1fe2c8ae4b60687fb3826612962553fa3d0b8486e322aaa7"))
-(def yolanda-address (keypair-address yolanda-keys))
-(def zander-keys (kp "0x4884b1bdef8281b40cad15f5525d72a5c9a5db18f213abf28a46bfab8bff2a5f"))
-(def zander-address (keypair-address zander-keys))
+(def test-keys [])
+(def test-addresses [])
 
-(def test-keypairs
-  [["Alice" alice-keys]
-   ["Trent" trent-keys]
-   [ "Bob" bob-keys]])
+(defrule (defkeys ctx (name secret-key) ...)
+  (begin
+    (with-id ctx ((keys #'name '-keys)
+                  (address #'name '-address)
+                  test-keypairs)
+      (begin
+        (def keys (keypair<-secret-key secret-key ""))
+        (def address (keypair-address keys))
+        (push! [(capitalize 'name) keys] test-keys)
+        (push! address test-addresses))) ...))
 
-(def test-addresses (map (lambda (nkp) (keypair-address (cadr nkp))) test-keypairs))
+(defkeys test-addresses
+  (trent   "0xb6fb0b7e61363ee2f748161338f56953e8aa42642e9990eff17e7de9aa895786")
+  (alice   "0xfdc8f15b2dd9229b0b9246094393afc23b3b705c07e674f6cb614120d1627818")
+  (bob     "0x9b21b9b06ba77824b8ba6a815f5a075229a708ae88ba7fd935c968fe2c3df172")
+  (yolanda "0xaedcdea2b91de24d1fe2c8ae4b60687fb3826612962553fa3d0b8486e322aaa7")
+  (zander  "0x4884b1bdef8281b40cad15f5525d72a5c9a5db18f213abf28a46bfab8bff2a5f")
+  ;; This key was chosen because it's got money on the Mantis test image.
+  ;; Strategically placed last, so it shows up first in test-addresses,
+  ;; gets registered first if undefined, and then also becomes croesus as per get-first-account.
+  (croesus "0x1167a41c432d1a494408b8fdeecd79bff89a5689925606dff8adf01f4bf92922"))
 
 ;; Register test keypairs
-(for-each (cut apply register-keypair <>) test-keypairs)
+(for-each (cut apply register-keypair <>) test-keys)
 
 (def (string<-exception e)
-  (call-with-output-string (lambda (port) (display-exception e port))))
+  (call-with-output-string (cut display-exception e <>)))
 
 (def (show-representations name x (type #f))
   (printf "~a:\n  display: ~a\n  write: ~s\n  pr: ~r\n" name x x x)
@@ -42,26 +52,35 @@
 (def signing-test
   (test-suite "Test suite for ethereum/signing"
     (test-case "check test users"
-      (defrule (check-user name keys addressj pubkeyj)
-        (with-logged-exceptions ()
-          (show-representations keypair: keys Keypair)
-          (def data (format "some arbitrary string for ~a to sign" name))
-          (def address (keypair-address keys))
-          (show-representations address: address Address)
-          (def pubkey (keypair-public-key keys))
-          (show-representations pubkey: pubkey PublicKey)
-          (def seckey (keypair-secret-key keys))
-          (show-representations seckey: seckey SecretKey)
-          (def passwd (keypair-password keys))
-          (show-representations password: passwd Password)
-          (def signature (make-signature String seckey data))
-          (show-representations signature: signature Signature)
-          (check-equal? (json<- PublicKey pubkey) pubkeyj)
-          (check-equal? (json<- Address address) addressj)
-          (check-equal? (signature-valid? String address signature data) #t)))
-      (check-user "Alice" alice-keys "0xC54e86DFFb87B9736E2E35DD85c775358F1c31CE"
-                  "0x045562695c85f88f6cbaec121d2a3da6666c5dc8540d86358bd569a1882bbe6ddcf45b76f5643133939c8e7a339947ca1b115290d577343023d79c256dbc54bc97")
-      (check-user "Bob" bob-keys "0x9CcaEd210CE8c0Cb49c5Ad1C4f583406c264BA69"
-                  "0x049e0a7e3c05e3328c603b0c27fbfdfc5030c95d9ad179a431c14f81e30a64ce95f625447e182a8be718d45f9ab9723f9b8571dd5c5752daa66feb84938b095805")
-      (check-user "Trent" trent-keys "0xF47408143d327e4bc6A87EF4a70A4E0aF09b9A1C"
-                  "0x0426bd9885f2c9e23d18c3025da70e71a4f7ce237124352882eafbd1cbb1e9742c4fe3847ce1a56a0d19df7a7d385a2134be05208b5d1ccc5d015f5e9a3ba0d7df"))))
+      (defrule (check-user name addressj pubkeyj)
+        (with-id signing-test
+          ((keys #'name '-keys)
+           (address #'name '-address)
+           (pubkey #'name '-pubkey)
+           (seckey #'name '-seckey)
+           (passwd #'name '-passwd))
+          (with-logged-exceptions ()
+            (def Name (capitalize 'name))
+            (show-representations keypair: keys Keypair)
+            (def data (format "some arbitrary string for ~a to sign" Name))
+            (check-equal? (keypair-address keys) address)
+            (show-representations address: address Address)
+            (def pubkey (keypair-public-key keys))
+            (show-representations pubkey: pubkey PublicKey)
+            (def seckey (keypair-secret-key keys))
+            (show-representations seckey: seckey SecretKey)
+            (def passwd (keypair-password keys))
+            (show-representations password: passwd Password)
+            (def signature (make-signature String seckey data))
+            (show-representations signature: signature Signature)
+            (check-equal? (json<- PublicKey pubkey) pubkeyj)
+            (check-equal? (json<- Address address) addressj)
+            (check-equal? (signature-valid? String address signature data) #t))))
+        (check-user croesus "0x25c0bb1A5203AF87869951AEf7cF3FEdD8E330fC" ;; "0x000d836201318ec6899a67540690382780743280"
+                    "0x3dfbd16d74816ad656f6c98e2a6634ca1930b5fc450eb93ca0a92574a30d00ff8eefd9d1cc3cd81cbb021b3f29abbbabfd29da7feef93f40f63a1e512c240517")
+        (check-user alice "0xC54e86DFFb87B9736E2E35DD85c775358F1c31CE"
+                    "0x5562695c85f88f6cbaec121d2a3da6666c5dc8540d86358bd569a1882bbe6ddcf45b76f5643133939c8e7a339947ca1b115290d577343023d79c256dbc54bc97")
+        (check-user bob "0x9CcaEd210CE8c0Cb49c5Ad1C4f583406c264BA69"
+                    "0x9e0a7e3c05e3328c603b0c27fbfdfc5030c95d9ad179a431c14f81e30a64ce95f625447e182a8be718d45f9ab9723f9b8571dd5c5752daa66feb84938b095805")
+        (check-user trent "0xF47408143d327e4bc6A87EF4a70A4E0aF09b9A1C"
+                    "0x26bd9885f2c9e23d18c3025da70e71a4f7ce237124352882eafbd1cbb1e9742c4fe3847ce1a56a0d19df7a7d385a2134be05208b5d1ccc5d015f5e9a3ba0d7df"))))

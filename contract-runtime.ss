@@ -153,9 +153,9 @@
       (def length (param-length type-or-length))
       (def address (post-increment! end length))
       (def getter (if (<= 0 length 32) (&mloadat address length)
-                      (lambda _ (error "Variable too large to be loaded on stack" '#'param length))))
+                      (lambda _ (error "Variable too large to be loaded on stack" 'param length))))
       (def setter (if (<= 0 length 32) (&mstoreat address length)
-                      (lambda _ (error "Variable too large to be stored from stack" '#'param length)))))
+                      (lambda _ (error "Variable too large to be stored from stack" 'param length)))))
     ...))
 
 ;; Local memory layout for solidity:

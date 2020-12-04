@@ -34,11 +34,11 @@
 ;; TODO: implement :pr methods so we can have easy access to the 0x representation.
 (define-type PublicKey
   {(:: @ [methods.marshal<-bytes Type.])
-   .Bytes: Bytes65
+   .Bytes: Bytes64
    .element?: (lambda (x) (and (foreign? x) (equal? (foreign-tags x) '(secp256k1-pubkey*))))
-   .sexp<-: (lambda (x) `(<-json PublicKey ,(.json<- x)))
-   .bytes<-: bytes<-secp256k1-pubkey
-   .<-bytes: secp256k1-pubkey<-bytes
+   .sexp<-: (lambda (k) `(<-json PublicKey ,(.json<- k)))
+   .bytes<-: (lambda (k) (subu8vector (bytes<-secp256k1-pubkey k) 1 65))
+   .<-bytes: (lambda (b) (secp256k1-pubkey<-bytes (bytes-append #u8(4) b)))
    .json<-: (lambda (x) (json<- Bytes (.bytes<- x)))
    .<-json: (lambda (x) (.<-bytes (<-json Bytes x)))
    .string<-: .json<-
@@ -67,7 +67,8 @@
 
 (defstruct address (bytes) print: #f equal: #t)
 (def 0x<-address (compose 0x<-address-bytes address-bytes))
-(def address<-0x (compose make-address address-bytes<-0x))
+(def address<-0x (compose make-address (.@ Bytes20 .validate) bytes<-0x))
+(def address<-0x/strict (compose make-address address-bytes<-0x))
 (define-type Address
   {(:: @ [methods.marshal<-bytes Type.])
    .Bytes: Bytes20
@@ -94,8 +95,7 @@
 (def (address<-public-key pubkey)
   ;; uncompressed public key has an extra byte at the beginning, which we remove:
   ;; https://bitcoin.stackexchange.com/questions/57855/c-secp256k1-what-do-prefixes-0x06-and-0x07-in-an-uncompressed-public-key-signif
-  (!> (bytes<-secp256k1-pubkey pubkey)
-      (cut subu8vector <> 1 65)
+  (!> (bytes<- PublicKey pubkey)
       keccak256<-bytes
       (cut subu8vector <> 12 32)
       make-address))

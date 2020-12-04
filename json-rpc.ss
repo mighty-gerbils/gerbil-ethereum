@@ -2,10 +2,14 @@
 ;;
 ;; The reference documentation for the Ethereum JSON RPC protocol is now at:
 ;;   https://eth.wiki/json-rpc/API
+;; We support all non-deprecated methods in the standard protocol as of 2020-07-05,
+;;
 ;; Geth extensions are documented here:
 ;;   https://geth.ethereum.org/docs/rpc/server
-;; We support all non-deprecated methods in the standard protocol as of 2020-07-05,
-;; but only a few of the Geth extensions.
+;; We only support a few of the Geth extensions.
+;;
+;; The OpenEthereum implementation by Parity has its JSON RPC documentation here:
+;;   https://openethereum.wiki/JSONRPC/
 ;;
 ;; TODO:
 ;; - Resolve all the dark spots.
@@ -326,10 +330,11 @@
 (def (eth-sign-prefix message)
   (format "\x19;Ethereum Signed Message:\n~a~a" (string-length message) message))
 
-;; TODO: Which of these is it?
+;; This is the thing specified and used by Geth:
+(define-ethereum-api eth signTransaction Bytes <- TransactionParameters)
+;; However, parity's OpenEthereum documents this richer return type:
 ;;(define-ethereum-api eth signTransaction SignTransactionResult <- TransactionParameters)
-;;(define-ethereum-api eth signTransaction Bytes <- TransactionParameters)
-
+;; And it's not supported by Mantis.
 
 (define-type BlockInformation
   (Record number: [(Maybe Quantity)]
@@ -430,6 +435,7 @@
 
 
 ;;;; Geth extensions, Personal Namespace https://geth.ethereum.org/docs/rpc/ns-personal
+;; Not present in Mantis. Is it present in Parity, though I haven't looked for discrepancies.
 
 ;; Arguments: (1) SecretKey as hex string, no 0x prefix, (2) passphrase.
 (define-ethereum-api personal importRawKey Address <- String String)

@@ -11,7 +11,7 @@
   :std/format :std/iter :std/misc/bytes :std/misc/completion :std/misc/hash :std/misc/list
   :std/sort :std/srfi/1 :std/srfi/13 :std/srfi/43 :std/sugar :std/text/json
   :clan/base :clan/io :clan/json :clan/list
-  :clan/maybe :clan/number :clan/syntax :clan/with-id
+  :clan/maybe :clan/number :clan/syntax
   :clan/poo/poo :clan/poo/io :clan/poo/rationaldict
   (only-in :clan/poo/mop
            Type Type. proto Class Class. Slot
@@ -122,7 +122,7 @@
 (defsyntax (defBytesNs stx)
   (def (foo n) [(datum->syntax (stx-car stx) (symbolify "Bytes" n)) n])
   (with-syntax* ((((rid ri)...) (map foo (iota 32 1)))
-                 (((uid ui)...) (map foo [60 65 256])) ;; Shh id / Secp256k1 sig&pubkey / Bloom filter
+                 (((uid ui)...) (map foo [60 64 65 256])) ;; Shh id / PubKey / Signature / Bloom filter
                  (((id i)...) #'((rid ri)... (uid ui)...)))
     #'(begin
         (defrule (d name n) (.def (name @ BytesN.) n: n sexp: 'name))
