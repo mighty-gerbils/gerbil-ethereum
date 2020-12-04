@@ -379,9 +379,10 @@
 (def (generate-label (g 'g))
   (symbolify g "_" (post-increment! generate-label-counter)))
 
+;; BEWARE: The args will be evaluated right-to-left
 (def (&call routine . args)
   (def ret (generate-label 'ret))
-  (&begin ret (&begin* args) routine JUMP [&jumpdest ret]))
+  (&begin ret (&begin* (reverse args)) routine JUMP [&jumpdest ret]))
 
 ;; Local memory can only be accessed 32-byte (or, for writes, also 1 byte) at a time,
 ;; and masking / merging is rather expensive, so for often-used stuff, it makes sense
