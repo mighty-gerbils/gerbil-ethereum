@@ -24,6 +24,9 @@
 
 (def one-ether-in-wei (expt 10 18)) ;; 1 ETH = 10^18 wei
 (def one-gwei-in-wei (expt 10 9)) ;; 1 gwei = 10^9 wei
+(def (wei<-ether ether) (* one-ether-in-wei))
+(def (wei<-gwei gwei) (* gwei one-gwei-in-wei))
+
 
 (define-type Confirmation
   (Record

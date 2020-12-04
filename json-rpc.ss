@@ -11,6 +11,9 @@
 ;; The OpenEthereum implementation by Parity has its JSON RPC documentation here:
 ;;   https://openethereum.wiki/JSONRPC/
 ;;
+;; Infura documents its API at:
+;;   https://infura.io/docs/ethereum/json-rpc/eth-chainId
+;;
 ;; TODO:
 ;; - Resolve all the dark spots.
 ;; - Systematically lift all the Geth extensions.

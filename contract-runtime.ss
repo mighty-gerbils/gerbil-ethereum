@@ -332,7 +332,10 @@
 ;; TESTING STATUS: Wholly untested.
 (def &send-ethers!
   (&begin ;; -- address value
-   0 DUP1 DUP1 SWAP5 DUP2 SWAP5 GAS ;; -- gas address value 0 0 0 0
+   0 DUP1 #|0|# ;; -- 0 0 address value
+   DUP1 #|0|# SWAP4 ;; -- value 0 0 address 0
+   DUP2 #|0|# SWAP4 ;; -- address value 0 0 0 0
+   GAS ;; -- gas address value 0 0 0 0
    CALL &require!)) ;; -- Transfer!
 
 ;; TODO: group the withdrawals at the end, like the deposit checks?
