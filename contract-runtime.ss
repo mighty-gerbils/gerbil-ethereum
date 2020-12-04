@@ -250,11 +250,12 @@
 ;; By contrast, a series of mloadat, mstoreat 32 bytes at a time is [8*LEN B,12*LEN G]
 ;; TESTING STATUS: Never tested
 (def &define-unsafe-memcopy
-  (&begin
+  (&begin ;; len dest@ src@ ret@ -->
    [&jumpdest 'unsafe-memcopy-body]
-   1 SUB ;; -- len-1 dest src
-   DUP3 32 ADD SWAP4 MLOAD ;; -- data len-1 dest src+32
-   DUP3 32 ADD SWAP4 MSTORE ;; -- data dest+32 src+32
+   1 SWAP1 SUB ;; -- len-1 dest@ src@ ret@
+   DUP3 32 ADD SWAP3 MLOAD ;; -- data len-1 dest@ src@+32 ret@
+   DUP3 32 ADD SWAP3 MSTORE ;; -- data dest@+32 src@+32 ret@
+   ;; -- len-1 dest@+32 src@+32 ret@
    [&jumpdest 'unsafe-memcopy] ;; -- len dest src
    DUP1 'unsafe-memcopy-body JUMPI ;; when all done, exit
    POP POP POP JUMP))
@@ -516,7 +517,7 @@
 ;; for the recipient to either log data or deny the request.
 (def (&SELFDESTRUCT debug: (debug #f)) ;; address -->
   (if debug
-    (&begin BALANCE SWAP1 &send-ethers! ;; 1. send all the remaining ethers to given address
+    (&begin SELFBALANCE SWAP1 &send-ethers! ;; 1. send all the remaining ethers to given address
             0 DUP1 DUP1 DUP1 SSTORE RETURN) ;; 2. blank out next state digest, 3. return empty array.
     SELFDESTRUCT))
 

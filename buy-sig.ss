@@ -47,7 +47,7 @@
     #|(tmp Bool)|#)
   (&begin
    [&jumpdest 'payForSignature--pc0]
-   (&check-participant-or-timeout! must-act: Seller or-end-in-favor-of: Buyer)
+   (&check-participant-or-timeout! must-act: Seller@ or-end-in-favor-of: Buyer@)
    signature@ &read-published-data-to-mem
    Seller digest0 signature@ &isValidSignature #|tmp-set! tmp|# &require!
    Seller price &withdraw!
@@ -157,3 +157,46 @@
     Buyer: payForSignature/Buyer
     Seller: payForSignature/Seller
  })
+
+#|
+
+(def/interaction (buy-sig/seller ...)
+  (code-block-1)
+  (code-block-2)
+  (code-block-3))
+
+(def (buy-sig/seller ...)
+  (with-interaction (...)
+    (code-block-1)
+    (call-subroutine ...)
+    (set-current-label 'cp0)
+    (set-participant Buyer)
+    (code-block-2)
+    (code-block-3)))
+
+(def (set-participant part)
+  (if (equal? part (current-part))
+    (begin (publish UInt8 0)
+           (invoke-continuation continuation))
+    (beign (publish UInt8 1)
+           (call/cc (lambda (k) (flush-message ctx k))))))
+
+(def (code-block-1 ctx)
+  (with-code-block (ctx)
+    (publish Signature sig)
+    ...))
+
+(defrule (with-code-block (ctx) body ...) (call-with-code-block ctx (lambda () body ...)))
+
+(def (call-with-code-block ctx thunk)
+  (defvalues (continue? continuation) (thunk))
+  (if continue?
+    (begin (publish UInt8 0)
+           (invoke-continuation continuation))
+    (beign (publish UInt8 1)
+           (send-to-contract ctx (flush-message-buffer ctx) continuation))))
+
+(def (call-with-interaction-transaction ctx thunk)
+  (set! (ctx-message-buffer ctx) (open-output-u8vector))
+  ...
+|#
