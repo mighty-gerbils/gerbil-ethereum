@@ -1,8 +1,8 @@
 #!/usr/bin/env gxi
 ;; Run your own local private copy of Mantis as a node on localhost, for testing purposes
-;; docker run -v $GERBIL_APPLICATION_HOME/run/mantis:/root/ -p 8546:8546 -it inputoutput/mantis:qa
+;; docker run -v $GERBIL_APPLICATION_HOME/run/mantis:/root/ -p 8546:8546 -it inputoutput/mantis:qa-internal-vm
 ;; or simply:
-;; docker run -p 8545:8546 inputoutput/mantis:qa
+;; docker run -p 8545:8546 inputoutput/mantis:qa-internal-vm
 ;; connect via port 8546
 
 (import
@@ -14,6 +14,8 @@
   :clan/net/json-rpc)
 
 (def mantis-rpc-port 8545) ;; NOTE: Mantis by default uses 8546, while Geth uses 8545
+(def docker-image "inputoutput/mantis:qa-internal-vm") ;;"inputoutput/mantis:qa"
+
 
 ;; If the home directory isn't otherwise set, we must be running from unconfigured source code,
 ;; and we'll use the top of this source code hierarchy as home.
@@ -34,7 +36,7 @@
   (append-map
    (lambda (l) (match (parse-docker-ps-line l)
             ([container-id image-name _]
-             (if (equal? image-name "inputoutput/mantis:qa") [container-id] []))
+             (if (equal? image-name docker-image) [container-id] []))
             (_ [])))
    (cdr (run-process ["docker" "ps"]
                      stdin-redirection: #t stdout-redirection: #t stderr-redirection: #t
@@ -68,7 +70,7 @@
                 ;;"--name" "mantis-testnet"
                 ;;"-it" We do NOT want it interactive!
                 "-e" (string-append "GENESIS=" (read-file-string (subpath here "genesis.json")))
-                "inputoutput/mantis:qa"
+                docker-image
                 "bash" "-c"
                 "cd / ; echo \"$GENESIS\" > genesis.json ; exec mantis -Dconfig.file=/mantis.conf"
                 ]
