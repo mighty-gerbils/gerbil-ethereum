@@ -79,6 +79,8 @@
    .sexp<-: (lambda (x) `(address<-0x ,(0x<-address x)))
    .<-bytes: (compose make-address (.@ Bytes20 .validate))
    .bytes<-: address-bytes
+   .<-rlp: .<-bytes
+   .rlp<-: .bytes<-
    .length-in-bytes: 20
    .ethabi-name: "address"
    .ethabi-display-type: (cut display .ethabi-name <>)

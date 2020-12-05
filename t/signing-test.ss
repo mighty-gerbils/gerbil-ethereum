@@ -6,7 +6,7 @@
   :clan/exception :clan/syntax :clan/with-id
   :clan/poo/poo :clan/poo/brace :clan/poo/io (only-in :clan/poo/mop sexp<- json<-)
   :clan/crypto/keccak
-  ../hex ../types ../ethereum ../known-addresses ../signing)
+  ../hex ../rlp ../types ../ethereum ../known-addresses ../signing)
 
 (def (capitalize name)
   (def Name (string-downcase (stringify name)))
@@ -97,10 +97,8 @@
         {nonce: 9 gasPrice: (* 20 (expt 10 9)) gas: 21000
          to: recipient-address value: (expt 10 18) data: (bytes<-0x "0x")
          v: chain-id r: 0 s: 0})
-      ;;TODO: implement rlp<- and replace the following line with these:
-      #;(def tx-data-bytes (rlp<- SignedTransactionData tx-data))
-      #;(check-equal? (0x<-bytes tx-data-bytes) "0xec098504a817c800825208943535353535353535353535353535353535353535880de0b6b3a764000080018080")
-      (def tx-data-bytes (bytes<-0x "0xec098504a817c800825208943535353535353535353535353535353535353535880de0b6b3a764000080018080"))
+      (def tx-data-bytes (rlpbytes<- SignedTransactionData tx-data))
+      (check-equal? (0x<-bytes tx-data-bytes) "0xec098504a817c800825208943535353535353535353535353535353535353535880de0b6b3a764000080018080")
       (def tx-data-digest (keccak256<-bytes tx-data-bytes))
       (check-equal? (0x<-bytes tx-data-digest)
                     "0xdaf5a779ae972f972197303d7b574746c7ef83eadac0f2791ad23db92e4c8e53")
