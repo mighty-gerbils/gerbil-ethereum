@@ -21,7 +21,7 @@
   (prefix-in :clan/poo/type poo.)
   (only-in :clan/poo/type Sum define-sum-constructors)
   :clan/poo/brace
-  ./hex ./abi)
+  ./hex ./abi ./rlp)
 
 ;; --- something for types in general, including Record, Union, Maybe
 ;; --- something for ethereum types in particular
@@ -72,6 +72,8 @@
 (.def (UInt. @ [poo.UInt.] .length-in-bits .length-in-bytes .validate)
   .json<-: 0x<-nat
   .<-json: (compose .validate number<-json)
+  .rlp<-: rlp<-nat
+  .<-rlp: (compose .validate nat<-rlp)
   .ethabi-name: (format "uint~d" .length-in-bits)
   .ethabi-display-type: (cut display .ethabi-name <>)
   .ethabi-head-length: 32
@@ -108,6 +110,8 @@
   .sexp<-: (lambda (x) `(bytes<-0x ,(0x<-bytes x)))
   .json<-: 0x<-bytes
   .<-json: (compose .validate bytes<-0x)
+  .rlp<-: identity
+  .<-rlp: .validate
   .ethabi-padding: (- 32 n)
   .ethabi-tail-length: (lambda (_) 0)
   .ethabi-encode-into:
@@ -212,6 +216,8 @@
 ;; TODO: support defaults
 (def (Record . plist)
   {(:: @ [(apply poo.Record plist)] .tuple-list<- .<-tuple types)
+   .<-rlp: (lambda (r) (.<-tuple (map <-rlp types r)))
+   .rlp<-: (lambda (x) (map rlp<- types (.tuple-list<- x)))
    .ethabi-display-type: (cut ethabi-display-types types <>)
    .ethabi-head-length: (ethabi-head-length types)
    .ethabi-tail-length: (lambda (x) (ethabi-tail-length types (.tuple-list<- x)))
@@ -223,6 +229,8 @@
      (.<-tuple (ethabi-decode-from types bytes start head get-tail set-tail!)))})
 
 (.def (Tuple. @ poo.Tuple. type-list)
+  .<-rlp: (lambda (r) (list->vector (map <-rlp type-list r)))
+  .rlp<-: (lambda (x) (map rlp<- type-list (vector->list x)))
   .ethabi-display-type: (cut ethabi-display-types type-list <>)
   .ethabi-head-length: (ethabi-head-length type-list)
   .ethabi-tail-length: (lambda (x) (ethabi-tail-length type-list (vector->list x)))
