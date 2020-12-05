@@ -10,7 +10,7 @@
 
 ;; TODO: Should we add [copy: "config/ethereum_networks.json"] as a spec item?
 (def (files)
-  [(all-gerbil-modules) ... "scripts/run-ethereum-test-net.ss"])
+  [(all-gerbil-modules) ... "scripts/run-geth-test-net.ss"])
 
 (init-build-environment!
  name: "Gerbil-ethereum"

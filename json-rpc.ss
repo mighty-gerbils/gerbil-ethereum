@@ -35,14 +35,14 @@
   ./types ./signing ./ethereum ./network-config
   )
 
-(def geth-rpc-logger (json-logger "geth-rpc"))
+(def eth-rpc-logger (json-logger "eth-rpc"))
 
-;; Use a mutex for access to geth, not to overload it and get timeouts.
-;; have a pool of a small number of connections to geth rather than just one.
+;; We use a mutex for access to the ethereum node, not to overload it and get timeouts.
+;; TODO: Have a pool of a small number of connections to the node rather than just one.
 (def ethereum-mutex (make-mutex 'ethereum))
 
 (def (ethereum-json-rpc method-name result-decoder param-encoder
-                        timeout: (timeout #f) log: (log geth-rpc-logger)
+                        timeout: (timeout #f) log: (log eth-rpc-logger)
                         params)
   (with-lock ethereum-mutex
              (cut json-rpc (ethereum-rpc-config) method-name params
@@ -58,7 +58,7 @@
        (with-syntax ((method-name method-name) (fun-id fun-id))
          #'(begin
              (def params-type (Tuple argument-type ...))
-             (def (fun-id timeout: (timeout #f) log: (log geth-rpc-logger) . a)
+             (def (fun-id timeout: (timeout #f) log: (log eth-rpc-logger) . a)
                  (ethereum-json-rpc method-name
                                     (.@ result-type .<-json)
                                     (.@ params-type .json<-) (list->vector a)
