@@ -11,30 +11,64 @@
 
 (import :std/iter
         :std/misc/bytes
-        (only-in :gerbil/gambit/bytes bytes?)
+        :gerbil/gambit/bytes
         :gerbil/gambit/ports
-        :clan/base
+        :clan/base :clan/io
         :clan/poo/poo
         :clan/poo/mop
         (only-in :clan/number bytes<-nat nat<-bytes integer-length-in-bytes))
 
+;; Here is a summary of the RLP specification, as lifted from
+;; the Ethereum wiki and the Ethereum yellowpaper Appendix B on RLP,
+;; compressed in a way that makes it easier to write code based on it.
+;;   https://eth.wiki/en/fundamentals/rlp#definition
+;;   https://ethereum.github.io/yellowpaper/paper.pdf#appendix.B
+;;
 ;; An Rlp is one of:
 ;;  - Bytes
 ;;  - [Listof Rlp]
 ;; interp. an Rlp Item from:
 ;; https://eth.wiki/en/fundamentals/rlp#definition
-
+;;
 ;; An RlpBytes is a Bytes encoding of an Rlp
 ;; interp. an Rlp Encoding from:
 ;; https://eth.wiki/en/fundamentals/rlp#definition
-
-;; read-u8vector : Nat InputPort -> Bytes
-(def (read-u8vector n in)
-  (def v (make-u8vector n))
-  (read-subu8vector v 0 n in n)
-  v)
-
-;; --------------------------------------------------------
+;;
+;; RLP encoding is defined as follows:
+;;  - Item:
+;;     - 1 byte in the range [0x00, 0x7f]:
+;;        * byte is its own RLP encoding, in the range [0x00, 0x7f]
+;;     - 0-55 bytes:
+;;        * byte with value (0x80 + length), in the range [0x80, 0xb7]
+;;        * bytes of the item
+;;     - >55 bytes:
+;;        * byte with value (0xb7 + length-of-length), in the range [0xb8, 0xbf]
+;;        * length encoded in big-endian bytes
+;;        * bytes of the item
+;;       For example, a length-1024 string would be encoded as
+;;       \xb9\x04\x00 followed by the string. 0xb9 comes from 0xb7 + 2.
+;;  - List:
+;;    let payload = bytes of the rlp-encoded elements concatenated together
+;;     - total payload 0-55 bytes:
+;;        * byte with value (0xc0 + length), in the range [0xc0, 0xf7]
+;;        * bytes of the payload
+;;     - total payload >55 bytes:
+;;        * byte with value (0xf7 + length-of-length), in the range [0xf8, 0xff]
+;;        * length of payload encoded in big-endian bytes
+;;        * bytes of the payload
+;;
+;; The first byte could be in one of these ranges:
+;;  - [0x00, 0xbf]: item
+;;     - [0x00, 0x7f]: 1 byte item
+;;     - [0x80, 0xb7]: 0-55 byte item
+;;     - [0xb8, 0xbf]: >55 byte item
+;;  - [0xc0, 0xff]: list
+;;     - [0xc0, 0xf7]: 0-55 byte list
+;;     - [0xf8, 0xff]: >55 byte list
+;;
+;; The length-of-length is the integer-length-in-bytes from :clan/number,
+;; which is also equal to ⎡log_{256} (1+n)⎤
+;; (where ⎡x⎤ is the ceiling of x and log_b (x) is the logarithm base b of x)
 
 ;; generic functions to convert to and from rlp
 (.defgeneric (<-rlp type r) slot: .<-rlp)
@@ -77,13 +111,13 @@
      (write-u8 (u8vector-ref bs 0) out))
     ((< n 56)
      (write-u8 (+ #x80 n) out)
-     (write-u8vector bs out))
+     (write-bytes bs out))
     (else
      (let ()
        (def nn (integer-length-in-bytes n))
        (write-u8 (+ #xb7 nn) out)
-       (write-u8vector (rlp<-nat n) out)
-       (write-u8vector bs out)))))
+       (write-bytes (rlp<-nat n) out)
+       (write-bytes bs out)))))
 
 ;; rlp-write : Rlp OutputPort <- Void
 ;; Encodes the Rlp item and writes it to the given output port
@@ -100,13 +134,13 @@
        (cond
          ((< n 56)
           (write-u8 (+ #xc0 n) out)
-          (write-u8vector payload out))
+          (write-bytes payload out))
          (else
           (let ()
             (def nn (integer-length-in-bytes n))
             (write-u8 (+ #xf7 nn) out)
-            (write-u8vector (rlp<-nat n) out)
-            (write-u8vector payload out))))))))
+            (write-bytes (rlp<-nat n) out)
+            (write-bytes payload out))))))))
 
 ;; --------------------------------------------------------
 
@@ -138,13 +172,13 @@
        ((< first-byte #xb8)
         (let ()
           (def n (- first-byte #x80))
-          (read-u8vector n in)))
+          (read-bytes* n in)))
        ; >55 byte item
        (else
         (let ()
           (def nn (- first-byte #xb7))
-          (def n (nat<-rlp (read-u8vector nn in)))
-          (def bs (read-u8vector n in))
+          (def n (nat<-rlp (read-bytes* nn in)))
+          (def bs (read-bytes* n in))
           (unless (< 55 n)
             (error 'rlp-read "item should be represented with length<=55 mode" bs))
           bs))))
@@ -155,14 +189,14 @@
        ((< first-byte #xf8)
         (let ()
           (def n (- first-byte #xc0))
-          (def payload (read-u8vector n in))
+          (def payload (read-bytes* n in))
           (rlp-read-list-payload (open-input-u8vector payload) [])))
        ; >55 byte list
        (else
         (let ()
           (def nn (- first-byte #xf7))
-          (def n (nat<-rlp (read-u8vector nn in)))
-          (def payload (read-u8vector n in))
+          (def n (nat<-rlp (read-bytes* nn in)))
+          (def payload (read-bytes* n in))
           (def l (rlp-read-list-payload (open-input-u8vector payload) []))
           (unless (< 55 n)
             (error 'rlp-read "list should be represented with length<=55 mode" l))
