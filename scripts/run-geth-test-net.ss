@@ -35,7 +35,7 @@
               stdin-redirection: #t stdout-redirection: #t stderr-redirection: #t))
 
 ;; Determine the runtime directory, create it if needed
-(def geth-run-directory (path-expand "ethereum" (run-directory)))
+(def geth-run-directory (path-expand "geth" (run-directory)))
 (create-directory* geth-run-directory)
 (current-directory geth-run-directory)
 
@@ -69,7 +69,7 @@
   "--nousb"
   "--networkid" "17"
   "--nat" "any"
-  "--ipcpath" ".ethereum/geth.ipc"
+  "--ipcpath" (subpath geth-run-directory "geth.ipc")
   "--vmdebug"
   ])
 

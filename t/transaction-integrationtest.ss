@@ -2,14 +2,13 @@
 
 (import
   :std/format :std/test
-  :clan/base :clan/concurrency :clan/path :clan/path-config
+  :clan/base :clan/concurrency :clan/json :clan/path :clan/path-config
   :clan/poo/io
   :clan/persist/db
   ../types ../network-config ../signing ../known-addresses ../json-rpc ../transaction
   ./signing-test)
 
 ;; Use the Private Ethereum Testnet
-(load-ethereum-networks (config-path "ethereum_networks.json"))
 (ensure-ethereum-network "pet")
 
 ;; Poll for ethereum server
@@ -20,7 +19,7 @@
 (ensure-db-connection (run-path "testdb"))
 
 ;; Ensure Geth can issue transactions for all test accounts
-(for-each ensure-eth-signing-key test-addresses)
+(for-each (cut ensure-eth-signing-key <> log: write-json-ln) test-addresses)
 
 ;; Create a key for the initial have-it-all user of the Geth test network
 (def croesus (get-first-account))

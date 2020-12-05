@@ -24,8 +24,10 @@
 
 (def one-ether-in-wei (expt 10 18)) ;; 1 ETH = 10^18 wei
 (def one-gwei-in-wei (expt 10 9)) ;; 1 gwei = 10^9 wei
-(def (wei<-ether ether) (* one-ether-in-wei))
+(def (wei<-ether ether) (* ether one-ether-in-wei))
+(def (ether<-wei wei) (/ wei one-ether-in-wei))
 (def (wei<-gwei gwei) (* gwei one-gwei-in-wei))
+(def (gwei<-wei wei) (/ wei one-gwei-in-wei))
 
 
 (define-type Confirmation
@@ -118,3 +120,16 @@
   (if (and chainid eip155?)
     (+ 8 y-parity+27 (* 2 chainid))
     y-parity+27))
+
+#;
+(def (TransactionData<-SignedTx st)
+  (defrule (.st x ...) (begin (def x (.@ st x)) ...))
+  (.st tx)
+  (defrule (.tx x ...) (begin (def x (.@ tx x)) ...))
+  (.tx nonce gasPrice gas to value input v r s)
+  (let ((to (maybe-get to (.@ Address .zero)))
+        (data input)
+        (v (v-of-chain-id v))
+        (r (maybe-get r 0))
+        (s (maybe-get s 0)))
+    {(to) (value) (data) (v) (r) (s)}))

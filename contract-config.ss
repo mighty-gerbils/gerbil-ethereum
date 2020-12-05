@@ -69,12 +69,14 @@
    config
    (catch (_)
      (def sender (.@ pretx sender))
-     (when log (log ["creating contract" "sender:" (0x<-address sender) (nickname<-address sender)
-                     "code-hash:" (code-hash<-create-contract pretx)]))
+     (when log (log ['ensure-contract sender: (0x<-address sender)
+                                      nickname: (nickname<-address sender)
+                                      code-hash: (code-hash<-create-contract pretx)]))
      (def creation-receipt (post-transaction pretx))
      (def config (contract-config<-creation-receipt creation-receipt))
-     (when log (log ["contract config" "sender:" (0x<-address sender) (nickname<-address sender)
-                     "config:" (json-string<- ContractConfig config)]))
+     (when log (log ['ensure-contract sender: (0x<-address sender)
+                                      nickname: (nickname<-address sender)
+                                      config: (json<- ContractConfig config)]))
      (setter arg config)
      config)))
 

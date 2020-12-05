@@ -47,11 +47,11 @@
 
 (def ethereum-networks #f)
 
-(def (load-ethereum-networks (file (config-path "ethereum_networks.json")))
+(def (load-ethereum-networks-config (file (config-path "ethereum_networks.json")))
   (set! ethereum-networks (parse-file file parse-ethereum-networks)))
 
 (def (ensure-ethereum-network (network "pet"))
-  (unless ethereum-networks (load-ethereum-networks))
+  (unless ethereum-networks (load-ethereum-networks-config))
   (current-ethereum-network (find (lambda (x) (equal? network (.@ x shortName))) ethereum-networks)))
 
 (def (ethereum-rpc-config)

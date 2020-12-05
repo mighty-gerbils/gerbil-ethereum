@@ -2,7 +2,7 @@
 
 (import
   :std/format :std/iter :std/misc/list-builder :std/srfi/1 :std/sugar :std/test
-  :clan/persist/db :clan/decimal
+  :clan/decimal :clan/json :clan/persist/db
   ../ethereum ../known-addresses ../json-rpc ../batch-send
   ./signing-test ./transaction-integrationtest)
 
@@ -31,7 +31,7 @@
       (for (a addresses)
         (let (b (get-address-missing-amount min-balance target-balance a))
           (when (> b 0) (c [a b]))))))
-  (batch-send croesus needful-transfers log: displayln))
+  (batch-send croesus needful-transfers log: write-json-ln))
 
 (ensure-addresses-prefunded)
 

@@ -16,7 +16,7 @@
 
 ;; : Unit <- Address timeout:?(OrFalse Real) log:?(Fun Unit <- Json)
 (def (ensure-eth-signing-key timeout: (timeout #f) log: (log #f) address)
-  (when log (log "ethereum-transaction: ensure-secret-key ~a" (0x<-address address)))
+  (when log (log ['ensure-eth-signing-key (0x<-address address)]))
   (def keypair (keypair<-address address))
   (unless keypair
     (error "No registered keypair for address" 'ensure-eth-signing-key address))
@@ -33,7 +33,7 @@
 
 ;; : Unit <- Address duration:?Real log:?(Fun Unit <- Json)
 (def (unlock-account address duration: (duration 5) log: (log #f))
-  (when log (log "ethereum-transaction: unlock-account ~a ~a" address duration))
+  (when log (log ['unlock-account (0x<-address address) duration]))
   (def keypair (keypair<-address address))
   (personal_unlockAccount address (export-password/string (keypair-password keypair)) duration))
 

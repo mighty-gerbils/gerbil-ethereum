@@ -106,7 +106,7 @@
             (def nn (integer-length-in-bytes n))
             (write-u8 (+ #xf7 nn) out)
             (write-u8vector (rlp<-nat n) out)
-            (write-u8vector payload))))))))
+            (write-u8vector payload out))))))))
 
 ;; --------------------------------------------------------
 

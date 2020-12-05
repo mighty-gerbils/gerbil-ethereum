@@ -4,7 +4,7 @@
         :gerbil/gambit/bytes
         :std/sugar :std/test
         :clan/base :clan/poo/poo :clan/poo/io :clan/poo/brace
-        ../rlp ../hex)
+        ../rlp ../hex ../ethereum)
 
 (def (bs . vs)
   (apply u8vector-append
@@ -42,7 +42,7 @@
                   (rlp<-nat (* 20 (expt 10 9)))
                   (rlp<-nat 21000)
                   (bytes<-0x "0x3535353535353535353535353535353535353535")
-                  (rlp<-nat (expt 10 18))
+                  (rlp<-nat (wei<-ether 1))
                   #u8()
                   (rlp<-nat 1)
                   #u8()

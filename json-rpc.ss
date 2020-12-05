@@ -23,17 +23,16 @@
 (export #t)
 
 (import
-  :gerbil/gambit/threads
+  :gerbil/gambit/bytes :gerbil/gambit/ports :gerbil/gambit/threads
   (for-syntax :std/format)
   :std/format :std/lazy :std/sugar
+  :clan/base :clan/json :clan/logger :clan/maybe
   :clan/net/json-rpc
-  :clan/json :clan/logger :clan/maybe
   :clan/poo/poo :clan/poo/brace :clan/poo/io
   (only-in :clan/poo/mop define-type)
   (only-in :clan/poo/number Real)
   (only-in :clan/poo/type List Maybe Unit Or Map Json False Union)
-  ./types ./signing ./ethereum ./network-config
-  )
+  ./types ./signing ./ethereum ./network-config)
 
 (def eth-rpc-logger (json-logger "eth-rpc"))
 
@@ -67,7 +66,6 @@
 (define-ethereum-api web3 clientVersion String <-)
 (define-ethereum-api web3 sha3 Bytes32 <- Bytes) ;; keccak256
 
-;; "1": Ethereum Mainnet, "3": Ropsten Testnet, "4": Rinkeby Testnet, "42": Kovan Testnet...
 (define-ethereum-api net version String <-) ;; a decimal number
 (define-ethereum-api net listening Bool <-)
 (define-ethereum-api net peerCount Quantity <-)
@@ -238,11 +236,6 @@
 
 (define-ethereum-api eth chainId (Maybe UInt256) <-)
 
-(def this-chainId (lazy (eth_chainId)))
-
-(def (v-of-chain-id (chainId (force this-chainId)))
-  (maybe-get (force this-chainId) 0))
-
 (define-type SignedTx
   (Record
    nonce: [Quantity]
@@ -260,18 +253,6 @@
   (Record
    raw: [Bytes]
    tx: [SignedTx]))
-
-(def (TransactionData<-SignedTransaction st)
-  (defrule (.st x ...) (begin (def x (.@ st x)) ...))
-  (.st tx)
-  (defrule (.tx x ...) (begin (def x (.@ tx x)) ...))
-  (.tx nonce gasPrice gas to value input v r s)
-  (let ((to (maybe-get to (.@ Address .zero)))
-        (data input)
-        (v (v-of-chain-id v))
-        (r (maybe-get r 0))
-        (s (maybe-get s 0)))
-    {(to) (value) (data) (v) (r) (s)}))
 
 ;; Returns estimate of gas needed for transaction
 (define-ethereum-api eth estimateGas Quantity <- TransactionParameters)
@@ -457,10 +438,23 @@
 (define-ethereum-api personal sendTransaction
   Digest <- TransactionParameters String) ;; passphrase
 
-;;; The sign method calculates an Ethereum specific signature with:
-;;; sign(keccack256("\x19Ethereum Signed Message:\n" + len(message) + message))).
-;;; TODO: how exactly is the length encoded and separated from the message? Fixed length??? See geth source
+;;; The sign method calculates an Ethereum specific signature of:
+;;; (keccak256<-bytes (ethereum-sign-message-wrapper message))
 (define-ethereum-api personal sign Signature <- String Address String) ;; message address passphrase
+;;; Looking at the code in go-ethereum, the length that matters is the length in bytes.
+;;; However, the JSON RPC API passes the string as JSON, which will be UTF-8 encoded,
+;;; so it might be "interesting" to try to sign arbitrary bytes that are not valid JSON string.
+(def ethereum-sign-message-prefix
+  (bytes-append #u8(19) (string->bytes "Ethereum Signed Message:")))
+(def (ethereum-sign-message-wrapper/bytes message)
+  (call-with-output-u8vector
+   (lambda (p)
+     (write-bytes ethereum-sign-message-prefix p)
+     (write-bytes (object->string (bytes-length message)))
+     (write-bytes message p)
+     (write-byte 10 p))))
+(def ethereum-sign-message-wrapper
+  (compose ethereum-sign-message-wrapper/bytes string->bytes))
 
 ;;; Recover the signer of a message signed with personal_sign
 (define-ethereum-api personal ecRecover Address <- String Signature) ;; message signature

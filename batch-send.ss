@@ -86,8 +86,8 @@
   (def config (ensure-contract-config/db
                (u8vector-append (string->bytes "BATC") (bytes<- Address owner))
                (create-contract owner (batch-contract-init owner))))
-  (when log (log "batch contract for: " (0x<-address owner) " " (nickname<-address owner) " is: "
-                  (json-string<- ContractConfig config)))
+  (when log (log ['ensure-batch-send-contract (0x<-address owner) (nickname<-address owner)
+                  '=> (json<- ContractConfig config)]))
   config)
 
 ;; : <- Address (Listof (List Address UInt96))
