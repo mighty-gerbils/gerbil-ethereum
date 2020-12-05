@@ -1,0 +1,44 @@
+This text file contains information from the Ethereum wiki section on RLP:
+https://eth.wiki/en/fundamentals/rlp#definition
+And the Ethereum yellowpaper Appendix B on RLP:
+https://ethereum.github.io/yellowpaper/paper.pdf#appendix.B
+Compressed in a way that makes it easier to write code based on it.
+
+------------------------------
+
+RLP encoding is defined as follows:
+ - Item:
+    - 1 byte in the range [0x00, 0x7f]:
+       * byte is its own RLP encoding, in the range [0x00, 0x7f]
+    - 0-55 bytes:
+       * byte with value (0x80 + length), in the range [0x80, 0xb7]
+       * bytes of the item
+    - >55 bytes:
+       * byte with value (0xb7 + length-of-length), in the range [0xb8, 0xbf]
+       * length encoded in big-endian bytes
+       * bytes of the item
+      For example, a length-1024 string would be encoded as
+      \xb9\x04\x00 followed by the string. 0xb9 comes from 0xb7 + 2.
+ - List:
+   let payload = bytes of the rlp-encoded elements concatenated together
+    - total payload 0-55 bytes:
+       * byte with value (0xc0 + length), in the range [0xc0, 0xf7]
+       * bytes of the payload
+    - total payload >55 bytes:
+       * byte with value (0xf7 + length-of-length), in the range [0xf8, 0xff]
+       * length of payload encoded in big-endian bytes
+       * bytes of the payload
+
+The first byte could be in one of these ranges:
+ - [0x00, 0xbf]: item
+    - [0x00, 0x7f]: 1 byte item
+    - [0x80, 0xb7]: 0-55 byte item
+    - [0xb8, 0xbf]: >55 byte item
+ - [0xc0, 0xff]: list
+    - [0xc0, 0xf7]: 0-55 byte list
+    - [0xf8, 0xff]: >55 byte list
+
+
+The length-of-length is the integer-length-in-bytes from :clan/number,
+which is also equal to ⎡log_{256} (1+n)⎤
+(where ⎡x⎤ is the ceiling of x and log_b (x) is the logarithm base b of x)

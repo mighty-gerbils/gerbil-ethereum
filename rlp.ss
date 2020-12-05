@@ -21,8 +21,12 @@
 ;; An Rlp is one of:
 ;;  - Bytes
 ;;  - [Listof Rlp]
+;; interp. an Rlp Item from:
+;; https://eth.wiki/en/fundamentals/rlp#definition
 
 ;; An RlpBytes is a Bytes encoding of an Rlp
+;; interp. an Rlp Encoding from:
+;; https://eth.wiki/en/fundamentals/rlp#definition
 
 ;; read-u8vector : Nat InputPort -> Bytes
 (def (read-u8vector n in)
@@ -82,6 +86,8 @@
        (write-u8vector bs out)))))
 
 ;; rlp-write : Rlp OutputPort <- Void
+;; Encodes the Rlp item and writes it to the given output port
+;; https://eth.wiki/en/fundamentals/rlp#definition
 (def (rlp-write rlp out)
   (cond
     ((bytes? rlp) (rlp-write-bytes rlp out))
@@ -117,6 +123,8 @@
   rlp)
 
 ;; rlp-read : InputPort -> (U Rlp Eof)
+;; Decodes an Rlp item from the given input port, or eof
+;; https://eth.wiki/en/fundamentals/rlp#rlp-decoding
 (def (rlp-read in)
   (def first-byte (read-u8 in))
   (cond
