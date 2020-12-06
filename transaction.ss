@@ -207,7 +207,7 @@
 
 ;; : TxHeader <- Address Quantity Quantity
 (def (make-tx-header sender: sender value: value gas: gas log: (log #f))
-  (def gasPrice (eth_gasPrice))
+  (def gasPrice (max 1 (eth_gasPrice))) ;; Mantis reports 0 -- is that why our transactions never make it?
   (def nonce (.call NonceTracker next sender))
   {sender nonce gasPrice gas value})
 

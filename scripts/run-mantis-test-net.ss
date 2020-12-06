@@ -9,7 +9,7 @@
   :gerbil/gambit/exceptions :gerbil/gambit/ports :gerbil/gambit/threads
   :std/format :std/getopt :std/misc/list :std/misc/ports :std/misc/process
   :std/pregexp :std/srfi/1 :std/srfi/13 :std/sugar
-  :clan/base :clan/files :clan/maybe :clan/multicall
+  :clan/base :clan/files :clan/json :clan/maybe :clan/multicall
   :clan/path :clan/path-config :clan/shell :clan/source
   :clan/net/json-rpc)
 
@@ -43,37 +43,38 @@
                      coprocess: read-all-as-lines))))
 
 (unless (null? mantis-containers)
-  (run-process ["docker" "stop" mantis-containers ...]
-               stdin-redirection: #t stdout-redirection: #t stderr-redirection: #t))
+  (run-process/batch ["docker" "stop" mantis-containers ...])
+  (run-process/batch ["docker" "wait" mantis-containers ...]))
 
-;; Determine the runtime directory, create it if needed
+;; Determine the runtime directory, wipe it clear, thus resetting the test blockchain to zero,
+;; and recreate an empty one anew.
 (def mantis-run-directory (path-expand "mantis" (run-directory)))
+(run-process/batch ["rm" "-rf" mantis-run-directory])
 (create-directory* mantis-run-directory)
 (current-directory mantis-run-directory)
 
-;; Determine the data directory, clear it, thus resetting the test blockchain to zero
-(def mantis-data-directory (path-expand "data" mantis-run-directory))
-(run-process ["rm" "-rf" mantis-data-directory]
-             stdin-redirection: #t stdout-redirection: #t stderr-redirection: #t show-console: #f)
-(create-directory* mantis-data-directory)
+;;; NB: We could have a log directory outside it and symlink the builtin path to it, but oh well.
 
-(def mantis-logs-directory (path-expand "logs" mantis-run-directory))
-(run-process ["rm" "-rf" mantis-logs-directory]
-             stdin-redirection: #t stdout-redirection: #t stderr-redirection: #t show-console: #f)
-(create-directory* mantis-logs-directory)
+;; Do we actually need to tweak the genesis? Let's figure it out once we're done.
+(def genesis
+  (let (h (json<-string (read-file-string (subpath here "genesis.json"))))
+    (hash-remove! h "config")
+    (hash-put! h "extraData" "0x11bbe8db4e347b4e8c937c1c8370e4b5ed33adb3db69cbdb7a38e1e50b1b82fa")
+    h))
 
 (def mantis-process
   (open-process
    [path: "docker"
     arguments: ["run"
-                "-v" (format "~a:/root/" mantis-run-directory)
+                ;; Doing the mount of /? works... but then bad things happen when I stop docker to restart it differently, resulting in files that cannot be removed. Sigh.
+                ;;"-v" (format "~a:/?" mantis-run-directory) ;; NB: Bug in current docker image, /? is where Scala believe the ${user.home} is, because it's too stupid to believe $HOME and there's no /etc/passwd
                 "-p" (format "~d:8546" mantis-rpc-port) ;; NB: inside the image it's always 8546
-                ;;"--name" "mantis-testnet" ;; To persist the state inside the docker container
-                ;;"-it" ;; We don't specify that, because we do NOT want it interactive!
-                "-e" (format "GENESIS=~a" (read-file-string (subpath here "genesis.json")))
+                ;;"--name" "mantis-testnet" ;; NB: We could use something like that to persist the state inside the docker container, but we don't want to and that would require more management above.
+                ;;"-it" ;; If we wanted an interactive terminal, we'd use that.
+                "-e" (format "GENESIS=~a" (string<-json genesis))
                 docker-image
-                "bash" "-c"
-                "cd / ; echo \"$GENESIS\" > genesis.json ; exec mantis -Dconfig.file=/mantis.conf"
+                "bash" ;; We could stop at bash for the interactive use.
+                "-c" "cd / ; echo \"$GENESIS\" > genesis.json ; exec mantis -Dconfig.file=/mantis.conf"
                 ]
     stdin-redirection: #f
     stdout-redirection: #f

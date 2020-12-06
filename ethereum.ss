@@ -88,18 +88,18 @@
    nonce: [Quantity]
    gasPrice: [Quantity]
    gas: [Quantity]
-   to: [(Maybe Address)]
+   to: [(Maybe Address) optional: #t default: (void)]
    value: [Quantity]
-   data: [Bytes]))
+   data: [Bytes optional: #t default: #u8()]))
 
 (define-type SignedTransactionData
   (Record
    nonce: [Quantity]
    gasPrice: [Quantity]
    gas: [Quantity]
-   to: [(Maybe Address)]
+   to: [(Maybe Address) optional: #t default: (void)]
    value: [Quantity]
-   data: [Bytes]
+   data: [Bytes optional: #t default: #u8()]
    v: [Quantity] ;; actually UInt8... plus offset from chainId!
    r: [Quantity] ;; UInt256
    s: [Quantity])) ;; UInt256
