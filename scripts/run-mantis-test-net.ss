@@ -65,11 +65,12 @@
 (def mantis-process
   (open-process
    [path: "docker"
-    arguments: ["run" ;; "-v" (format "~a:/root/" mantis-run-directory)
+    arguments: ["run"
+                "-v" (format "~a:/root/" mantis-run-directory)
                 "-p" (format "~d:8546" mantis-rpc-port) ;; NB: inside the image it's always 8546
-                ;;"--name" "mantis-testnet"
-                ;;"-it" We do NOT want it interactive!
-                "-e" (string-append "GENESIS=" (read-file-string (subpath here "genesis.json")))
+                ;;"--name" "mantis-testnet" ;; To persist the state inside the docker container
+                ;;"-it" ;; We don't specify that, because we do NOT want it interactive!
+                "-e" (format "GENESIS=~a" (read-file-string (subpath here "genesis.json")))
                 docker-image
                 "bash" "-c"
                 "cd / ; echo \"$GENESIS\" > genesis.json ; exec mantis -Dconfig.file=/mantis.conf"

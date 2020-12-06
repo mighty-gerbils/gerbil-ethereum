@@ -11,12 +11,14 @@
   :clan/path :clan/path-config :clan/shell :clan/source
   :clan/net/json-rpc)
 
+(def geth-port 30303) ;; port on which geth will be talking to peers(?)
+(def geth-rpc-port 8545) ;; port on which geth will be listening to RPC requests
+
 ;; If the home directory isn't otherwise set, we must be running from unconfigured source code,
 ;; and we'll use the top of this source code hierarchy as home.
-(home-directory-default! (cut path-parent (path-simplify-directory (this-source-file))))
+(def here (path-simplify-directory (this-source-file)))
+(home-directory-default! (cut path-parent here))
 
-(def geth-port 30303)
-(def geth-rpc-port 8545)
 
 ;; We use `--dev.period 1` to prevent the `geth` miner from pausing
 ;; in the absence of pending transactions to process,
@@ -30,9 +32,7 @@
 (def geth-dev-period 1)
 
 ;; First, kill any previous node.
-(ignore-errors
- (run-process ["killall" "geth"]
-              stdin-redirection: #t stdout-redirection: #t stderr-redirection: #t))
+(ignore-errors (run-process/batch ["killall" "geth"]))
 
 ;; Determine the runtime directory, create it if needed
 (def geth-run-directory (path-expand "geth" (run-directory)))
@@ -41,51 +41,52 @@
 
 ;; Determine the data directory, clear it, thus resetting the test blockchain to zero
 (def geth-data-directory (path-expand "data" geth-run-directory))
-(run-process ["rm" "-rf" geth-data-directory]
-             stdin-redirection: #t stdout-redirection: #t stderr-redirection: #t show-console: #f)
+(run-process/batch ["rm" "-rf" geth-data-directory])
 (create-directory* geth-data-directory)
 
 (def geth-logs-directory (path-expand "logs" geth-run-directory))
-(run-process ["rm" "-rf" geth-logs-directory]
-             stdin-redirection: #t stdout-redirection: #t stderr-redirection: #t show-console: #f)
+(run-process/batch ["rm" "-rf" geth-logs-directory])
 (create-directory* geth-logs-directory)
 
 (def geth-arguments
-  ["--dev"
-   (when/list (and geth-dev-period (< 0 geth-dev-period))
-              ["--dev.period" (number->string geth-dev-period)])...
-  "--fakepow"
-  "--verbosity" "4" ;; 3: info, 4: debug
-  "--mine"
-  "--identity" "GlowEthereumPrivateTestNet"
-  "--datadir" geth-data-directory
-  "--nodiscover"
-  "--maxpeers" "0"
-  "--rpc"
-  "--rpcapi" "db,eth,net,debug,web3,light,personal,admin"
-  "--rpcport" (number->string geth-rpc-port)
-  "--rpccorsdomain" "*"
-  "--port" (number->string geth-port)
-  "--nousb"
-  "--networkid" "17"
-  "--nat" "any"
-  "--ipcpath" (subpath geth-run-directory "geth.ipc")
-  "--vmdebug"
-  ])
+  ["--datadir" geth-data-directory
+   "--identity" "GlowEthereumPrivateTestNet"
+   "--verbosity" "4" ;; 3: info, 4: debug
+   "--etherbase" "0x25c0bb1A5203AF87869951AEf7cF3FEdD8E330fC"
+   "--nodiscover"
+   "--maxpeers" "0"
+   "--nousb"
+   "--networkid" "17"
+   "--nat" "any"
+   "--vmdebug"])
 
-(create-directory* geth-logs-directory)
-
-(def geth-process
+(def (geth-command . args)
+  (def cmd (escape-shell-tokens ["geth" geth-arguments ... args ...]))
+  (format "(echo ~a ; ~a) < /dev/null >> ~a/geth.log 2>&1"
+          cmd cmd geth-logs-directory))
+(def (run-geth . args)
+  (run-process/batch ["sh" "-c" (apply geth-command args)]))
+(def (bg-geth args)
   (open-process
-   [path: "sh"
-    arguments: ["-c"
-                (format "~a < /dev/null > ~a/geth.log 2>&1 &"
-                        (escape-shell-tokens ["geth" . geth-arguments])
-                        geth-logs-directory)]
+   [path: "sh" arguments: ["-c" (apply geth-command args)]
     stdin-redirection: #f
     stdout-redirection: #f
     stderr-redirection: #f
     show-console: #f]))
+
+(run-geth
+ "--unlock" "0x25c0bb1A5203AF87869951AEf7cF3FEdD8E330fC"
+ "account" "import" "--password" "/dev/null" (subpath here "croesus.prv"))
+(run-geth "init" (subpath here "genesis.json"))
+(bg-geth
+ ["--dev"
+  (when/list (and geth-dev-period (< 0 geth-dev-period))
+             ["--dev.period" (number->string geth-dev-period)])...
+  "--fakepow" "--mine"
+  "--http" "--http.api" "db,eth,net,debug,web3,light,personal,admin"
+  "--http.port" (number->string geth-rpc-port) "--http.corsdomain" "*"
+  "--port" (number->string geth-port)
+  "--ipcpath" (subpath geth-run-directory "geth.ipc")])
 
 (let loop ()
   (cond
