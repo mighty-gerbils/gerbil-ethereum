@@ -3,7 +3,7 @@
 (import
   :std/format :std/sort :std/sugar
   :clan/json
-  :clan/poo/io (only-in :clan/poo/type Map) :clan/poo/brace :clan/poo/poo (only-in :clan/poo/mop sexp<-)
+  :clan/poo/io :clan/poo/brace :clan/poo/poo
   :clan/crypto/secp256k1
   ./hex ./types ./signing)
 

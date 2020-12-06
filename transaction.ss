@@ -2,12 +2,84 @@
 (export #t)
 
 (import
-  :std/error :std/sugar :std/text/hex
+  :gerbil/gambit/bits
+  :std/error :std/misc/list :std/sugar :std/text/hex
   :clan/assert :clan/failure :clan/option
   :clan/net/json-rpc
   :clan/poo/poo :clan/poo/io :clan/poo/brace
-  :clan/persist/db
-  ./hex ./ethereum ./network-config ./signing ./known-addresses ./types ./json-rpc ./nonce-tracker)
+  :clan/crypto/keccak :clan/persist/db
+  ./hex ./types ./rlp ./ethereum ./signing ./known-addresses
+  ./json-rpc ./network-config ./nonce-tracker)
+
+;; Signing transactions, based on spec in EIP-155
+;; https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md
+;; For Ethereum main net,
+;; for block >= FORK_BLKNUM (2675000), use CHAIN_ID: 1 (ETH) or 61 (ETC),
+;; otherwise use 0.
+;; Also Ropsten 3, Rinkeby 4, Goerli 5, Kovan 42, default Geth private chain 1337.
+;; Find more chain ID's:
+;; https://chainid.network
+;; https://github.com/ethereum-lists/chains
+;; https://github.com/ethereum/go-ethereum/blob/master/cmd/utils/flags.go
+
+;; This function encodes a transaction into a sequence of bytes fit for signing and/or messaging
+;; When signing, v should be the chainid, and r and s 0.
+;; When messaging, v, r, s are from the secp256k1 signature, v amended as per eip155.
+;; : Bytes <- Quantity Quantity Quantity Address Quantity Bytes Quantity Quantity Quantity
+(def (signed-tx-bytes<- nonce gasPrice gas to value data v r s)
+  (rlpbytes<-rlp
+   [(rlp<-nat nonce) (rlp<-nat gasPrice) (rlp<-nat gas)
+    (if (address? to) (bytes<- Address to) #u8()) (rlp<-nat value) data
+    (when/list (not (zero? v)) [(rlp<-nat v) (rlp<-nat r) (rlp<-nat s)]) ...]))
+
+;; : Quantity <- Quantity
+(def (chainid<-v v)
+  (cond
+   ((<= 27 v 28) 0)
+   ((<= 37 v) (arithmetic-shift (- v 35) -1))
+   (else (error "invalid v" v))))
+
+;; : (OrFalse TransactionParameters) <- Bytes
+(def (decode-signed-tx-bytes bytes)
+  (with-catch false
+    (lambda ()
+      (def signed-tx-data (<-rlpbytes SignedTransactionData bytes))
+      (defrule ($ x ...) (begin (def x (.@ signed-tx-data x)) ...))
+      ($ nonce gasPrice gas to value data v r s)
+      (def y-parity+27 (- 28 (bitwise-and v 1)))
+      (def chainid (chainid<-v v))
+      (def signature (signature<-vrs y-parity+27 r s))
+      (def signed-tx-bytes (signed-tx-bytes<- nonce gasPrice gas to value data chainid 0 0))
+      (def from (recover-signer-address signature (keccak256<-bytes signed-tx-bytes)))
+      (and from
+           {from nonce gasPrice gas to value data v r s}))))
+
+;; This function computes the v value to put in the signed transaction data,
+;; based on the v returned by the secp256k1 primitive (which is y-element parity+27)
+;; and the chainid and whether the eip155 is activated. NB: 8+27=35
+;; : Quantity <- UInt8 Quantity
+(def (eip155-v y-parity+27 chainid)
+  (if (zero? chainid)
+    y-parity+27
+    (+ 8 y-parity+27 (* 2 chainid))))
+
+;; : (Values Quantity Quantity Quantity) <- \
+;;     SecretKey Quantity Quantity Quantity Address Quantity Bytes Quantity
+(def (vrs<-tx secret-key nonce gasPrice gas to value data chainid)
+  (def bytes (signed-tx-bytes<- nonce gasPrice gas to value data chainid 0 0))
+  (def signature (make-message-signature secret-key (keccak256<-bytes bytes)))
+  (defvalues (v r s) (vrs<-signature signature))
+  (values (eip155-v v chainid) r s))
+
+;; : Bytes <- TransactionParameters Quantity
+(def (raw-sign-transaction parameters (chainid (ethereum-chain-id)))
+  (defrule ($ x ...) (begin (def x (.@ parameters x)) ...))
+  ($ from nonce gasPrice gas to value data)
+  (def keypair (or (keypair<-address (.@ parameters from))
+                   (error "Couldn't find registered keypair" (json<- Address from))))
+  (defvalues (v r s) (vrs<-tx (keypair-secret-key keypair)
+                              nonce gasPrice gas to value data chainid))
+  (signed-tx-bytes<- nonce gasPrice gas to value data v r s))
 
 (defstruct (TransactionRejected exception) (receipt))
 (defstruct (StillPending exception) ())
@@ -26,11 +98,10 @@
                           timeout: timeout log: log)
    (catch (json-rpc-error? e)
      (unless (equal? (json-rpc-error-message e) "account already exists")
-       (raise e)))))
+       (raise e))))
+  #;(unlock-account address duration: 1000000 log: log))
 
-;; : Address <-
-(def (get-first-account) (car (personal_listAccounts)))
-
+;; NB: geth will refuse to unlock via http (vs https (?)), anyway
 ;; : Unit <- Address duration:?Real log:?(Fun Unit <- Json)
 (def (unlock-account address duration: (duration 5) log: (log #f))
   (when log (log ['unlock-account (0x<-address address) duration]))
@@ -115,6 +186,18 @@
   (personal_signTransaction (TransactionParameters<-Transaction transaction)
                             (export-password/string (keypair-password kp))))
 
+;; TODO: This is a proposed drop-in replacement for the above, using raw-sign-transaction.
+;; This follows the same interface as a previous incarnation that used personal_signTransaction
+;; : SignedTransaction <- Transaction
+#;
+(def (sign-transaction transaction)
+  (def raw (raw-sign-transaction (TransactionParameters<-Transaction transaction)))
+  (def signed (<-rlpbytes SignedTransactionData raw))
+  (defrule ($ x ...) (begin (def x (.@ signed x)) ...))
+  ($ nonce gasPrice gas to value data v r s)
+  (def tx {nonce gasPrice gas to value input: data v r s hash: (keccak256<-bytes raw)})
+  {raw tx})
+
 ;; : TransactionReceipt <- Address Digest
 (def (confirmed-or-known-issue sender hash)
   (cond
@@ -122,12 +205,10 @@
    (else (nonce-too-low sender))))
 
 ;; : TxHeader <- Address Quantity Quantity
-(def (make-tx-header sender: sender value: value gas: gas
-                     log: (log #f))
-  ;; TODO: get gas price and nonce from geth
+(def (make-tx-header sender: sender value: value gas: gas log: (log #f))
   (def gasPrice (eth_gasPrice))
   (def nonce (.call NonceTracker next sender))
-  {(sender) (nonce) (gasPrice) (gas) (value)})
+  {sender nonce gasPrice gas value})
 
 ;; Prepare a signed transaction, that you may later issue onto Ethereum network,
 ;; from given address, with given operation, value and gas-limit
@@ -164,7 +245,7 @@
   (def hash (send-raw-transaction sender signed))
   (assert-equal! hash (.@ signed tx hash))
   (def receipt (eth_getTransactionReceipt hash))
-  (if receipt
+  (if (poo? receipt)
     (check-transaction-receipt-status receipt)
     (let ((nonce (.@ signed tx nonce)))
       (def sender-nonce (eth_getTransactionCount sender 'latest))

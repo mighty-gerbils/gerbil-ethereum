@@ -8,8 +8,8 @@
 (def tx-tracker-integrationtest
   (test-suite "integration test for ethereum/tx-tracker"
     (test-case "Simple transfer"
-      (def before (eth_getBalance alice-address 'latest))
+      (def before (eth_getBalance alice 'latest))
       (def value (* 1/100 one-ether-in-wei))
-      (def _receipt (post-transaction (transfer-tokens from: croesus to: alice-address value: value)))
-      (def after (eth_getBalance alice-address 'latest))
+      (def _receipt (post-transaction (transfer-tokens from: croesus to: alice value: value)))
+      (def after (eth_getBalance alice 'latest))
       (check-equal? (- after before) value))))

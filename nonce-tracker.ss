@@ -6,8 +6,6 @@
   :clan/base :clan/concurrency :clan/failure :clan/option :clan/maybe
   :clan/net/json-rpc
   :clan/poo/poo :clan/poo/brace :clan/poo/io
-  (only-in :clan/poo/mop define-type Fun)
-  (only-in :clan/poo/type Maybe)
   :clan/persist/db :clan/persist/persist
   ./types ./ethereum ./signing ./json-rpc)
 

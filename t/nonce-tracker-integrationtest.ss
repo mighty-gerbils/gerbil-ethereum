@@ -5,7 +5,7 @@
   :clan/list :clan/poo/poo
   :clan/persist/db
   ../signing ../json-rpc ../transaction ../nonce-tracker
-  ./transaction-integrationtest)
+  ./signing-test ./transaction-integrationtest)
 
 (def nonce-tracker-integrationtest
   (test-suite "integration test for ethereum/nonce-tracker"

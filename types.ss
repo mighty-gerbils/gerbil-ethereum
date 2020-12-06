@@ -1,8 +1,6 @@
-(export #t)
-(export Type. .defgeneric validate element? .method define-type
-        Sum define-sum-constructors)
-
 ;; We are shadowing existing types. Should we monkey-patch them instead? Let's hope not.
+(export #t)
+(export (import: :clan/poo/mop) (import: :clan/poo/type) (import: :clan/poo/number))
 
 (import
   (for-syntax :gerbil/gambit/exact :std/iter :std/stxutil :clan/syntax)
@@ -13,15 +11,19 @@
   :clan/base :clan/io :clan/json :clan/list
   :clan/maybe :clan/number :clan/syntax
   :clan/poo/poo :clan/poo/io :clan/poo/rationaldict
-  (only-in :clan/poo/mop
-           Type Type. proto Class Class. Slot
-           .defgeneric validate element? .method define-type sexp<-)
-  (prefix-in (only-in :clan/poo/mop Bool String Symbol) poo.)
+  (except-in :clan/poo/mop Bool)
+  (prefix-in (only-in :clan/poo/mop Bool) poo.)
+  (except-in :clan/poo/number Nat UInt. UInt IntSet)
   (prefix-in (only-in :clan/poo/number Nat UInt. UInt IntSet) poo.)
-  (prefix-in :clan/poo/type poo.)
-  (only-in :clan/poo/type Sum define-sum-constructors)
+  (except-in :clan/poo/type Maybe. BytesN. Symbol String Record Tuple. Enum.)
+  (prefix-in (only-in :clan/poo/type Maybe. BytesN. Symbol String Record Tuple. Enum.) poo.)
   :clan/poo/brace
   ./hex ./abi ./rlp)
+
+(.def (Maybe. @ [poo.Maybe.] type)
+  .rlp<-: (lambda (x) (if (void? x) #u8(#x80) (rlp<- type x)))
+  .<-rlp: (lambda (x) (if (zero? (bytes-length x)) (void) (<-rlp type x))))
+(def (Maybe type) {(:: @ Maybe.) (type)})
 
 ;; --- something for types in general, including Record, Union, Maybe
 ;; --- something for ethereum types in particular
@@ -213,10 +215,9 @@
 (register-simple-eth-type Bool)
 
 ;; Records
-;; TODO: support defaults
 (def (Record . plist)
-  {(:: @ [(apply poo.Record plist)] .tuple-list<- .<-tuple types)
-   .<-rlp: (lambda (r) (.<-tuple (map <-rlp types r)))
+  {(:: @ [(apply poo.Record plist)] .tuple-list<- .<-tuple-list types)
+   .<-rlp: (lambda (r) (.<-tuple-list (map <-rlp types r)))
    .rlp<-: (lambda (x) (map rlp<- types (.tuple-list<- x)))
    .ethabi-display-type: (cut ethabi-display-types types <>)
    .ethabi-head-length: (ethabi-head-length types)
@@ -226,7 +227,7 @@
      (ethabi-encode-into types (.tuple-list<- x) bytes start head get-tail set-tail!))
    .ethabi-decode-from:
    (lambda (bytes start head get-tail set-tail!)
-     (.<-tuple (ethabi-decode-from types bytes start head get-tail set-tail!)))})
+     (.<-tuple-list (ethabi-decode-from types bytes start head get-tail set-tail!)))})
 
 (.def (Tuple. @ poo.Tuple. type-list)
   .<-rlp: (lambda (r) (list->vector (map <-rlp type-list r)))

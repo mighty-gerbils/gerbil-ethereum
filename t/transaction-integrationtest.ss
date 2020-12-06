@@ -8,7 +8,7 @@
   ../types ../network-config ../signing ../known-addresses ../json-rpc ../transaction
   ./signing-test)
 
-;; Use the Private Ethereum Testnet
+;; Use our Private Ethereum Testnet
 (ensure-ethereum-network "pet")
 
 ;; Poll for ethereum server
@@ -21,12 +21,15 @@
 ;; Ensure Geth can issue transactions for all test accounts
 (for-each (cut ensure-eth-signing-key <> log: write-json-ln) test-addresses)
 
+#|
 ;; Create a key for the initial have-it-all user of the Geth test network
-(def croesus (get-first-account))
+(set! croesus (car (personal_listAccounts)))
 ;; SPECIAL: no public and secret key data. We only use the address via Geth withits password
 ;; TODO: extract the private data from geth storage somehow?
 (unless (keypair<-address croesus)
+  (display-poo-ln "Creating a fake keypair for this chain's croesus " Address croesus)
   (register-keypair "Croesus" (keypair croesus #f #f (import-password/string ""))))
+|#
 
 (def transaction-integrationtest
   (test-suite "integration test for ethereum/transaction"

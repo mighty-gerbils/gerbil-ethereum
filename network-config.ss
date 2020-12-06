@@ -4,9 +4,6 @@
   :std/text/json
   :clan/json :clan/path-config
   :clan/poo/poo :clan/poo/io
-  (only-in :clan/poo/mop define-type)
-  (only-in :clan/poo/number JsInt)
-  (only-in :clan/poo/type List Maybe)
   ./types ./signing ./ethereum)
 
 ;; TODO: move to another file.
@@ -56,3 +53,6 @@
 
 (def (ethereum-rpc-config)
   (car (.@ (current-ethereum-network) rpc)))
+
+(def (ethereum-chain-id)
+  (.@ (current-ethereum-network) chainId))

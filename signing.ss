@@ -2,11 +2,18 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/foreign
   :std/misc/bytes :std/misc/repr
-  :clan/base :clan/poo/poo (only-in :clan/poo/mop Any Type. define-type sexp<-)
+  :clan/base :clan/poo/poo
   :clan/poo/brace :clan/poo/io
   :clan/crypto/keccak :clan/crypto/secp256k1
-  ./types ./hex
-  )
+  ./types ./hex)
+
+;; TODO(2023): Make sure private keys never stay in RAM too long (requires support in gerbil-crypto).
+;; Use some hardware key management system so a master key is used to encrypt the keys
+;; (using a fast symmetric cypher plus salt), and those keys are kept encrypted,
+;; and only decrypted temporarily in buffer that gets overwritten with random noise
+;; as soon as they are not used anymore. This reduces the odds of a breach causing keys to leak
+;; (SPECTER attack, RAM extraction attack, etc.). Same for any required clear-text password
+;; or security token, and for keys for other cyphers -- thus many shared functions and macros.
 
 ;; NB: We hide secret keys behind an opaque data structure, so the data won't leak as easily.
 (defstruct secp256k1-seckey (data) print: #f equal: #t)
@@ -157,12 +164,15 @@
 (def (make-signature type secret-key data)
   (make-message-signature secret-key (keccak256<-bytes (bytes<- type data))))
 
-;; Bool <- Address Signature Digest
-(def (message-signature-valid? address signature message32)
+;; (OrFalse Address) <- Signature Digest
+(def (recover-signer-address signature message32)
   (with-catch false
     (lambda ()
-      (def pubkey (secp256k1-recover (secp256k1-sig-data signature) message32))
-      (equal? address (address<-public-key pubkey)))))
+      (address<-public-key (secp256k1-recover (secp256k1-sig-data signature) message32)))))
+
+;; Bool <- Address Signature Digest
+(def (message-signature-valid? address signature message32)
+  (equal? address (recover-signer-address signature message32)))
 
 ;; Bool <- 'a:Type Address Signature 'a
 (def (signature-valid? type address signature data)

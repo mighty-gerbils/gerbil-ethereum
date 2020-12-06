@@ -29,9 +29,6 @@
   :clan/base :clan/json :clan/logger :clan/maybe
   :clan/net/json-rpc
   :clan/poo/poo :clan/poo/brace :clan/poo/io
-  (only-in :clan/poo/mop define-type)
-  (only-in :clan/poo/number Real)
-  (only-in :clan/poo/type List Maybe Unit Or Map Json False Union)
   ./types ./signing ./ethereum ./network-config)
 
 (def eth-rpc-logger (json-logger "eth-rpc"))
@@ -300,7 +297,7 @@
 
 
 ;; Returns a receipt of transaction by transaction hash (not available if transaction still pending)
-(define-ethereum-api eth getTransactionReceipt TransactionReceipt <- Digest)
+(define-ethereum-api eth getTransactionReceipt (Maybe TransactionReceipt) <- Digest)
 
 ;; Create new message call transaction or a contract creation for signed transaction
 (define-ethereum-api eth sendRawTransaction Digest <- Data)
@@ -433,7 +430,7 @@
 (define-ethereum-api personal unlockAccount Bool <- ;; returns true if found?
   Address
   String ;; passphrase
-  (Maybe Real)) ;; duration in seconds (default 300)
+  (Maybe JsInt)) ;; duration in seconds (default 300)
 
 (define-ethereum-api personal sendTransaction
   Digest <- TransactionParameters String) ;; passphrase
