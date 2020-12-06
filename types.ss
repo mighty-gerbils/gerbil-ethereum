@@ -21,7 +21,7 @@
   ./hex ./abi ./rlp)
 
 (.def (Maybe. @ [poo.Maybe.] type)
-  .rlp<-: (lambda (x) (if (void? x) #u8(#x80) (rlp<- type x)))
+  .rlp<-: (lambda (x) (if (void? x) #u8() (rlp<- type x)))
   .<-rlp: (lambda (x) (if (zero? (bytes-length x)) (void) (<-rlp type x))))
 (def (Maybe type) {(:: @ Maybe.) (type)})
 
