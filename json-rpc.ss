@@ -174,14 +174,16 @@
    blockNumber: [Quantity]
    contractAddress: [(Maybe Address) optional: #t default: (void)]
    cumulativeGasUsed: [Quantity]
-   from: [Address]
+   from: [(Maybe Address) optional: #t default: (void)] ;; in geth, not in mantis
    to: [(Maybe Address) optional: #t default: (void)]
    gasUsed: [Quantity]
    logs: [LogObjectList]
-   logsBloom: [Bloom]
-   status: [Quantity]
+   logsBloom: [(Maybe Bloom) optional: #t default: (void)] ;; in geth, not mantis
+   status: [(Maybe Quantity) optional: #t default: (void)] ;; can be null in mantis
+   statusCode: [(Maybe Quantity) optional: #t default: (void)] ;; in mantis, not geth.
    transactionHash: [Digest]
-   transactionIndex: [Quantity]))
+   transactionIndex: [Quantity]
+   returnData: [(Maybe Data) optional: #t default: (void)])) ;; in mantis, not geth.
 
 (def (Confirmation<-TransactionReceipt tr)
   (defrule (.tr x ...) (begin (def x (.@ tr x)) ...))

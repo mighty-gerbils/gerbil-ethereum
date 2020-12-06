@@ -55,4 +55,4 @@
   (car (.@ (current-ethereum-network) rpc)))
 
 (def (ethereum-chain-id)
-  (.@ (current-ethereum-network) chainId))
+  (.ref (current-ethereum-network) 'chainId (lambda _ 0)))
