@@ -75,6 +75,7 @@
 (def (raw-sign-transaction parameters (chainid (ethereum-chain-id)))
   (defrule ($ x ...) (begin (def x (.@ parameters x)) ...))
   ($ from nonce gasPrice gas to value data)
+  (when (void? data) (set! data #u8()))
   (def keypair (or (keypair<-address (.@ parameters from))
                    (error "Couldn't find registered keypair" (json<- Address from))))
   (defvalues (v r s) (vrs<-tx (keypair-secret-key keypair)
@@ -178,7 +179,9 @@
                (equal? (.@ confirmation blockHash) (.@ receipt blockHash)))
     (error "confirmation doesn't match transaction information")))
 
+;; Previous implementation, that signs through geth
 ;; : SignedTransaction <- Transaction
+#;
 (def (sign-transaction transaction)
   (def address (.@ transaction tx-header sender))
   (def kp (keypair<-address address))
@@ -186,10 +189,8 @@
   (personal_signTransaction (TransactionParameters<-Transaction transaction)
                             (export-password/string (keypair-password kp))))
 
-;; TODO: This is a proposed drop-in replacement for the above, using raw-sign-transaction.
-;; This follows the same interface as a previous incarnation that used personal_signTransaction
+;; New implementation with the same interface as the previous one above.
 ;; : SignedTransaction <- Transaction
-#;
 (def (sign-transaction transaction)
   (def raw (raw-sign-transaction (TransactionParameters<-Transaction transaction)))
   (def signed (<-rlpbytes SignedTransactionData raw))

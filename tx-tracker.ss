@@ -230,12 +230,14 @@
                                        (IntrinsicGasTooLow? e))
                                  result
                                  (raise e)))))))
-                  ((some (some receipt))
+                  ((some (some (? successful-receipt? receipt)))
                    (continue (TransactionStatus-TxConfirmed (vector pretx signed receipt))))
                   ((some (failure (? NonceTooLow?)))
                    (continue (TransactionStatus-TxWanted pretx)))
                   ((some (failure e))
                    (invalidate status e))
+                  ((some (some x))
+                   (invalidate status (Invalid "unexpected result" x)))
                   ((failure e)
                    (invalidate status e))))
                (final
