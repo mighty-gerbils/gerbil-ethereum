@@ -6,7 +6,7 @@
   :clan/exception :clan/syntax :clan/with-id
   :clan/poo/poo :clan/poo/brace :clan/poo/io
   :clan/crypto/keccak
-  ../hex ../types ../ethereum ../known-addresses ../signing ../transaction
+  ../hex ../rlp ../types ../ethereum ../known-addresses ../signing ../transaction
   ./signing-test)
 
 (def transaction-test
@@ -27,6 +27,7 @@
       (def chainid 1)
       (def tx-params {from nonce gasPrice gas to value data})
       (def tx-data-bytes (signed-tx-bytes<- nonce gasPrice gas to value data chainid 0 0))
+      (check-equal? tx-data-bytes (rlpbytes<- SignedTransactionData { (:: @ tx-params) v: chainid r: 0 s: 0 }))
       (check-equal? (0x<-bytes tx-data-bytes) "0xec098504a817c800825208943535353535353535353535353535353535353535880de0b6b3a764000080018080")
       (def tx-data-digest (keccak256<-bytes tx-data-bytes))
       (check-equal? (0x<-bytes tx-data-digest)
