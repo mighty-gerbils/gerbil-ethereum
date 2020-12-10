@@ -5,9 +5,7 @@
   :gerbil/gambit/threads
   :std/sugar
   :clan/concurrency :clan/exception
-  :clan/poo/poo
-  (only-in :clan/poo/number Integer)
-  (only-in :clan/poo/type Map)
+  :clan/poo/poo :clan/poo/brace
   :clan/persist/persist
   ./types ./ethereum ./network-config ./json-rpc)
 
@@ -16,6 +14,33 @@
 
 ;; : Quantity
 (define-persistent-variable next-unprocessed-block Nat "ETH.nextUnprocessedBlock" 0)
+
+(def (wait-until-block target-block)
+  (def current-block #f)
+  (def (get-current-block!) (set! current-block (eth_blockNumber)))
+  (get-current-block!)
+  (when (< current-block target-block)
+    (thread-sleep! (.@ (current-ethereum-network) blockPollingPeriodInSeconds))
+    (get-current-block!))
+  current-block)
+
+;; Watch all logs from a contract from a block to another (included),
+;; and process the log events through a function f.
+;; If some blocks are in the future, wait until they happen to return.
+;; Function f may throw and/or use continuations to cause an early exit.
+;; https://infura.io/docs/ethereum/json-rpc/eth-getLogs
+(def (watch-contract f contract-address from-block to-block)
+  (while (<= from-block to-block)
+    (let ()
+      (def current-block (wait-until-block from-block))
+      ;; TODO: correctly process timeouts and/or overly long lists
+      ;; See https://infura.io/docs/ethereum/json-rpc/eth-getLogs
+      (def logs (eth_getLogs {address: contract-address
+                              fromBlock: from-block
+                              toBlock: (min to-block current-block)}))
+      (for-each f logs)
+      (set! from-block (1+ current-block)))))
+
 
 ;; : (Table (Fun <- Quantity) <- String)
 (def new-block-hooks (make-hash-table))
