@@ -19,7 +19,7 @@
   (def current-block #f)
   (def (get-current-block!) (set! current-block (eth_blockNumber)))
   (get-current-block!)
-  (when (< current-block target-block)
+  (while (< current-block target-block)
     (thread-sleep! (.@ (current-ethereum-network) blockPollingPeriodInSeconds))
     (get-current-block!))
   current-block)
