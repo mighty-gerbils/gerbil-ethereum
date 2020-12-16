@@ -63,6 +63,7 @@
     ((Operation-CreateContract data) data)
     ((Operation-CallFunction {(data)}) data)))
 
+;; TODO: replace with a subset of TransactionParameters, do away with operation as soon as meaningful.
 (define-type PreTransaction
   (Record
    sender: [Address]
@@ -72,6 +73,7 @@
 
 ;; Transaction (to be) posted to the chain Ethereum
 ;; TODO: merge the fields of tx-header and operation instead, just with a new type tag.
+;; TODO: Just use TransactionParameters instead
 (define-type Transaction
   (Record
    tx-header: [TxHeader]

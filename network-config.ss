@@ -4,14 +4,7 @@
   :std/text/json
   :clan/json :clan/path-config
   :clan/poo/poo :clan/poo/io
-  ./types ./signing ./ethereum)
-
-;; TODO: move to another file.
-;; TODO: for end-user reporting, use error contexts as ported from quux or cl-scripting.
-;; Maybe also port that to Gerbil main, in a way backward compatible with std/test ?
-(def (parse-file file parser (description #f))
-  (with-catch (lambda (e) (error "while parsing" description file (error-message e)))
-              (cut call-with-input-file file parser)))
+  ./types ./signing ./ethereum ./logger)
 
 (define-type EthereumNetworkConfig
   (Record
@@ -39,17 +32,17 @@
 
 (def current-ethereum-network (make-parameter #f))
 
-(def (parse-ethereum-networks port)
-  (<-json (List EthereumNetworkConfig) (json<-port port)))
-
 (def ethereum-networks #f)
 
 (def (load-ethereum-networks-config (file (config-path "ethereum_networks.json")))
-  (set! ethereum-networks (parse-file file parse-ethereum-networks)))
+  (set! ethereum-networks (parse-json-file file (.@ (List EthereumNetworkConfig) .<-json))))
 
-(def (ensure-ethereum-network (network "pet"))
+(def (ensure-ethereum-network (name "pet"))
   (unless ethereum-networks (load-ethereum-networks-config))
-  (current-ethereum-network (find (lambda (x) (equal? network (.@ x shortName))) ethereum-networks)))
+  (def config (find (lambda (x) (equal? name (.@ x shortName))) ethereum-networks))
+  (eth-log ["EthereumNetworkConfig" (json<- EthereumNetworkConfig config)])
+  ;; TODO: At first network connection, checking web3_clientVersion and eth_chainId and update the config?
+  (current-ethereum-network config))
 
 (def (ethereum-rpc-config)
   (car (.@ (current-ethereum-network) rpc)))

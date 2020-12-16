@@ -29,16 +29,14 @@
   :clan/base :clan/json :clan/logger :clan/maybe
   :clan/net/json-rpc
   :clan/poo/poo :clan/poo/brace :clan/poo/io
-  ./types ./signing ./ethereum ./network-config)
-
-(def eth-rpc-logger (json-logger "eth-rpc"))
+  ./types ./signing ./ethereum ./network-config ./logger)
 
 ;; We use a mutex for access to the ethereum node, not to overload it and get timeouts.
 ;; TODO: Have a pool of a small number of connections to the node rather than just one.
 (def ethereum-mutex (make-mutex 'ethereum))
 
 (def (ethereum-json-rpc method-name result-decoder param-encoder
-                        timeout: (timeout #f) log: (log eth-rpc-logger)
+                        timeout: (timeout #f) log: (log eth-log)
                         params)
   (with-lock ethereum-mutex
              (cut json-rpc (ethereum-rpc-config) method-name params
@@ -54,7 +52,7 @@
        (with-syntax ((method-name method-name) (fun-id fun-id))
          #'(begin
              (def params-type (Tuple argument-type ...))
-             (def (fun-id timeout: (timeout #f) log: (log eth-rpc-logger) . a)
+             (def (fun-id timeout: (timeout #f) log: (log eth-log) . a)
                  (ethereum-json-rpc method-name
                                     (.@ result-type .<-json)
                                     (.@ params-type .json<-) (list->vector a)
@@ -269,7 +267,7 @@
 (define-ethereum-api eth getCode Bytes <- Address BlockParameter)
 
 ;; Returns a transaction by the hash code
-(define-ethereum-api eth getTransactionByHash TransactionInformation <- Digest)
+(define-ethereum-api eth getTransactionByHash (Maybe TransactionInformation) <- Digest)
 
 ;; Returns a transaction by block hash and transaction index position
 (define-ethereum-api eth getTransactionByBlockHashAndIndex TransactionInformation <- Digest Quantity)
