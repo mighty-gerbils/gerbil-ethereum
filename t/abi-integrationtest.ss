@@ -4,7 +4,7 @@
   :gerbil/gambit/os
   :std/misc/list :std/misc/ports :std/misc/process :std/srfi/1 :std/sugar :std/test :std/text/hex
   :clan/list :clan/path :clan/path-config :clan/poo/poo
-  ../hex ../types ../ethereum ../signing ../json-rpc ../transaction ../abi ../tx-tracker
+  ../hex ../types ../ethereum ../signing ../network-config ../json-rpc ../transaction ../abi ../tx-tracker
   ./signing-test ./transaction-integrationtest)
 
 (def (compile-solidity src dstdir)
@@ -47,9 +47,16 @@
   (test-suite "integration test for ethereum/abi"
     (test-case "Contract creation failure due to insufficient gas"
       (check-exception (post-transaction (create-contract croesus (test-contract-bytes) gas: 21000))
-                       (match <> ((TransactionStatus-TxFailed (vector _ (? IntrinsicGasTooLow?))) #t) (_ #f)))
+                       (match <> ((TransactionStatus-TxFailed (vector _ exn))
+                                  (if (ethereum-mantis?)
+                                    (and (TransactionRejected? exn)
+                                         (equal? (TransactionRejected-receipt exn)
+                                                 "Reason unknown (nonce didn't change)"))
+                                    (IntrinsicGasTooLow? exn)))
+                              (_ #f)))
       (check-exception (post-transaction (create-contract croesus (test-contract-bytes) gas: 100000))
-                       (match <> ((TransactionStatus-TxFailed (vector _ (? TransactionRejected?))) #t) (_ #f))))
+                       (match <> ((TransactionStatus-TxFailed (vector _ (? TransactionRejected?))) #t)
+                              (_ #f))))
     (test-case "Call contract function hello with no argument"
       (ensure-contract)
       (def pretx (call-function croesus contract

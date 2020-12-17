@@ -9,7 +9,7 @@
   :clan/poo/poo :clan/poo/io :clan/poo/brace
   :clan/crypto/keccak :clan/persist/db
   ./hex ./types ./rlp ./ethereum ./signing ./known-addresses
-  ./json-rpc ./network-config ./nonce-tracker)
+  ./logger ./network-config ./json-rpc ./nonce-tracker)
 
 ;; Signing transactions, based on spec in EIP-155
 ;; https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md
@@ -112,7 +112,9 @@
 ;; : Bool <- TransactionReceipt
 (def (successful-receipt? receipt)
   (and (poo? receipt)
-       (= (.@ receipt status) 1)))
+       (let (status (.@ receipt status))
+         (or (equal? status 1) ;; success on geth
+             (and (void? status) (ethereum-mantis?)))))) ;; Mantis doesn't have a status field, but seems to only return receipts for successful transactions (?) Is there such things as unsuccessful transactions that were kept on the list for gas expense to miners?
 
 ;; : Unit <- TransactionReceipt
 (def (check-transaction-receipt-status receipt)
@@ -139,12 +141,12 @@
 ;; : Bool <- TransactionReceipt Quantity
 (def (receipt-sufficiently-confirmed? receipt (block-number (eth_blockNumber)))
   (>= (confirmations<-receipt receipt block-number)
-      (.@ (current-ethereum-network) confirmationsWantedInBlocks)))
+      (ethereum-confirmations-wanted-in-blocks)))
 
 ;; Get the number of the latest confirmed block
 ;; : Quantity <-
 (def (confirmed-block-number (block-number (eth_blockNumber)))
-  (- block-number (.@ (current-ethereum-network) confirmationsWantedInBlocks)))
+  (- block-number (ethereum-confirmations-wanted-in-blocks)))
 
 ;; : Unit <- TransactionReceipt
 (def (check-receipt-sufficiently-confirmed receipt (block-number (eth_blockNumber)))
@@ -200,20 +202,28 @@
   {raw tx})
 
 ;; : TransactionReceipt <- Address Digest
-(def (confirmed-or-known-issue sender hash)
-  (cond
-   ((eth_getTransactionReceipt hash) => check-transaction-receipt-status)
-   (else (nonce-too-low sender))))
+(def (confirmed-or-known-issue sender tx)
+  (def receipt (eth_getTransactionReceipt (.@ tx hash)))
+  (if (poo? receipt)
+    (check-transaction-receipt-status receipt)
+    (let ((sender-nonce (eth_getTransactionCount sender 'pending))
+          (tx-nonce (.@ tx nonce)))
+      (cond
+       ((> sender-nonce tx-nonce) (nonce-too-low sender))
+       ((= sender-nonce tx-nonce) (error (TransactionRejected "Reason unknown (nonce didn't change)")))
+       ((< sender-nonce tx-nonce) (error (TransactionRejected "BEWARE: nonce too high. Are you queueing transactions? Did you reset a test network?")))))))
+
+(def minimum-gas-price (values 1))
 
 ;; : TxHeader <- Address Quantity Quantity
 (def (make-tx-header sender: sender value: value gas: gas log: (log #f))
-  (def gasPrice (max 1 (eth_gasPrice))) ;; Mantis reports 0 -- is that why our transactions never make it?
+  (def gasPrice (max minimum-gas-price (eth_gasPrice)))
   (def nonce (.call NonceTracker next sender))
   {sender nonce gasPrice gas value})
 
 ;; Prepare a signed transaction, that you may later issue onto Ethereum network,
 ;; from given address, with given operation, value and gas-limit
-;; : Transaction SignedTransaction <- PreTransaction
+;; : SignedTransaction <- PreTransaction
 (def (make-signed-transaction pre)
   (def tx-header (make-tx-header sender: (.@ pre sender) value: (.@ pre value) gas: (.@ pre gas)))
   (sign-transaction {(tx-header) operation: (.@ pre operation)}))
@@ -221,14 +231,15 @@
 ;; : Digest <- Address SignedTransaction
 (def (send-raw-transaction sender signed)
   (def data (.@ signed raw))
-  (def hash (.@ signed tx hash))
+  (def tx (.@ signed tx))
+  (def hash (.@ tx hash))
   (match (with-result (eth_sendRawTransaction data))
     ((some transaction-hash)
      (if (equal? transaction-hash hash)
        hash
        (error "eth-send-raw-transaction: invalid hash" transaction-hash hash)))
     ((failure (json-rpc-error code: -32000 message: "nonce too low"))
-     (confirmed-or-known-issue sender hash)
+     (confirmed-or-known-issue sender tx)
      hash)
     ((failure (json-rpc-error code: -32000 message: "replacement transaction underpriced"))
      (raise (ReplacementTransactionUnderpriced)))
@@ -244,14 +255,15 @@
 ;; : TransactionReceipt <- Transaction SignedTransaction
 (def (send-and-confirm-transaction sender signed)
   (def hash (send-raw-transaction sender signed))
-  (assert-equal! hash (.@ signed tx hash))
+  (def tx (.@ signed tx))
+  (assert-equal! hash (.@ tx hash))
   (def receipt (eth_getTransactionReceipt hash))
   (if (poo? receipt)
     (check-transaction-receipt-status receipt)
     (let ((nonce (.@ signed tx nonce)))
       (def sender-nonce (eth_getTransactionCount sender 'latest))
       (if (< nonce sender-nonce)
-        (confirmed-or-known-issue sender hash)
+        (confirmed-or-known-issue sender tx)
         (raise (StillPending)))))
   (check-receipt-sufficiently-confirmed receipt)
   receipt)
