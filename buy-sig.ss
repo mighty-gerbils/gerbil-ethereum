@@ -70,8 +70,7 @@
 (def (payForSignature/Buyer ctx Buyer Seller digest0 price)
   ;; TODO: properly persist all this stuff!
   ;; TODO: wrap in proper transactions?
-  (def timeoutInBlocks
-    (.@ (current-ethereum-network) timeoutInBlocks))
+  (def timeoutInBlocks (ethereum-timeout-in-blocks))
   ;; TODO: add some off-chain negotiation for the initial-block?
   (def initial-block ;; grant ourselves some time to post, then
     (+ (eth_blockNumber) timeoutInBlocks))
@@ -108,17 +107,16 @@
               (assert! (message-signature-valid? Seller signature digest0))
               (assert! (= value 0))
               {signature})
-   deadline-block: (+ initial-block timeout-in-blocks)
+   deadline-block: (+ initial-block (ethereum-timeout-in-blocks))
    on-timeout: (lambda (e)
                  (send-message context: ctx data: #u8())
                  (raise e))))
 
 (def (payForSignature/Seller ctx Buyer Seller digest0 price)
-  (def timeoutInBlocks
-    (.@ (current-ethereum-network) timeoutInBlocks))
+  (def timeoutInBlocks (ethereum-timeout-in-blocks))
   ;; TODO: add some off-chain negotiation for the initial-block?
-  (def expected-initial-block ;; grant the Buyer some time to post, then
-    (+ (eth_blockNumber) timeoutInBlocks))
+  ;; grant the Buyer some time to post, then
+  (def expected-initial-block (+ (eth_blockNumber) timeoutInBlocks))
   (receive-message
    context: ctx
    deadline-block: expected-initial-block

@@ -26,7 +26,7 @@
   :gerbil/gambit/bytes :gerbil/gambit/ports :gerbil/gambit/threads
   (for-syntax :std/format)
   :std/format :std/lazy :std/sugar
-  :clan/base :clan/json :clan/logger :clan/maybe
+  :clan/base :clan/concurrency :clan/json :clan/logger :clan/failure :clan/maybe :clan/option
   :clan/net/json-rpc
   :clan/poo/poo :clan/poo/brace :clan/poo/io
   ./types ./signing ./ethereum ./network-config ./logger)
@@ -36,10 +36,10 @@
 (def ethereum-mutex (make-mutex 'ethereum))
 
 (def (ethereum-json-rpc method-name result-decoder param-encoder
-                        timeout: (timeout #f) log: (log eth-log)
+                        timeout: (timeout #f) log: (log eth-log) url: (url (ethereum-url))
                         params)
   (with-lock ethereum-mutex
-             (cut json-rpc (ethereum-rpc-config) method-name params
+             (cut json-rpc url method-name params
                   result-decoder: result-decoder
                   param-encoder: param-encoder
                   timeout: timeout log: log)))
@@ -52,11 +52,11 @@
        (with-syntax ((method-name method-name) (fun-id fun-id))
          #'(begin
              (def params-type (Tuple argument-type ...))
-             (def (fun-id timeout: (timeout #f) log: (log eth-log) . a)
+             (def (fun-id timeout: (timeout #f) log: (log eth-log) url: (url (ethereum-url)) . a)
                  (ethereum-json-rpc method-name
                                     (.@ result-type .<-json)
                                     (.@ params-type .json<-) (list->vector a)
-                                    timeout: timeout log: log))))))))
+                                    timeout: timeout log: log url: url))))))))
 
 (define-ethereum-api web3 clientVersion String <-)
 (define-ethereum-api web3 sha3 Bytes32 <- Bytes) ;; keccak256
@@ -64,7 +64,6 @@
 (define-ethereum-api net version String <-) ;; a decimal number
 (define-ethereum-api net listening Bool <-)
 (define-ethereum-api net peerCount Quantity <-)
-
 
 (define-ethereum-api eth protocolVersion String <-) ;; a decimal number
 
@@ -77,8 +76,6 @@
 (define-ethereum-api eth coinbase Address <-)
 (define-ethereum-api eth mining Bool <-)
 (define-ethereum-api eth hashrate Quantity <-)
-
-
 
 (define-type BlockParameter
   (Union
@@ -193,7 +190,6 @@
 ;; Returns a list of address owned by the client
 (define-ethereum-api eth accounts (List Address) <-)
 
-
 (define-type CallParameters
   (Record
    from: [Address]
@@ -294,8 +290,6 @@
 (define-ethereum-api eth getUncleByBlockHashAndIndex BlockInformation <- Digest Quantity)
 (define-ethereum-api eth getUncleByBlockNumberAndIndex BlockInformation <- BlockParameter Quantity)
 
-
-
 ;; Returns a receipt of transaction by transaction hash (not available if transaction still pending)
 (define-ethereum-api eth getTransactionReceipt (Maybe TransactionReceipt) <- Digest)
 
@@ -378,7 +372,6 @@
 (define-ethereum-api eth getWork (Tuple Bytes32 Bytes32 Bytes32) <-)
 (define-ethereum-api eth submitWork Bool <- Bytes32 Bytes32 Bytes32)
 
-
 (define-ethereum-api shh version String <-)
 (define-type ShhMessageSent
   (Record
@@ -412,8 +405,6 @@
    workProved: [Quantity])) ;; Integer of the work this message required before it was send (?).
 (define-ethereum-api shh getFilterChanges (List ShhMessageReceived) <- Quantity)
 (define-ethereum-api shh getMessages (List ShhMessageReceived) <- Quantity)
-
-
 
 ;;;; Geth extensions, Personal Namespace https://geth.ethereum.org/docs/rpc/ns-personal
 ;; Not present in Mantis. Is it present in Parity, though I haven't looked for discrepancies.
@@ -459,7 +450,6 @@
 ;; https://github.com/ethereum/go-ethereum/pull/15971/files
 (define-ethereum-api personal signTransaction SignedTransaction <- TransactionParameters String)
 
-
 ;; txpool namespace https://geth.ethereum.org/docs/rpc/ns-txpool
 (define-type TxPoolEntry
   (Record
@@ -486,3 +476,59 @@
 
 ;; https://geth.ethereum.org/docs/rpc/pubsub -- we need use websocket for that.
 ;; eth_subscribe, eth_unsubscribe
+
+;; Poll the ethereum node until it's ready
+(def (poll-for-ethereum-node
+      url
+      message: (message ".")
+      retry-window: (retry-window 0.05)
+      max-window: (max-window 1.0)
+      max-retries: (max-retries 10))
+  (retry retry-window: retry-window max-window: max-window max-retries: max-retries
+         (lambda () (display message) (eth_blockNumber url: url timeout: 1.0))))
+
+;; TODO: handle ${INFURA_API_KEY} substitution, etc.
+(def (ethereum-url<-config config)
+  (car (.@ config rpc)))
+
+(def (current-ethereum-connection-for? name)
+  (match (current-ethereum-network)
+    ((ethereum-network (? poo? config) (? poo? connection))
+     (equal? name (.@ config name)))
+    (_ #f)))
+
+(def (ensure-ethereum-connection name poll: (poll #t))
+  (unless (current-ethereum-connection-for? name)
+    (init-ethereum-connection name poll: poll)))
+
+(def (init-ethereum-connection name poll: poll)
+  (def network (ensure-ethereum-network name))
+  (def config (ethereum-network-config network))
+  (def url (ethereum-url<-config config))
+  (when poll
+    (let (message (format "Connecting to the ~a at ~a ..." (.@ config name) url))
+      (poll-for-ethereum-node url message: message)))
+  (def client-version (web3_clientVersion url: url))
+  (def mantis? (string-prefix? "mantis/" client-version))
+  (def configured-chain-id (.ref config 'chainId (lambda _ 0)))
+  (def server-chain-id
+    (match (with-result (eth_chainId url: url))
+      ((some id) id)
+      ((failure e)
+       (eth-log "The node doesn't support eth_chainId. Assuming 0 (no EIP-155).")
+       0)))
+  (def chain-id ;; The effective value we'll use.
+    (cond
+     (mantis?
+      (eth-log "Using Mantis. Disabling EIP-155 by overriding chainId with 0.")
+      0)
+     ((equal? server-chain-id configured-chain-id)
+      (eth-log "The server and configuration agree on chainId. Good.")
+      configured-chain-id)
+     (else
+      ;;; TODO should we abort instead?
+      (eth-log "The server and configuration disagree on chainId. BAD. Trusting configuration.")
+      configured-chain-id)))
+  (def connection {url client-version chain-id server-chain-id mantis?})
+  (eth-log ["EthereumNetworkConnection" (list->hash-table (.alist connection))])
+  (set! (ethereum-network-connection network) connection))

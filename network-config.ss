@@ -1,7 +1,7 @@
 (export #t)
 
 (import
-  :std/text/json
+  :std/sugar :std/text/json
   :clan/json :clan/path-config
   :clan/poo/poo :clan/poo/io
   ./types ./signing ./ethereum ./logger)
@@ -30,22 +30,44 @@
    addressExplorerUrl: [String] ;; string-append 0xAddress for address information
    pennyCollector: [Address])) ;; who will get the pennies leftover from self-destructing contracts.
 
-(def current-ethereum-network (make-parameter #f))
+(defstruct ethereum-network (config connection) transparent: #t)
+
+(def current-ethereum-network (make-parameter (ethereum-network #f #f)))
 
 (def ethereum-networks #f)
 
 (def (load-ethereum-networks-config (file (config-path "ethereum_networks.json")))
   (set! ethereum-networks (parse-json-file file (.@ (List EthereumNetworkConfig) .<-json))))
 
-(def (ensure-ethereum-network (name "pet"))
+(def (ensure-ethereum-network name)
   (unless ethereum-networks (load-ethereum-networks-config))
   (def config (find (lambda (x) (equal? name (.@ x shortName))) ethereum-networks))
+  (unless config (error "Ethereum configuration not found for network" name))
   (eth-log ["EthereumNetworkConfig" (json<- EthereumNetworkConfig config)])
   ;; TODO: At first network connection, checking web3_clientVersion and eth_chainId and update the config?
-  (current-ethereum-network config))
+  (def network (ethereum-network config #f))
+  (current-ethereum-network network)
+  network)
 
-(def (ethereum-rpc-config)
-  (car (.@ (current-ethereum-network) rpc)))
+(defrule (with-ethereum-network body ...)
+  (with-catch
+   (lambda (_) (error "No configured ethereum node connection."
+            "Did you fail to use (ensure-ethereum-connection \"pet\") ?"))
+   (lambda () body ...)))
 
-(def (ethereum-chain-id)
-  (.ref (current-ethereum-network) 'chainId (lambda _ 0)))
+(def (ethereum-config-accessor field-name)
+  (lambda () (with-ethereum-network
+         (.ref (ethereum-network-config (current-ethereum-network)) field-name))))
+
+(def (ethereum-connection-accessor field-name)
+  (lambda () (with-ethereum-network
+         (.ref (ethereum-network-connection (current-ethereum-network)) field-name))))
+
+(def ethereum-confirmations-wanted-in-blocks (ethereum-config-accessor 'confirmationsWantedInBlocks))
+(def ethereum-block-polling-period-in-seconds (ethereum-config-accessor 'blockPollingPeriodInSeconds))
+(def ethereum-timeout-in-blocks (ethereum-config-accessor 'timeoutInBlocks))
+(def ethereum-penny-collector (ethereum-config-accessor 'pennyCollector))
+
+(def ethereum-url (ethereum-connection-accessor 'url))
+(def ethereum-chain-id (ethereum-connection-accessor 'chain-id))
+(def ethereum-mantis? (ethereum-connection-accessor 'mantis?))

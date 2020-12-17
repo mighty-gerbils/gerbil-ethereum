@@ -20,7 +20,7 @@
   (def (get-current-block!) (set! current-block (eth_blockNumber)))
   (get-current-block!)
   (while (< current-block target-block)
-    (thread-sleep! (.@ (current-ethereum-network) blockPollingPeriodInSeconds))
+    (thread-sleep! (ethereum-block-polling-period-in-seconds))
     (get-current-block!))
   current-block)
 
@@ -60,7 +60,7 @@
    "watch-ethereum-blockchain"
    (while #t
      (process-new-blocks)
-     (thread-sleep! (.@ (current-ethereum-network) blockPollingPeriodInSeconds)))))
+     (thread-sleep! (ethereum-block-polling-period-in-seconds)))))
 
 ;; hook to synchronously watch all events of some kind as the chain keeps getting updated
 (def (process-events filter process)
@@ -76,7 +76,7 @@
 ;; than the name for the corresponding unconfirmed event hook.
 (def (register-confirmed-event-hook
       name fromBlock filter process
-      (confirmations (.@ (current-ethereum-network) confirmationsWantedInBlocks)))
+      (confirmations (ethereum-confirmations-wanted-in-blocks)))
   (hash-put! new-block-hooks name
              (lambda (first-unprocessed-block last-unprocessed-block)
                ((process-events filter process)
@@ -86,7 +86,7 @@
 
 (def (register-unconfirmed-event-hook
       name filter process
-      (confirmations (.@ (current-ethereum-network) confirmationsWantedInBlocks)))
+      (confirmations (ethereum-confirmations-wanted-in-blocks)))
   (def hook (lambda (first-unprocessed-block last-unprocessed-block)
               ((process-events filter process)
                (max first-unprocessed-block (- last-unprocessed-block confirmations -1))

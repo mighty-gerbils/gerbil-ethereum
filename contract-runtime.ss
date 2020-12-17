@@ -499,12 +499,6 @@
    ;; loop!
    [&jump1 'logbuf]))
 
-(def (timeout-in-blocks)
-  (.@ (current-ethereum-network) timeoutInBlocks))
-
-(def (penny-collector-address)
-  (.@ (current-ethereum-network) pennyCollector))
-
 ;; SELFDESTRUCT WITH DEBUG SUPPORT
 ;; If debug is true, e.g. for debugging, emulate most of the behavior of SELFDESTRUCT
 ;; in a way that won't confuse the remix interface (that won't show code for destroyed contracts):
@@ -531,7 +525,7 @@
 (def (&define-end-contract debug: (debug #f))
   (&begin
    [&jumpdest 'suicide]
-   (penny-collector-address) ;; send any leftover money to this address!
+   (ethereum-penny-collector) ;; send any leftover money to this address!
    (&SELFDESTRUCT debug: debug)
    [&jumpdest 'end-contract]
    0 0 SSTORE 'suicide [&jump1 'commit-contract-call]))
@@ -550,7 +544,7 @@
   (&begin
    ;; TODO: negotiate the timeout between users,
    ;; rather than hard-wiring it to the network as below?
-   (timeout-in-blocks) last-action-block ADD ;; using &safe-add is probably redundant there.
+   (ethereum-timeout-in-blocks) last-action-block ADD ;; using &safe-add is probably redundant there.
    NUMBER LT &require-not!))
 
 ;; BEWARE! This is for two-participant contracts only,
