@@ -4,12 +4,13 @@
 
 (import
   :gerbil/gambit/exceptions :gerbil/gambit/os :gerbil/gambit/ports :gerbil/gambit/threads
-  :std/format :std/getopt :std/misc/list :std/misc/ports :std/misc/process
+  :std/format :std/getopt :std/misc/list :std/misc/ports :std/misc/process :std/misc/string
   :std/pregexp :std/srfi/1 :std/srfi/13 :std/sugar
   :clan/base :clan/files :clan/json :clan/maybe :clan/multicall
   :clan/path :clan/path-config :clan/shell :clan/source
   :clan/net/json-rpc)
 
+;; User-configurable variables
 (def eth-rpc-port 8545) ;; NOTE: Mantis by default uses 8546, while Geth uses 8545
 (def default-node "geth")
 
@@ -18,21 +19,25 @@
 (def here (path-simplify-directory (this-source-file)))
 (home-directory-default! (cut path-parent here))
 
-(def testdb-run-directory (run-path "testdb"))
-
-(def (eth-rpc-url)
-  (format "http://localhost:~d" eth-rpc-port))
+(def (eth-rpc-url) (format "http://localhost:~d" eth-rpc-port))
 
 
-;;;;; Support for both geth and mantis
+;;;; Common support for both geth and mantis
 
 ;; Wipe out the runtime directory, thus resetting the test blockchain to zero,
 ;; and recreate an empty directory.
-(define-entry-point (reset-testdb)
-  "Reset the testdb"
-  (unless (string-contains testdb-run-directory "/run/testdb")
-    (error "Not resetting fishy testdb-run-directory" testdb-run-directory))
-  (run-process/batch ["rm" "-rf" testdb-run-directory]))
+(define-entry-point (wipe-run-directory)
+  "Wipe any run directory"
+  (unless (string-suffix? "/run" (run-directory))
+    ;; TODO: once there are production directories, insert test so that we don't wipe one.
+    (error "Not resetting fishy run-directory" (run-directory)))
+  (for-each
+    (lambda (sub)
+      (def path (run-path sub))
+      (assert! (string-contains path "/run/"))
+      (when (file-exists? path)
+        (ignore-errors (run-process/batch ["rm" "-rf" path]))))
+    ["geth" "mantis" "testdb" "t" "log"]))
 
 (define-entry-point (wait-for-ethereum (name "ethereum"))
   "Wait for the ethereum server to be ready to handle requests"
@@ -47,17 +52,17 @@
       (thread-sleep! 1)
       (loop)))))
 
-(define-entry-point (start (name "geth"))
-  "Start a fresh Ethereum server (default: geth)"
+(define-entry-point (start (name default-node))
+  (format "Start a fresh ethereum server (default: ~a)" default-node)
   (match (string-downcase name)
     ("geth" (start-geth))
     ("mantis" (start-mantis))
-    (_ (error "Unrecognized ethereum name" name))))
+    (_ (error "Unrecognized ethereum server name" name))))
 
 (define-entry-point (stop)
   "Stop and wipe any current ethereum server"
-  (kill-geth)
-  (kill-mantis))
+  (stop-geth)
+  (stop-mantis))
 
 ;; There are additional restrictions on a name that we don't care to check here
 ;; https://docs.docker.com/engine/reference/commandline/tag/
@@ -66,6 +71,9 @@
   (match (pregexp-match "^([0-9a-f]+) +([-A-Za-z0-9_.-/:]+) +.* ([-A-Za-z0-9_./:]+)$" line)
     ([_ container-id image-name container-name] [container-id image-name container-name])
     (_ #f)))
+
+(set-default-entry-point! "start")
+(def main call-entry-point)
 
 ;;;; Support for Geth
 
@@ -113,24 +121,11 @@
     stderr-redirection: #f
     show-console: #f]))
 
-(define-entry-point (kill-geth)
-  "Kill any currently running geth docker image"
-  (ignore-errors (run-process/batch
-                  ["killall" (cond-expand (linux ["-q"]) (else []))... "geth"])))
-
-;; Wipe out the runtime directory, thus resetting the test blockchain to zero.
-(define-entry-point (reset-geth)
-  "Reset the geth and testdb directory"
-  (unless (string-contains geth-run-directory "/run/geth")
-    (error "Not resetting fishy geth-run-directory" geth-run-directory))
-  (run-process/batch ["rm" "-rf" geth-run-directory])
-  (reset-testdb))
-
 (define-entry-point (start-geth)
-  "Start a go-ethereum server, wiping any previous server"
+  "Start a go-ethereum server, wiping any previous run data"
   ;; Zeroth, erase any previous blockchain data and accompanying testdb, and create new directories
   (stop)
-  (reset-geth)
+  (wipe-run-directory)
   (create-directory* geth-run-directory)
   (create-directory* geth-data-directory)
   (create-directory* geth-logs-directory)
@@ -155,12 +150,12 @@
   (wait-for-ethereum "geth"))
 
 (define-entry-point (stop-geth)
-  "Stop and wipe any current Geth docker image"
-  (kill-geth)
-  (reset-geth))
+  "Stop any currently running geth server"
+  (ignore-errors (run-process/batch
+                  ["killall" (cond-expand (linux ["-q"]) (else []))... "geth"])))
 
 (define-entry-point (geth)
-  "same as start-geth"
+  "alias for start-geth"
   (start-geth))
 
 ;;;; Support for Mantis
@@ -175,7 +170,7 @@
 (def mantis-run-directory (run-path "mantis")) ;; Determine the runtime directory
 
 (define-entry-point (mantis-containers)
-  "List current mantis docker containers"
+  "List current Mantis docker containers"
   (append-map
    (lambda (l) (match (parse-docker-ps-line l)
             ([container-id image-name _]
@@ -187,26 +182,17 @@
                      coprocess: read-all-as-lines))))
 
 (define-entry-point (mantis-container)
-  "Print name of first mantis container, if any"
+  "Print name of first Mantis docker container, if any"
   (def mcs (mantis-containers))
-  (unless (null? mcs)
-    (displayln (car mcs))))
+  (unless (null? mcs) (displayln (car mcs))))
 
-(define-entry-point (kill-mantis)
-  "Kill any currently running mantis docker image"
+(define-entry-point (stop-mantis)
+  "Stop any currently running Mantis docker container"
   (def containers (mantis-containers))
   (unless (null? containers)
     (printf "Killing container ~a\n" (string-join containers " "))
     (run-process/batch ["docker" "stop" containers ...])
     (run-process/batch ["docker" "wait" containers ...])))
-
-;; Wipe out the runtime directory, thus resetting the test blockchain to zero
-(define-entry-point (reset-mantis)
-  "Reset the mantis and testdb directory"
-  (unless (string-contains mantis-run-directory "/run/mantis")
-    (error "Not resetting fishy mantis-run-directory" mantis-run-directory))
-  (run-process/batch ["rm" "-rf" mantis-run-directory])
-  (reset-testdb))
 
 ;;; NB: We could have a log directory outside it and symlink the builtin path to it, but oh well.
 
@@ -248,26 +234,26 @@
     show-console: #f]))
 
 (define-entry-point (start-mantis)
-  "Start a fresh Mantis docker image, stop and wipe any previous one"
+  "Start a fresh Mantis docker image, wiping any previous run data"
   (stop)
+  (wipe-run-directory)
   (run-mantis)
   (wait-for-ethereum "mantis"))
 
-(define-entry-point (stop-mantis)
-  "Stop and wipe any current Mantis docker image"
-  (kill-mantis)
-  (reset-mantis))
+(define-entry-point (mantis)
+  "alias for start-mantis"
+  (start-mantis))
 
-(define-entry-point (mallet)
-  "Run mallet against the docker image"
+(define-entry-point (get-mantis-log (tx #f))
+  "copy the mantis log to run/mantis/mantis.log"
+  (def container-log (format "~a:/root/.mantis/logs/mantis.log" (car (mantis-containers))))
+  (def host-log (run-path "mantis/mantis.log"))
+  (run-process/batch ["docker" "cp" container-log host-log])
+  (when tx (run-process ["less" "-p" (string-trim-prefix "0x" tx) host-log])))
+
+;; TODO: get mallet to work?
+#;(define-entry-point (mallet)
+  "Run mallet against the Mantis docker image"
   ;; Download mallet at: https://github.com/input-output-hk/mallet
   ;; Works best with node 10.x.x
   (run-process/batch ["mallet" (eth-rpc-url) (string-append "--datadir=" mantis-run-directory)]))
-
-(define-entry-point (mantis)
-  "same as start-mantis"
-  (start-mantis))
-
-;;;; Configure this module as an executable multicall script
-(set-default-entry-point! "start")
-(def main call-entry-point)
