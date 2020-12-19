@@ -46,31 +46,36 @@
 (def abi-integrationtest
   (test-suite "integration test for ethereum/abi"
     (test-case "Contract creation failure due to insufficient gas"
-      (check-exception (post-transaction (create-contract croesus (test-contract-bytes) gas: 21000))
-                       (match <> ((TransactionStatus-TxFailed (vector _ exn))
-                                  (if (ethereum-mantis?)
-                                    (and (TransactionRejected? exn)
-                                         (equal? (TransactionRejected-receipt exn)
-                                                 "Reason unknown (nonce didn't change)"))
-                                    (IntrinsicGasTooLow? exn)))
-                              (_ #f)))
-      (check-exception (post-transaction (create-contract croesus (test-contract-bytes) gas: 100000))
-                       (match <> ((TransactionStatus-TxFailed (vector _ (? TransactionRejected?))) #t)
-                              (_ #f))))
+      (unless (ethereum-mantis?)
+        ;; Mantis never accepts the transaction, and even logs a message why it won't,
+        ;; but its JSON RPC API doesn't give us any way to tell it's failed.
+        (check-exception (post-transaction (create-contract croesus (test-contract-bytes) gas: 21000))
+                         (match <> ((TransactionStatus-TxFailed (vector _ exn))
+                                    (if (ethereum-mantis?)
+                                      (and (TransactionRejected? exn)
+                                           (equal? (TransactionRejected-receipt exn)
+                                                   "Reason unknown (nonce didn't change)"))
+                                      (IntrinsicGasTooLow? exn)))
+                                (_ #f)))
+        ;; Mantis never accepts the transaction, and doesn't even log a message why it won't,
+        ;; but its JSON RPC API doesn't give us any way to tell it's failed.
+        (check-exception (post-transaction (create-contract croesus (test-contract-bytes) gas: 100000))
+                         (match <> ((TransactionStatus-TxFailed (vector _ (? TransactionRejected?))) #t)
+                                (_ #f)))))
     (test-case "Call contract function hello with no argument"
       (ensure-contract)
       (def pretx (call-function croesus contract
                                 (bytes<-ethereum-function-call ["hello"] [])))
       (def receipt (post-transaction pretx))
       (def block-number (.@ receipt blockNumber))
-      (def data (eth_call (CallParameter<-PreTransaction pretx) (1- block-number)))
+      (def data (eth_call (CallParameters<-PreTransaction pretx) (1- block-number)))
       (check-equal-bytes? data (ethabi-encode [String] ["Hello, World!"])))
     (test-case "call contract function mul42 with one number argument"
       (def pretx (call-function croesus contract
                                 (bytes<-ethereum-function-call ["mul42" UInt256] [47])))
       (def receipt (post-transaction pretx))
       (def block-number (.@ receipt blockNumber))
-      (def data (eth_call (CallParameter<-PreTransaction pretx) (1- block-number)))
+      (def data (eth_call (CallParameters<-PreTransaction pretx) (1- block-number)))
       (check-equal-bytes? data (ethabi-encode [UInt256] [1974])))
     (test-case "call contract function greetings with one string argument"
       (def pretx (call-function croesus contract
@@ -85,9 +90,9 @@
       (check-equal-bytes? topic-event (digest<-function-signature ["greetingsEvent" String]))
       ;; the log data is the encoding of the parameter passed to the event
       (def data (.@ receipt-log data))
-      (def result (eth_call (CallParameter<-PreTransaction pretx) (1- block-number)))
+      (def result (eth_call (CallParameters<-PreTransaction pretx) (1- block-number)))
       (check-equal-bytes? data result)
       (check-equal-bytes? data (ethabi-encode [String] ["Greetings, Croesus"])))))
 
 ;; TODO: add a stateful function, and check the behavior of eth-call wrt block-number
-;; TODO: test the parsing of the HellowWorld.abi JSON descriptor
+;; TODO: test the parsing of the HelloWorld.abi JSON descriptor

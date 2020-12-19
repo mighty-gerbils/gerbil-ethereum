@@ -29,5 +29,5 @@
   (compose (cut map type<-variable-abi <>) inputs<-function-abi constructor<-contract-abi))
 
 ;; If a JSON ABI descriptor is available, the types should be from constructor-input-types<-contract-abi
-(def (create-ethabi-contract creator code types parameters value: (value 0) gas: (gas #f))
+(def (create-ethabi-contract creator code types parameters value: (value 0) gas: (gas (void)))
   (create-contract creator (ethabi-encode types parameters code) value: value gas: gas))

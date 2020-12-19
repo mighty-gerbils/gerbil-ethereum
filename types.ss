@@ -22,8 +22,8 @@
 
 (.def (Maybe. @ [poo.Maybe.] type)
   .rlp<-: (lambda (x) (if (void? x) #u8() (rlp<- type x)))
-  .<-rlp: (lambda (x) (if (zero? (bytes-length x)) (void) (<-rlp type x))))
-(def (Maybe type) {(:: @ Maybe.) (type)})
+  .<-rlp: (lambda (x) (if (equal? x #u8()) (void) (<-rlp type x))))
+(def (Maybe type) {(:: @ Maybe.) type})
 
 ;; --- something for types in general, including Record, Union, Maybe
 ;; --- something for ethereum types in particular

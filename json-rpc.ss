@@ -88,6 +88,7 @@
    (Record time: [Quantity]) ;; time in seconds-since-epoch as 0x string
    Unit)) ;; JSON null, isomorphic to unit, but its own thing for faithful FFI purposes. (void) in Gerbil.
 
+;; TODO: Implement Record inheritance, and have it be just Transaction plus a condition
 (define-type TransactionParameters
   (Record
    from: [Address]
@@ -99,26 +100,9 @@
    nonce: [(Maybe Quantity) optional: #t default: (void)]
    condition: [(Maybe TransactionCondition) optional: #t default: (void)]))
 
-(def ToData<-Operation
-  (match <>
-    ((Operation-TransferTokens to) (values to (void)))
-    ((Operation-CreateContract data) (values (void) data))
-    ((Operation-CallFunction {(to) (data)}) (values to data))))
-
-(def (TransactionParameters<-Operation from operation value)
-  (defvalues (to data) (ToData<-Operation operation))
-  ;; TransactionParameters
-  {(from) (to) (value) (data)
-   gas: (void) gasPrice: (void) nonce: (void) condition: (void)})
-
-(def (Transactionparameters<-PreTransaction sender pretx)
-  (defrule (.pretx x ...) (begin (def x (.@ pretx x)) ...)) (.pretx operation gas value)
-  {(:: @ (TransactionParameters<-Operation sender operation value)) (gas)})
-
-(def (TransactionParameters<-Transaction tx)
-  (defrule (.tx x ...) (begin (def x (.@ tx x)) ...)) (.tx operation tx-header)
-  (defrule (.th x ...) (begin (def x (.@ tx-header x)) ...)) (.th sender nonce gas gasPrice value)
-  {(:: @ (TransactionParameters<-Operation sender operation value)) (gas) (gasPrice) (value) (nonce)})
+(def (TransactionParameters<-PreTransaction tx)
+  (def-slots (from to data value nonce gas gasPrice) tx)
+  {from to data value nonce gas gasPrice condition: (void)})
 
 (define-type TransactionInformation
   (Record
@@ -170,26 +154,37 @@
    contractAddress: [(Maybe Address) optional: #t default: (void)]
    cumulativeGasUsed: [Quantity]
    from: [(Maybe Address) optional: #t default: (void)] ;; in geth, not in mantis
-   to: [(Maybe Address) optional: #t default: (void)]
+   to: [(Maybe Address) optional: #t default: (void)] ;; in geth, not in mantis
    gasUsed: [Quantity]
    logs: [LogObjectList]
    logsBloom: [(Maybe Bloom) optional: #t default: (void)] ;; in geth, not mantis
-   status: [(Maybe Quantity) optional: #t default: (void)] ;; can be null in mantis
-   statusCode: [(Maybe Quantity) optional: #t default: (void)] ;; in mantis, not geth.
+   status: [(Maybe Quantity) optional: #t default: (void)] ;; in geth, not mantis: 1 success, 0 failure
+   statusCode: [(Maybe Quantity) optional: #t default: (void)] ;; in mantis, not geth: 0 success, >0 error code
    transactionHash: [Digest]
    transactionIndex: [Quantity]
    returnData: [(Maybe Data) optional: #t default: (void)])) ;; in mantis, not geth.
+;; Mantis statusCode decoding:
+;;    0x00: success
+;;    0x01: function does not exist
+;;    0x02: function has wrong signature
+;;    0x03: function does not exist on empty account
+;;    0x04: execution of instructions led to failure
+;;    0x05: out of gas
+;;    0x06: deploying to an account that already exists
+;;    0x07: insufficient balance to transfer
+;;    0x08: negative balance or gas limit or call depth exceeded
+;;    0x09: contract being uploaded to blockchain is not well formed
 
 (def (Confirmation<-TransactionReceipt tr)
-  (defrule (.tr x ...) (begin (def x (.@ tr x)) ...))
-  (.tr transactionHash transactionIndex blockNumber blockHash status)
+  (def-slots (transactionHash transactionIndex blockNumber blockHash status) tr)
   (if (zero? status)
     (error "receipt indicates transaction failed" transactionHash)
-    {(transactionHash) (transactionIndex) (blockNumber) (blockHash)})) ;; Confirmation
+    {transactionHash transactionIndex blockNumber blockHash})) ;; Confirmation
 
 ;; Returns a list of address owned by the client
 (define-ethereum-api eth accounts (List Address) <-)
 
+;; same as Transaction, but without nonce
 (define-type CallParameters
   (Record
    from: [Address]
@@ -199,22 +194,17 @@
    value: [(Maybe Quantity) optional: #t default: (void)]
    data: [(Maybe Bytes) optional: #t default: (void)]))
 
-(def (CallParameter<-Operation from operation)
-  (defvalues (to data) (ToData<-Operation operation))
-  {(from) (to) (data) gas: (void) gasPrice: (void) value: (void)}) ;; CallParameter
+(def (CallParameters<-Operation from operation)
+  (def-slots (to data) operation)
+  {from to data gas: (void) gasPrice: (void) value: (void)})
 
-(def (CallParameter<-PreTransaction pretx)
-  (defrule [x ...] (begin (def x (.@ pretx x)) ...))
-  [sender operation gas value]
-  {from: sender to: (operation-to operation) data: (operation-data operation)
-   gasPrice: (void) (gas) (value)})
+(def (CallParameters<-PreTransaction pretx)
+  (def-slots (from to data value gas) pretx)
+  {from to data value gas gasPrice: (void)})
 
-(def (CallParameter<-Transaction tx)
-  (defrule (.tx x ...) (begin (def x (.@ tx x)) ...))
-  (.tx operation tx-header)
-  (defrule (.th x ...) (begin (def x (.@ tx-header x)) ...))
-  (.th sender gas gasPrice value)
-  {(:: @ (CallParameter<-Operation sender operation)) (gas) (gasPrice) (value)})
+(def (CallParameters<-Transaction tx)
+  (def-slots (from to data value gas gasPrice) tx)
+  {from to data value gas gasPrice})
 
 (define-type StateOverrideSet ;; contract data to override before executing the call
   (Record
@@ -229,6 +219,7 @@
 
 (define-ethereum-api eth chainId (Maybe UInt256) <-)
 
+;; SignedTransactionData + {hash}
 (define-type SignedTx
   (Record
    nonce: [Quantity]
@@ -237,9 +228,9 @@
    to: [(Maybe Address) optional: #t default: (void)]
    value: [Quantity]
    input: [Bytes]
-   v: [(Maybe UInt256) optional: #t default: (void)]
-   r: [(Maybe UInt256) optional: #t default: (void)]
-   s: [(Maybe UInt256) optional: #t default: (void)]
+   v: [UInt256] ;; why did an earlier version of our code indicate v, r, s as optional???
+   r: [UInt256]
+   s: [UInt256]
    hash: [Digest]))
 
 (define-type SignedTransaction
@@ -305,7 +296,7 @@
 (def (eth-sign-prefix message)
   (format "\x19;Ethereum Signed Message:\n~a~a" (string-length message) message))
 
-;; This is the thing specified and used by Geth:
+;; This is the thing specified (and used?) by Geth:
 (define-ethereum-api eth signTransaction Bytes <- TransactionParameters)
 ;; However, parity's OpenEthereum documents this richer return type:
 ;;(define-ethereum-api eth signTransaction SignTransactionResult <- TransactionParameters)
@@ -506,7 +497,7 @@
   (def config (ethereum-network-config network))
   (def url (ethereum-url<-config config))
   (when poll
-    (let (message (format "Connecting to the ~a at ~a ..." (.@ config name) url))
+    (let (message (format "Connecting to the ~a at ~a ...\n" (.@ config name) url))
       (poll-for-ethereum-node url message: message)))
   (def client-version (web3_clientVersion url: url))
   (def mantis? (string-prefix? "mantis/" client-version))

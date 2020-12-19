@@ -169,12 +169,6 @@
     ((TransactionStatus-TxConfirmed (vector preTx _ _)) preTx)
     ((TransactionStatus-TxFailed (vector ots _)) (PreTransaction<-TransactionStatus ots)))) ;; ots must be TxWanted or TxSigned
 
-(def (sender<-TransactionStatus status)
-  (.@ (PreTransaction<-TransactionStatus status) sender))
-
-(def (Operation<-TransactionStatus ts)
-  (.@ (PreTransaction<-TransactionStatus ts) operation))
-
 (define-type TransactionTrackerKey
   (Record user: [Address] ;; user who issued the transaction
           txsn: [Nat])) ;; serial number for the tx
@@ -337,7 +331,7 @@
 ;; TODO: do it transactionally. Reserve a ticket number first?
 ;; : TransactionTracker.Key TransactionTracker <- Address PreTransaction
 (def (issue-pre-transaction pre)
-  (.call UserTransactionsTracker add-transaction (.@ pre sender) (TransactionStatus-TxWanted pre)))
+  (.call UserTransactionsTracker add-transaction (.@ pre from) (TransactionStatus-TxWanted pre)))
 
 ;; : Transaction SignedTransaction TransactionReceipt <- FinalTransactionStatus
 (def (check-transaction-confirmed final-transaction-status)

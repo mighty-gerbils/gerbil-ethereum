@@ -16,7 +16,11 @@
   .deposit!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- Bool)
   (lambda (sender amount _require! _tmp@)
     (&begin
-     ;; sender CALLER EQ require! ;; for ETH, we don't really care about the sender
+     ;; sender CALLER EQ require!
+     ;; for ether tokens, we don't need to check the sender:
+     ;; it's the message sender, who is the active participant,
+     ;; (or the someone in whose name the sender is somehow acting?
+     ;; But then how did he pass the check on the current participant?)
      deposit amount &safe-add deposit-set!)) ;; maybe just [ADD] or [(&safe-add/n-bits .length-in-bits)] ?
   ;; NB: The above crucially depends on the end-of-transaction code including the below check,
   ;; that must be AND'ed with all other checks before [&require!]

@@ -17,6 +17,8 @@
 (displayln "Connecting to the test database...")
 (ensure-db-connection (run-path "testdb"))
 
+;; TODO: validate that the testdb indeed corresponds to this test net?
+
 (def transaction-integrationtest
   (test-suite "integration test for ethereum/transaction"
     (test-case "Send tokens from Croesus to Trent"
@@ -32,9 +34,9 @@
       (def receipt (eth_getTransactionReceipt hash))
       (unless (poo? receipt) (error "No receipt for tx" hash receipt))
       (DBG receipt: (sexp<- TransactionReceipt receipt))
-      (check-transaction-receipt-status receipt)
       (def confirmations (confirmations<-receipt receipt target-block))
-      (DBG bar: confirmations)
+      (DBG confirmations: confirmations)
+      (unless (<= 0 confirmations) (error "Failed tx" hash receipt))
       (def new-target-block (+ target-block (- confirmationsWantedInBlocks confirmations)))
       (wait-until-block new-target-block)
       (DBG new-block: (eth_blockNumber))

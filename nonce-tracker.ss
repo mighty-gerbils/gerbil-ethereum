@@ -47,11 +47,3 @@
    next: (lambda (x) ((<-key x) 'Next))
    sync: (lambda (x) ((<-key x) 'Sync)))
 
-
-(defstruct (NonceTooLow exception) ())
-
-;; TODO: Send Notification to end-user via UI!
-;; : Bottom <- Address
-(def (nonce-too-low address)
-  (.call NonceTracker reset address)
-  (raise (NonceTooLow)))

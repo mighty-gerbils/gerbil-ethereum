@@ -2,7 +2,7 @@
 
 (import
   :std/sugar
-  :clan/maybe
+  :clan/maybe :clan/number
   :clan/poo/poo :clan/poo/io :clan/poo/brace
   (only-in :clan/poo/mop sexp<-)
   (only-in :clan/poo/type Sum define-sum-constructors)
@@ -21,12 +21,11 @@
   (.mix (Record contract: [Address] selector: [Bytes4])
         {ethabi: "function"}))
 
-
 (def one-ether-in-wei (expt 10 18)) ;; 1 ETH = 10^18 wei
 (def one-gwei-in-wei (expt 10 9)) ;; 1 gwei = 10^9 wei
-(def (wei<-ether ether) (* ether one-ether-in-wei))
+(def (wei<-ether ether) (integer-part (* ether one-ether-in-wei))) ;; allow floating point, round to integer
 (def (ether<-wei wei) (/ wei one-ether-in-wei))
-(def (wei<-gwei gwei) (* gwei one-gwei-in-wei))
+(def (wei<-gwei gwei) (integer-part (* gwei one-gwei-in-wei))) ;; allow floating point, round to integer
 (def (gwei<-wei wei) (/ wei one-gwei-in-wei))
 
 
@@ -37,65 +36,75 @@
    blockNumber: [Quantity]
    blockHash: [Digest]))
 
-(define-type TxHeader
-  (Record
-   sender: [Address]
-   nonce: [Quantity]
-   gasPrice: [Quantity] ;; in wei per gas
-   gas: [Quantity] ;; upper limit, there will be a refund
-   value: [Quantity])) ;; in wei}
-
 ;; Three kinds of operations that may be posted
 (define-type Operation
-  (Sum
-   TransferTokens: Address ; to
-   CreateContract: Bytes ; data
-   CallFunction: (Record to: [Address] data: [Bytes])))
-(define-sum-constructors Operation TransferTokens CreateContract CallFunction)
-(def operation-to
-  (match <>
-    ((Operation-TransferTokens to) to)
-    ((Operation-CreateContract _) #f)
-    ((Operation-CallFunction {(to)}) to)))
-(def operation-data
-  (match <>
-    ((Operation-TransferTokens _) #f)
-    ((Operation-CreateContract data) data)
-    ((Operation-CallFunction {(data)}) data)))
+  (Record
+   to: [(Maybe Address) default: (void)] ;; absent or (void) is for CreateContract
+   data: [(Maybe Bytes) default: (void)])) ;; absent or (void) are equivalent to #u8()
+(def (TransferTokens recipient) {to: recipient data: (void)})
+(def (CreateContract initialization-code) {to: (void) data: initialization-code})
+(def (CallFunction contract call-data) {to: contract data: call-data})
 
-;; TODO: replace with a subset of TransactionParameters, do away with operation as soon as meaningful.
 (define-type PreTransaction
   (Record
-   sender: [Address]
-   operation: [Operation]
-   value: [Quantity] ;; in wei
-   gas: [Quantity])) ;; in gas
+   from: [(Maybe Address) default: (void)] ;; absent or void means not decoded yet
+   to: [(Maybe Address) default: (void)] ;; as per Operation
+   data: [(Maybe Bytes) default: (void)] ;; as per Operation, absent or void means #u8()
+   value: [(Maybe Quantity) default: (void)] ;; in wei, absent or void means 0
+   gas: [(Maybe Quantity) default: (void)] ;; in gas, absent or void means auto estimate
+   gasPrice: [(Maybe Quantity) default: (void)] ;; in wei/gas, absent or void means get from the environment
+   nonce: [(Maybe Quantity) default: (void)])) ;; absent or void means get from tracker
 
-;; Transaction (to be) posted to the chain Ethereum
-;; TODO: merge the fields of tx-header and operation instead, just with a new type tag.
-;; TODO: Just use TransactionParameters instead
+;; Transaction (to be) signed and posted to the chain Ethereum
 (define-type Transaction
   (Record
-   tx-header: [TxHeader]
-   operation: [Operation]))
+   from: [Address]
+   to: [(Maybe Address) optional: #t default: (void)] ; void means contract creation
+   gas: [(Maybe Quantity) optional: #t default: (void)] ; in gas -- upper limit, refund of excess, void means autodetect
+   gasPrice: [(Maybe Quantity) optional: #t default: (void)] ; in wei/gas, void means autodetect
+   value: [(Maybe Quantity) optional: #t default: (void)] ; in wei, void means 0
+   data: [(Maybe Bytes) optional: #t default: (void)] ; void means empty bytes
+   nonce: [(Maybe Quantity) optional: #t default: (void)])) ; void means autodetect
+
 
 (def (PreTransaction<-Transaction tx)
-  {sender: (.@ tx tx-header sender)
-   operation: (.@ tx operation)
-   value: (.@ tx tx-header value)
-   gas: (.@ tx tx-header gas)})
+  (def-slots (from to data value gas) tx)
+  {from to data value gas})
 
+;; Data that gets signed in Ethereum pre EIP-155,
+;; and still so in ETC (?) --- in the Cardano KEVM test net definitely.
+;; The fields are in the order in which they are included in the RLP encoding that gets signed.
 (define-type ShortTransactionData
   (Record
    nonce: [Quantity]
    gasPrice: [Quantity]
    gas: [Quantity]
-   to: [(Maybe Address) optional: #t default: (void)]
-   value: [Quantity]
-   data: [Bytes optional: #t default: #u8()]))
+   to: [(Maybe Address) default: (void)]
+   value: [Quantity default: 0]
+   data: [Bytes default: #u8()]))
 
+;; This structure represents the information that is sent over the network, and also,
+;; post EIP-155, information that gets signed, with slightly different v, r, s values.
+;; Note how it does NOT contain a from: field with the sender address. Instead,
+;; this address is recovered from the signature as reconstituted from the v, r, s fields.
+;; The fields are in the order in which they are included in the RLP encoding
+;; that gets sent and/or signed.
 (define-type SignedTransactionData
   (Record
+   nonce: [Quantity]
+   gasPrice: [Quantity]
+   gas: [Quantity]
+   to: [(Maybe Address) default: (void)]
+   value: [Quantity default: 0]
+   data: [Bytes default: #u8()]
+   v: [Quantity] ;; actually UInt8... plus offset from chainId, can actually be large.
+   r: [Quantity] ;; UInt256
+   s: [Quantity])) ;; UInt256
+
+;; Same as above, but includes a "from:" field as in a Transaction.
+(define-type SignedTransactionInfo
+  (Record
+   from: [Address]
    nonce: [Quantity]
    gasPrice: [Quantity]
    gas: [Quantity]
@@ -105,3 +114,16 @@
    v: [Quantity] ;; actually UInt8... plus offset from chainId!
    r: [Quantity] ;; UInt256
    s: [Quantity])) ;; UInt256
+
+;; TODO: implement single and/or multiple inheritance for records and have something like:
+;;
+;; Transaction <: PreTransaction CallParameters ;; e.g. CallParameters has no nonce but mandatory from
+;; TransactionParameters <: PreTransaction
+;; Signature <: VRS
+;; SignedTransactionData <: ShortTransactionData VRS Transaction
+;; SignedTransactionInfo <: {From} SignedTransactionData
+;; SignedTx <: SignedTransactionData {Hash}
+;; TransactionInformation <: SignedTransactionInfo SignedTx
+;;
+;; Actually, there might be additional types with a slightly more complex hierarchy
+;; to properly take into account field nullability. Ouch. Or not.

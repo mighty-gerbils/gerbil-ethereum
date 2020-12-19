@@ -44,8 +44,7 @@
 
 ;; Digest <- PreTransaction
 (def (code-hash<-create-contract pretx)
-  (with (((Operation-CreateContract data) (.@ pretx operation)))
-    (keccak256<-bytes data)))
+  (keccak256<-bytes (.@ pretx data)))
 
 ;; <- ContractConfig
 (def (verify-contract-config config pretx)
@@ -68,14 +67,14 @@
    (verify-contract-config config pretx)
    config
    (catch (_)
-     (def sender (.@ pretx sender))
-     (when log (log ['ensure-contract sender: (0x<-address sender)
-                                      nickname: (nickname<-address sender)
+     (def creator (.@ pretx from))
+     (when log (log ['ensure-contract creator: (0x<-address creator)
+                                      nickname: (nickname<-address creator)
                                       code-hash: (code-hash<-create-contract pretx)]))
      (def creation-receipt (post-transaction pretx))
      (def config (contract-config<-creation-receipt creation-receipt))
-     (when log (log ['ensure-contract sender: (0x<-address sender)
-                                      nickname: (nickname<-address sender)
+     (when log (log ['ensure-contract creator: (0x<-address creator)
+                                      nickname: (nickname<-address creator)
                                       config: (json<- ContractConfig config)]))
      (setter arg config)
      config)))
