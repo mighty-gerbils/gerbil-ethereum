@@ -2,7 +2,7 @@
 
 (import
   :std/sugar
-  :clan/maybe :clan/number
+  :clan/maybe :clan/number :clan/decimal
   :clan/poo/poo :clan/poo/io :clan/poo/brace
   (only-in :clan/poo/mop sexp<-)
   (only-in :clan/poo/type Sum define-sum-constructors)
@@ -21,13 +21,35 @@
   (.mix (Record contract: [Address] selector: [Bytes4])
         {ethabi: "function"}))
 
+;; : Nat
 (def one-ether-in-wei (expt 10 18)) ;; 1 ETH = 10^18 wei
-(def one-gwei-in-wei (expt 10 9)) ;; 1 gwei = 10^9 wei
-(def (wei<-ether ether) (integer-part (* ether one-ether-in-wei))) ;; allow floating point, round to integer
-(def (ether<-wei wei) (/ wei one-ether-in-wei))
-(def (wei<-gwei gwei) (integer-part (* gwei one-gwei-in-wei))) ;; allow floating point, round to integer
-(def (gwei<-wei wei) (/ wei one-gwei-in-wei))
 
+;; : Nat
+(def one-gwei-in-wei (expt 10 9)) ;; 1 gwei = 10^9 wei
+
+;; : Nat <- Real
+(def (wei<-ether ether-amount)
+  (integer-part (* ether-amount one-ether-in-wei))) ;; allow floating point, round to integer
+
+;; : Decimal <- Nat
+(def (ether<-wei wei-amount)
+  (/ wei-amount one-ether-in-wei))
+
+;; : Nat <- Real
+(def (wei<-gwei gwei-amount)
+  (integer-part (* gwei-amount one-gwei-in-wei))) ;; allow floating point, round to integer
+
+;; : Decimal <- Nat
+(def (gwei<-wei wei-amount)
+  (/ wei-amount one-gwei-in-wei))
+
+;; : String <- Nat
+(def (decimal-string-ether<-wei wei-amount)
+  (string<-decimal (ether<-wei wei-amount)))
+
+;; : String <- Nat
+(def (decimal-string-gwei<-wei wei-amount)
+  (string<-decimal (gwei<-wei wei-amount)))
 
 (define-type Confirmation
   (Record

@@ -98,7 +98,12 @@
                   (bytes<- UInt96 amount)))
   (def data (apply bytes-append (map (cut apply fmt <>) transfers)))
   (def value (foldl + 0 (map cadr transfers)))
+  (def transfer-description
+    (match <> ([address amount]
+               [(0x<-address address) (nickname<-address address) (decimal-string-ether<-wei amount)])))
   (when (< 0 value)
-    (when log (log ["batch transfer" "value:" value "data:" (0x<-bytes data)]))
+    (when log (log ["batch transfer" "total-value:" value
+                    "transfers:" (map transfer-description transfers)
+                    "data:" (0x<-bytes data)]))
     (let (contract (.@ (ensure-batch-send-contract sender log: log) contract-address))
       (post-transaction (call-function sender contract data value: value)))))

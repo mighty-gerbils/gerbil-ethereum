@@ -10,9 +10,6 @@
   ../ethereum ../json-rpc ../transaction ../watch
   ./signing-test ./json-rpc-integrationtest)
 
-(when (ethereum-mantis?)
-  (set! minimum-gas-price (wei<-gwei 5))) ;; set 5 gwei as minimum gas price we'll pay
-
 ;; Use the test database
 (displayln "Connecting to the test database...")
 (ensure-db-connection (run-path "testdb"))

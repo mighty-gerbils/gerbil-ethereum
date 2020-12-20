@@ -45,8 +45,8 @@
 
 (def abi-integrationtest
   (test-suite "integration test for ethereum/abi"
-    (test-case "Contract creation failure due to insufficient gas"
-      (unless (ethereum-mantis?)
+    (unless (ethereum-mantis?)
+      (test-case "Contract creation failure due to insufficient gas"
         ;; Mantis never accepts the transaction, and even logs a message why it won't,
         ;; but its JSON RPC API doesn't give us any way to tell it's failed.
         (check-exception (post-transaction (create-contract croesus (test-contract-bytes) gas: 21000))

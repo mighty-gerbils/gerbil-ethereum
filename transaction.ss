@@ -235,8 +235,8 @@
   (complete-tx-field tx 'nonce nat? #f (cut .call NonceTracker next from)))
 (def (complete-tx-gas tx from to data value)
   (complete-tx-field tx 'gas nat? #f (cut gas-estimate from to data value)))
-(def (complete-tx-gasPrice tx)
-  (complete-tx-field tx 'gasPrice nat? #f (cut max minimum-gas-price (eth_gasPrice))))
+(def (complete-tx-gasPrice tx gas)
+  (complete-tx-field tx 'gasPrice nat? #f (cut gas-price-estimate gas)))
 
 (def (complete-transaction tx)
   (def-field from tx)
@@ -245,7 +245,7 @@
   (def-field value tx)
   (def-field nonce tx from)
   (def-field gas tx from to data value)
-  (def-field gasPrice tx)
+  (def-field gasPrice tx gas)
   {from to data value gas nonce gasPrice})
 
 ;; : Transaction <- PreTransaction
@@ -255,7 +255,7 @@
   (def-field data tx)
   (def-field value tx)
   (def-field gas tx from to data value)
-  (def nonce (.ref tx 'nonce))
+  (def nonce (.ref tx 'nonce void))
   (def gasPrice (.ref tx 'gasPrice void))
   {from to data value gas nonce gasPrice})
 
@@ -298,11 +298,23 @@
 ;; Inputs must be normalized
 ;; : Quantity <- Address (Maybe Address) Bytes Quantity
 (def (gas-estimate from to data value)
-  (if (and (address? to) (equal? data #u8()))
-    transfer-gas-used
-    (let (pre-estimate (eth_estimateGas {from to data value}))
-      ;; TODO: improve on this doubling
-      (* 2 pre-estimate))))
+  (cond
+   ((and (address? to) (equal? data #u8())) transfer-gas-used)
+   ((ethereum-mantis?) 4000000) ;; looks like eth_estimateGas is broke on Mantis
+   (else (let (pre-estimate (eth_estimateGas {from to data value}))
+           ;; Sometimes the geth estimate is not enough, so we arbitrarily double it.
+           ;; TODO: improve on this doubling
+           (* 2 pre-estimate)))))
+
+;; TODO: in the future, take into account the market (especially in case of block-buying attack)
+;; and how much gas this is for to compute an estimate of the gas price.
+(def mantis-minimum-gas-price (wei<-gwei 1))
+
+(def (gas-price-estimate gas)
+  (def node-price (eth_gasPrice))
+  (if (ethereum-mantis?)
+    (max node-price mantis-minimum-gas-price)
+    node-price))
 
 ;; : Transaction <- Address Quantity
 (def (transfer-tokens from: from to: to value: value
