@@ -15,6 +15,9 @@
 (ensure-db-connection (run-path "testdb"))
 
 ;; TODO: validate that the testdb indeed corresponds to this test net?
+;; - At minimum, check that the last confirmed nonces for croesus, etc.,
+;; are not past the nonce from getTransactionCount.
+;; - Maybe even check that the blocks mentioned in the transaction Confirmations still exist.
 
 (def transaction-integrationtest
   (test-suite "integration test for ethereum/transaction"

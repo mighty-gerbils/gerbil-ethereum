@@ -188,11 +188,12 @@
 
 (define-entry-point (stop-mantis)
   "Stop any currently running Mantis docker container"
-  (def containers (mantis-containers))
-  (unless (null? containers)
-    (printf "Killing container ~a\n" (string-join containers " "))
-    (run-process/batch ["docker" "stop" containers ...])
-    (run-process/batch ["docker" "wait" containers ...])))
+  (ignore-errors
+    (def containers (mantis-containers))
+    (unless (null? containers)
+      (printf "Killing container ~a\n" (string-join containers " "))
+      (run-process/batch ["docker" "stop" containers ...])
+      (run-process/batch ["docker" "wait" containers ...]))))
 
 ;;; NB: We could have a log directory outside it and symlink the builtin path to it, but oh well.
 
