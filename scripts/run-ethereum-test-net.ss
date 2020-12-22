@@ -214,6 +214,7 @@
     arguments: ["run"
                 ;; Mantis will create files under /root/.mantis and /root/.ethash, *owned by root* (!)
                 ;;;;"-v" (format "~a:/root" mantis-run-directory) ;; followed by :${options} if needed
+                ;;;;"-v" (format "~a:/here" here)
                 ;; Outside the image, use eth-rpc-port. *inside*, /conf says it's 8546.
                 "-p" (format "~d:8546" eth-rpc-port)
                 ;; We could try to persist the state inside the docker container, but
@@ -228,6 +229,7 @@
                 ;;;; "bash" ;; We could stop at bash for the interactive use.
                 ;; This shouldn't be needed in the current image
                 ;;;;"-c" "cd / ; echo \"$GENESIS\" > /conf/genesis.json ; exec mantis -Dconfig.file=/conf/yolo.conf"
+                ;;;;"sh" "-c" "cd / && cat /here/yolo-evm.conf > /conf/yolo.conf && exec mantis"
                 ]
     stdin-redirection: #f
     stdout-redirection: #f
@@ -254,7 +256,7 @@
     (let (thex (string-trim-prefix "0x" tx))
       ;; No pass-through interactive execution from gambit :-(
       #;(run-process ["less" "-p" thex host-log] stdin-redirection: #t stdout-redirection: #t stderr-redirection: #t show-console: #t)
-      (run-process/batch ["grep" thex host-log])
+      (ignore-errors (run-process/batch ["grep" thex host-log]))
       (printf "less -p ~a ~a\n" thex host-log))))
 
 ;; TODO: get mallet to work?
