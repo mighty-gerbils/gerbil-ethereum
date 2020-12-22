@@ -5,7 +5,7 @@
 ;; Use our Private Ethereum Testnet
 (ensure-ethereum-connection "pet")
 
-(def json-rpc-integrationtest
+(def 10-json-rpc-integrationtest
   (test-suite "integration test for ethereum/json-rpc"
     (test-case "eth-latest-block get the current latest block"
       ;; Just checks that the block number is non-negative

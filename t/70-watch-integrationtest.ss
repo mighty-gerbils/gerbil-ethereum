@@ -2,10 +2,10 @@
 
 (import
   :std/srfi/1 :std/test
-  ../watch ../json-rpc
-  ./signing-test ./transaction-integrationtest)
+  ../watch ../json-rpc ../nonce-tracker
+  ./signing-test ./30-transaction-integrationtest)
 
-(def watch-integrationtest
+(def 70-watch-integrationtest
   (test-suite "integration test for ethereum/watch"
     (test-case "foo"
 ;;XXX

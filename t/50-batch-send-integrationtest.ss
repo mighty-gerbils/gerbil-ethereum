@@ -2,9 +2,9 @@
 
 (import
   :std/format :std/iter :std/misc/list-builder :std/srfi/1 :std/sugar :std/test
-  :clan/decimal :clan/debug :clan/json :clan/persist/db
-  ../ethereum ../known-addresses ../json-rpc ../batch-send
-  ./signing-test ./transaction-integrationtest)
+  :clan/decimal :clan/debug :clan/json :clan/poo/poo :clan/persist/db
+  ../ethereum ../known-addresses ../json-rpc ../nonce-tracker ../batch-send
+  ./signing-test ./30-transaction-integrationtest)
 
 ;; Display an account having the given balance given a way to print address, optional name and balance
 ;; : 'a <- ('a <- string string) Address TokenAmount
@@ -44,11 +44,10 @@
               (c [a b])))))))
   (batch-send funder needful-transfers log: write-json-ln))
 
-(ensure-addresses-prefunded)
-
-(def batch-send-integrationtest
+(def 50-batch-send-integrationtest
   (test-suite "integration test for ethereum/batch-send"
     (test-case "batch transfer works"
+      (.call NonceTracker reset croesus)
       (def balances-before (map (cut eth_getBalance <> 'pending) prefunded-addresses))
       (def target-amount (+ (apply max balances-before) (wei<-ether 1/1000))) ;; add one thousandth of an ETH in wei
       (DBG before-batch-transfer: balances-before target-amount
