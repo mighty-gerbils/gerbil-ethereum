@@ -1,7 +1,7 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes
+  :gerbil/gambit/bits :gerbil/gambit/bytes
   :clan/base :clan/poo/poo (only-in :clan/poo/mop) :clan/poo/io
   ./hex ./types ./signing ./known-addresses ./ethereum
   ./assembly ./transaction ./tx-tracker ./contract-config ./contract-runtime)
@@ -41,8 +41,8 @@
 
     ;; Initialize the loop invariant
     [&jumpdest 'loop-init] ;; -- 0
-    1 96 DUP2 #|1|# DUP1 #|1|# DUP3 #|96|# SHL SUB CALLDATASIZE DUP5
-    ;; -- 0 size 2**96-1 96 1 0
+    1 (arithmetic-shift 1 96) DUP2 #|1|# DUP2 #|2**96|# SUB CALLDATASIZE DUP5
+    ;; -- 0 size 2**96-1 2**96 1 0
     [&jump1 'loop-entry] ;; jump to entry, skipping inter-loop action
 
     ;; The loop: inter-loop action
@@ -50,24 +50,25 @@
     32 ADD
 
     ;; The entry point of the loop: check condition
-    [&jumpdest 'loop-entry] ;; -- cursor size 2**96-1 96 1 0
+    [&jumpdest 'loop-entry] ;; -- cursor size 2**96-1 2**96 1 0
     ;; If less then continue to loop-body, else return
     DUP2 #|size|# DUP2 #|cursor|# LT [&jumpi1 'loop-body] STOP
 
     ;; Loop body: take the next 256-bit argument.
     ;; Top 160 are address, lower 96 are value in wei.
     ;; Prepare the arguments to a transfer call.
-    [&jumpdest 'loop-body] ;; -- cursor size 2**96-1 96 1 0
+    [&jumpdest 'loop-body] ;; -- cursor size 2**96-1 2**96 1 0
     DUP6 #|0|# DUP1 #|0|# DUP1 #|0|# DUP1 #|0|# DUP5 #|cursor|# CALLDATALOAD
-    DUP1 #|data|# DUP9 #|2**96-1|# AND
-    ;; -- value data 0 0 0 0 cursor size 2**96-1 96 1 0
-    SWAP1 #|data value|# DUP10 #|96|# SHR #|address|# GAS
-    ;; Transfer! -- gas address value 0 0 0 0 cursor size 2**96-1 96 1 0
-    CALL
+    ;; -- data 0 0 0 0 cursor size 2**96-1 2**96 1 0
+    DUP9 #|2**96|# DUP2 #|data|# DUP10 #|2**96-1|# AND
+    ;; -- value 2**96 data 0 0 0 0 cursor size 2**96-1 2**96 1 0
+    SWAP2 #|data 2**96 value|# DIV #|address|#
+    ;; Transfer! -- address value 0 0 0 0 cursor size 2**96-1 2**96 1 0
+    GAS CALL ;; -- success? cursor size 2**96-1 2**96 1 0
 
     ;; loop if successful, revert everything if failed.
     [&jumpi1 'loop]
-    ;; -- cursor size 2**96-1 96 1 0
+    ;; -- cursor size 2**96-1 2**96 1 0
     DUP6 DUP1 REVERT]))
 
 ;; Given a constant contract runtime of length below 255,

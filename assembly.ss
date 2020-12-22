@@ -189,9 +189,9 @@
   (#x18 XOR 3) ;; Bitwise XOR operation
   (#x19 NOT 3) ;; Bitwise NOT operation
   (#x1a BYTE 3) ;; Retrieve single byte from word
-  (#x1b SHL #t) ;; logical shift left
-  (#x1c SHR #t) ;; logical shift right
-  (#x1d SAR #t) ;; arithmetic shift right
+  (#x1b SHL #t) ;; logical shift left (EIP-145)
+  (#x1c SHR #t) ;; logical shift right (EIP-145)
+  (#x1d SAR #t) ;; arithmetic shift right (EIP-145)
   ;; #x1e - #x1f  Unused
   (#x20 SHA3 30 #t) ;; Compute Keccak-256 hash. Cost: 30+6/word
   ;; #x21 - #x2f  Unused
@@ -395,7 +395,7 @@
   (cond
    ((zero? n-bytes) (&begin POP 0)) ;; [3B, 5G]
    ((= n-bytes 32) MLOAD) ;; [1B, 3G]
-   (else (&begin MLOAD (- 256 (* 8 n-bytes)) SHR)))) ;; [4B, 9G]
+   (else (&begin MLOAD (&shr (- 256 (* 8 n-bytes))))))) ;; [4B, 9G]
 
 (def (&mloadat addr (n-bytes 32))
   (when (poo? n-bytes) ;; accept a fixed-size type descriptor
@@ -404,21 +404,21 @@
   (cond
    ((zero? n-bytes) 0) ;; [2B, 3G]
    ((= n-bytes 32) (&begin addr MLOAD)) ;; [4B, 6G] or for small addresses [3B, 6G]
-   (else (&begin addr MLOAD (- 256 (* 8 n-bytes)) SHR)))) ;; [7B, 12G] or for small addresses [6B, 12G]
+   (else (&begin addr MLOAD (&shr (- 256 (* 8 n-bytes))))))) ;; [7B, 12G] or for small addresses [6B, 12G]
 
 (def (&mstore n-bytes)
   (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &store")
   (cond
    ((zero? n-bytes) (&begin POP POP)) ;; [2B, 4G]
    ((= n-bytes 1) MSTORE8) ;; [1B, 3G]
-   ((= n-bytes 2) (&begin DUP2 8 SHR DUP2 MSTORE8 1 ADD MSTORE8)) ;; [10B, 24G]
-   ;;(= n-bytes 3) (&begin DUP2 16 SHR DUP2 MSTORE8 1 ADD &mstore16)) ;; [19B, 45G]
+   ((= n-bytes 2) (&begin DUP2 (&shr 8) DUP2 MSTORE8 1 ADD MSTORE8)) ;; [10B, 24G]
+   ;;(= n-bytes 3) (&begin DUP2 (&shr 16) DUP2 MSTORE8 1 ADD &mstore16)) ;; [19B, 45G]
    ((= n-bytes 32) MSTORE) ;; [1B, 3G]
    (else ;; [16B, 38G]
     (let (n-bits (* 8 n-bytes))
       ;;(&begin SWAP1 scratch0@ MSTORE DUP1 n-bytes ADD MLOAD scratch1@ MSTORE (- scratch1@ n-bytes) MLOAD SWAP1 MSTORE) ;; [17B, 39G]
       ;; [16B, 38G] -- note that we could skip the ending POP
-      (&begin DUP1 n-bytes ADD MLOAD n-bits SHR DUP3 (- 256 n-bits) SHL OR SWAP1 MSTORE POP)))))
+      (&begin DUP1 n-bytes ADD MLOAD (&shr n-bits) DUP3 (&shl (- 256 n-bits)) OR SWAP1 MSTORE POP)))))
 
 (def (&mstoreat addr (n-bytes 32))
   (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &storeat")
@@ -426,10 +426,10 @@
    ((= n-bytes 32) (&begin addr MSTORE)) ;; [4B, 6G] or for small addresses [3B, 6G]
    ((zero? n-bytes) (&begin POP)) ;; [1B, 2G]
    ((= n-bytes 1) (&begin addr MSTORE8)) ;; [4B, 6G] or for small addresses [3B, 6G]
-   ((= n-bytes 2) (&begin DUP1 8 SHR addr MSTORE8 (1+ addr) MSTORE8)) ;; [12B, 21G]
-   ;;((= n-bytes 3) (&begin DUP1 16 SHR addr MSTORE8 (&mstore16at (1+ addr)))) ;; [20B, 36G], suboptimal
+   ((= n-bytes 2) (&begin DUP1 (&shr 8) addr MSTORE8 (1+ addr) MSTORE8)) ;; [12B, 21G]
+   ;;((= n-bytes 3) (&begin DUP1 (&shr 16) addr MSTORE8 (&mstore16at (1+ addr)))) ;; [20B, 36G], suboptimal
    (else (let (n-bits (* 8 n-bytes)) ;; [15B, 27G]
-           (&begin (- 256 n-bits) SHL (+ addr n-bytes) MLOAD n-bits SHR OR addr MSTORE)))))
+           (&begin (&shl (- 256 n-bits)) (+ addr n-bytes) MLOAD (&shr n-bits) OR addr MSTORE)))))
 
 ;; Like &mstore, but is allowed (not obliged) to overwrite memory after it with padding bytes
 (def (&mstore/pad-after n-bytes)
@@ -438,7 +438,7 @@
    ((= n-bytes 32) MSTORE) ;; [1B, 3G]
    ((= n-bytes 1) MSTORE8) ;; [1B, 3G]
    ((zero? n-bytes) MSTORE8) ;; [1B, 3G]
-   (else (&begin SWAP1 (- 256 (* 8 n-bytes)) SHL SWAP1 MSTORE)))) ;; [6B, 15G]
+   (else (&begin SWAP1 (&shl (- 256 (* 8 n-bytes))) SWAP1 MSTORE)))) ;; [6B, 15G]
 
 ;; Like &mstoreat, but is allowed (not obliged) to overwrite memory after it with padding bytes
 (def (&mstoreat/pad-after addr (n-bytes 32))
@@ -447,4 +447,14 @@
    ((= n-bytes 32) (&begin addr MSTORE)) ;; [4B, 6G] or for small addresses [3B, 6G]
    ((= n-bytes 1) (&begin addr MSTORE8)) ;; [4B, 6G] or for small addresses [3B, 6G]
    ((zero? n-bytes) (&begin POP)) ;; [1B, 2G]
-   (else (&begin (- 256 (* 8 n-bytes)) SHL addr MSTORE)))) ;; [7B, 12G]
+   (else (&begin (&shl (- 256 (* 8 n-bytes))) addr MSTORE)))) ;; [7B, 12G]
+
+(def (&shl n)
+  ;;(&begin n SHL)
+  (&begin (arithmetic-shift 1 n) MUL))
+(def (&shr n)
+  ;;(&begin n SHR)
+  (&begin (arithmetic-shift 1 n) DIV))
+(def (&sar n)
+  ;;(&begin n SAR)
+  (&begin (arithmetic-shift 1 n) SDIV))
