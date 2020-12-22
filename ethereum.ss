@@ -13,8 +13,12 @@
 (define-type UInt UInt256)
 (define-type Digest Bytes32)
 (define-type Data Bytes)
-(define-type Block UInt32) ;; block number: in practice fits in 32 bits, though officially UInt256
 (register-simple-eth-type Address)
+
+;; These limits are from EIP-106
+(define-type GasQuantity UInt63) ;; in practice, for the next years, will fit UInt32
+(define-type Block UInt63) ;; in practice, for the next century, will fit UInt32
+(define-type BufferSize UInt32) ;; in practice, for the next years, will fit UInt24
 
 ;; TODO: mixin the prototype with a formula that caches the abi bytes4 selector.
 (define-type EthFunction

@@ -95,7 +95,7 @@
                            {(:: @ UInt.) (.length-in-bits) (sexp)})))
 (defsyntax (defUIntNs stx)
   (with-syntax ((((id i)...)
-                 (for/collect (j (in-range 8 257 8))
+                 (for/collect (j [(iota 32 8 8)... 63])
                    [(datum->syntax (stx-car stx) (symbolify "UInt" j)) j])))
     #'(begin
         (def id (UIntN i))...
