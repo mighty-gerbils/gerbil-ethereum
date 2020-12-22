@@ -204,7 +204,7 @@
            (let loop ((status status))
              (def (continue status) (update status) (loop status))
              (def (invalidate transaction-status e)
-               (.call NonceTracker reset user)
+               (reset-nonce user)
                (continue (TransactionStatus-TxFailed (vector transaction-status e))))
              (match status
                ((TransactionStatus-TxWanted pretx)

@@ -3,7 +3,6 @@
 (import
   :std/sugar :std/test
   :clan/list :clan/path-config
-  :clan/poo/poo
   :clan/persist/db
   ../signing ../json-rpc ../transaction ../nonce-tracker
   ./signing-test)
@@ -20,13 +19,13 @@
 (def 20-nonce-tracker-integrationtest
   (test-suite "integration test for ethereum/nonce-tracker"
     (test-case "Croesus nonce tracker"
-      (.call NonceTracker reset croesus)
-      (def initial (.call NonceTracker peek croesus))
+      (reset-nonce croesus)
+      (def initial (peek-nonce croesus))
       (check initial ? (cut <= 0 <>))
-      (.call NonceTracker next croesus)
-      (.call NonceTracker next croesus)
-      (.call NonceTracker next croesus)
-      (.call NonceTracker next croesus)
-      (check-equal? (.call NonceTracker peek croesus) (+ 4 initial))
-      (.call NonceTracker reset croesus)
-      (check-equal? (.call NonceTracker peek croesus) initial))))
+      (next-nonce croesus)
+      (next-nonce croesus)
+      (next-nonce croesus)
+      (next-nonce croesus)
+      (check-equal? (peek-nonce croesus) (+ 4 initial))
+      (reset-nonce croesus)
+      (check-equal? (peek-nonce croesus) initial))))

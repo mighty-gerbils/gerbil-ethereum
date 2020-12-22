@@ -2,7 +2,7 @@
 
 (import
   :std/format :std/iter :std/misc/list-builder :std/srfi/1 :std/sugar :std/test
-  :clan/decimal :clan/debug :clan/json :clan/poo/poo :clan/persist/db
+  :clan/decimal :clan/debug :clan/json :clan/persist/db
   ../ethereum ../known-addresses ../json-rpc ../nonce-tracker ../batch-send
   ./signing-test ./30-transaction-integrationtest)
 
@@ -47,7 +47,7 @@
 (def 50-batch-send-integrationtest
   (test-suite "integration test for ethereum/batch-send"
     (test-case "batch transfer works"
-      (.call NonceTracker reset croesus)
+      (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
       (def balances-before (map (cut eth_getBalance <> 'pending) prefunded-addresses))
       (def target-amount (+ (apply max balances-before) (wei<-ether 1/1000))) ;; add one thousandth of an ETH in wei
       (DBG before-batch-transfer: balances-before target-amount

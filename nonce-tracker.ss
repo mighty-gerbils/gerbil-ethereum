@@ -44,6 +44,8 @@
           ('Next (when (void? nonce) (reset)) (next nonce))))))
    reset: (lambda (x) ((<-key x) 'Reset))
    peek: (lambda (x) ((<-key x) 'Peek))
-   next: (lambda (x) ((<-key x) 'Next))
-   sync: (lambda (x) ((<-key x) 'Sync)))
+   next: (lambda (x) ((<-key x) 'Next)))
 
+(def (reset-nonce address) (.call NonceTracker reset address))
+(def (peek-nonce address) (.call NonceTracker peek address))
+(def (next-nonce address) (.call NonceTracker next address))

@@ -89,7 +89,7 @@
 ;; TODO: Send Notification to end-user via UI!
 ;; : Bottom <- Address
 (def (nonce-too-low address)
-  (.call NonceTracker reset address)
+  (reset-nonce address)
   (raise (NonceTooLow)))
 
 ;; : Unit <- Address timeout:?(OrFalse Real) log:?(Fun Unit <- Json)
@@ -232,7 +232,7 @@
 (def (complete-tx-value tx)
   (complete-tx-field tx 'value nat? #f (lambda () 0)))
 (def (complete-tx-nonce tx from)
-  (complete-tx-field tx 'nonce nat? #f (cut .call NonceTracker next from)))
+  (complete-tx-field tx 'nonce nat? #f (cut next-nonce from)))
 (def (complete-tx-gas tx from to data value)
   (complete-tx-field tx 'gas nat? #f (cut gas-estimate from to data value)))
 (def (complete-tx-gasPrice tx gas)
@@ -264,6 +264,7 @@
   (def data (.@ signed raw))
   (def tx (.cc (.@ signed tx) from: sender))
   (def hash (.@ tx hash))
+  (eth-log ["send-raw-transaction" (0x<-bytes hash) (json<- SignedTransactionInfo tx)])
   (match (with-result (eth_sendRawTransaction data))
     ((some transaction-hash)
      (unless (equal? transaction-hash hash)
@@ -298,13 +299,11 @@
 ;; Inputs must be normalized
 ;; : Quantity <- Address (Maybe Address) Bytes Quantity
 (def (gas-estimate from to data value)
-  (cond
-   ((and (address? to) (equal? data #u8())) transfer-gas-used)
-   ((ethereum-mantis?) 4000000) ;; looks like eth_estimateGas is broke on Mantis
-   (else (let (pre-estimate (eth_estimateGas {from to data value}))
-           ;; Sometimes the geth estimate is not enough, so we arbitrarily double it.
-           ;; TODO: improve on this doubling
-           (* 2 pre-estimate)))))
+  (if (and (address? to) (equal? data #u8())) transfer-gas-used
+      (let (pre-estimate (eth_estimateGas {from to data value}))
+        ;; Sometimes the geth estimate is not enough, so we arbitrarily double it.
+        ;; TODO: improve on this doubling
+        (* 2 pre-estimate))))
 
 ;; TODO: in the future, take into account the market (especially in case of block-buying attack)
 ;; and how much gas this is for to compute an estimate of the gas price.

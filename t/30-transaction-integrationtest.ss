@@ -2,8 +2,7 @@
 
 (import
   :std/format :std/test
-  :clan/base :clan/debug :clan/failure :clan/json
-  :clan/option :clan/path
+  :clan/base :clan/debug :clan/failure :clan/json :clan/option :clan/path
   :clan/poo/poo :clan/poo/io
   :clan/persist/db
   ../hex ../types ../network-config ../signing ../known-addresses
@@ -13,11 +12,11 @@
 (def 30-transaction-integrationtest
   (test-suite "integration test for ethereum/transaction"
     (test-case "Send tokens from Croesus to Trent"
-      (.call NonceTracker reset croesus)
+      (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
       (def signed
         (make-signed-transaction (transfer-tokens from: croesus to: trent value: (wei<-ether 2))))
       (def hash (.@ signed tx hash))
-      (DBG foo: (sexp<- SignedTransaction signed))
+      (DBG signed: (sexp<- SignedTransaction signed))
       (ignore-errors (send-and-confirm-transaction croesus signed))
       (def current-block (eth_blockNumber))
       (def confirmationsWantedInBlocks (ethereum-confirmations-wanted-in-blocks))
@@ -34,4 +33,4 @@
       (wait-until-block new-target-block)
       (DBG new-block: (eth_blockNumber))
       (send-and-confirm-transaction croesus signed)
-      (.call NonceTracker reset croesus))))
+      (reset-nonce croesus))))
