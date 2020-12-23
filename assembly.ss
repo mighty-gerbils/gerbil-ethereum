@@ -450,11 +450,11 @@
    (else (&begin (&shl (- 256 (* 8 n-bytes))) addr MSTORE)))) ;; [7B, 12G]
 
 (def (&shl n)
-  ;;(&begin n SHL)
+  ;;(&begin n SHL) ;; TODO: somehow detect whether EIP-145 is activated, and use SHL when it is.
   (&begin (arithmetic-shift 1 n) MUL))
 (def (&shr n)
-  ;;(&begin n SHR)
+  ;;(&begin n SHR) ;; TODO: somehow detect whether EIP-145 is activated, and use SHR when it is.
   (&begin (arithmetic-shift 1 n) DIV))
 (def (&sar n)
-  ;;(&begin n SAR)
+  ;;(&begin n SAR) ;; TODO: somehow detect whether EIP-145 is activated, and use SAR when it is.
   (&begin (arithmetic-shift 1 n) SDIV))
