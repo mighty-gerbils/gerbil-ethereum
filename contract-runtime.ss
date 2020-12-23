@@ -1,6 +1,6 @@
 (export #t)
 (import
-  :gerbil/gambit/bytes :gerbil/gambit/exact
+  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
   :std/misc/number :std/sugar
   :clan/base :clan/with-id
   :clan/poo/poo (only-in :clan/poo/mop Type)
@@ -60,7 +60,7 @@
 ;; which will be read and interpreted by the contract code as follows:
 ;;   1. A call frame, with all the data required to restart computation,
 ;;      prepended by a 2-byte frame length.
-;;      The frame starts with the pc and the last-action-block,
+;;      The frame starts with the pc and the timer-start,
 ;;      then contains the values of frame-specific variables.
 ;;      (So far, all values are stored as a fixed number of bytes
 ;;      depending on their type, with no padding.)
@@ -180,7 +180,7 @@
 ;; Second, the frame state as merkleized. These are the fields present in all frames:
 (define-consecutive-addresses this-ctx frame@ params-start@
   (pc 2) ;; Code segment address from which to continue evaluation
-  (last-action-block Block)) ;; Block at which the last action took place
+  (timer-start Block)) ;; Block at which the timer was started
 
 ;; Then there will be per-frame parameter fields, to be defined in the proper scope with:
 (defrule (define-frame-params ctx params ...)
@@ -535,8 +535,12 @@
   (&begin [&jump 'end-contract])) ;; [2B; 10G]
 
 ;; TESTING STATUS: Wholly untested.
-(def &save-last-action-block ;; -->
-  (&begin NUMBER last-action-block-set!)) ;; [17B, 29G]
+(def &start-timer! ;; -->
+  (&begin NUMBER timer-start-set!)) ;; [17B, 29G]
+
+;; TESTING STATUS: Wholly untested.
+(def &stop-timer! ;; -->
+  (&begin (arithmetic-shift 1 62) timer-start-set!)) ;; Timeout in 9 billion years at 15s/block
 
 ;; abort unless saved data indicates a timeout
 ;; TESTING STATUS: Used by buy-sig. Incompletely untested.
@@ -544,7 +548,7 @@
   (&begin
    ;; TODO: negotiate the timeout between users,
    ;; rather than hard-wiring it to the network as below?
-   (ethereum-timeout-in-blocks) last-action-block ADD ;; using &safe-add is probably redundant there.
+   (ethereum-timeout-in-blocks) timer-start ADD ;; using &safe-add is probably redundant there.
    NUMBER LT &require-not!))
 
 ;; BEWARE! This is for two-participant contracts only,
