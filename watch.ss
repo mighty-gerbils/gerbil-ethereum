@@ -29,15 +29,17 @@
 ;; If some blocks are in the future, wait until they happen to return.
 ;; Function f may throw and/or use continuations to cause an early exit.
 ;; https://infura.io/docs/ethereum/json-rpc/eth-getLogs
-(def (watch-contract f contract-address from-block to-block)
+(def (watch-contract f contract-address from-block to-block
+                     confirmations: (confirmations (ethereum-confirmations-wanted-in-blocks)))
   (while (<= from-block to-block)
     (let ()
-      (def current-block (wait-until-block from-block))
+      ;; TODO: if only waiting for confirmed blocks, wait for confirmation first.
+      (def current-block (wait-until-block (+ from-block confirmations)))
       ;; TODO: correctly process timeouts and/or overly long lists
       ;; See https://infura.io/docs/ethereum/json-rpc/eth-getLogs
       (def logs (eth_getLogs {address: contract-address
                               fromBlock: from-block
-                              toBlock: (min to-block current-block)}))
+                              toBlock: (min to-block (- current-block confirmations))}))
       (for-each f logs)
       (set! from-block (1+ current-block)))))
 
