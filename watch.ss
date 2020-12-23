@@ -35,13 +35,14 @@
     (let ()
       ;; TODO: if only waiting for confirmed blocks, wait for confirmation first.
       (def current-block (wait-until-block (+ from-block confirmations)))
+      (def confirmed-block (- current-block confirmations))
       ;; TODO: correctly process timeouts and/or overly long lists
       ;; See https://infura.io/docs/ethereum/json-rpc/eth-getLogs
       (def logs (eth_getLogs {address: contract-address
                               fromBlock: from-block
-                              toBlock: (min to-block (- current-block confirmations))}))
+                              toBlock: (min to-block confirmed-block)}))
       (for-each f logs)
-      (set! from-block (1+ current-block)))))
+      (set! from-block (1+ confirmed-block)))))
 
 
 ;; : (Table (Fun <- Quantity) <- String)
