@@ -142,9 +142,11 @@
     (when/list (and geth-dev-period (< 0 geth-dev-period))
                ["--dev.period" (number->string geth-dev-period)])...
     "--fakepow" "--mine"
-    "--http" "--http.api" "db,eth,net,debug,web3,light,personal,admin"
-    "--http.port" (number->string eth-rpc-port) "--http.corsdomain" "*"
+    "--http" "--http.api" "admin,db,debug,eth,light,net,personal,web3"
+    "--http.port" (number->string eth-rpc-port)
+    "--http.corsdomain" "https://remix.ethereum.org,http://remix.ethereum.org"
     ;;"--port" (number->string geth-port)
+    "--vmdebug"
     "--ipcpath" (subpath geth-run-directory "geth.ipc")])
   ;; Finally, wait for the server to be ready to process requests
   (wait-for-ethereum "geth"))
