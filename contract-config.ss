@@ -4,7 +4,6 @@
   :std/sugar
   :clan/json :clan/path-config
   :clan/poo/poo :clan/poo/brace :clan/poo/io
-  (only-in :clan/poo/mop define-type)
   :clan/persist/db
   :clan/crypto/keccak
   ./hex ./types ./known-addresses ./signing ./ethereum ./json-rpc ./transaction ./tx-tracker)
@@ -46,17 +45,21 @@
 (def (code-hash<-create-contract pretx)
   (keccak256<-bytes (.@ pretx data)))
 
-;; <- ContractConfig
+;; <- ContractConfig PreTransaction
 (def (verify-contract-config config pretx)
   (def chain-config (contract-config<-creation-receipt
                      (eth_getTransactionReceipt (.@ config creation-hash))))
   ;; TODO: automatically implement equality for records, better than that.
-  (unless (and (equal? (bytes<- ContractConfig config)
-                       (bytes<- ContractConfig chain-config))
-               (equal? (code-hash<-create-contract pretx)
-                       (.@ chain-config code-hash)))
+  (display-poo-ln verify-contract-config: "\n"
+                  config: ContractConfig config "\n"
+                  chain-config: ContractConfig chain-config)
+  (unless (equal? (bytes<- ContractConfig config)
+                  (bytes<- ContractConfig chain-config))
     (error "Contract configuration not matched by on-chain transaction"
-      config chain-config)))
+      (sexp<- ContractConfig config) (sexp<- ContractConfig chain-config)))
+  (unless (equal? (code-hash<-create-contract pretx) (.@ chain-config code-hash))
+    (error "Contract configuration doesn't match expected transaction"
+      (sexp<- ContractConfig config) (sexp<- PreTransaction pretx))))
 
 ;; : ContractConfig <-
 ;;     (ContractConfig <- 'a) (Unit <- 'a ContractConfig) 'a
