@@ -449,12 +449,14 @@
    ((zero? n-bytes) (&begin POP)) ;; [1B, 2G]
    (else (&begin (&shl (- 256 (* 8 n-bytes))) addr MSTORE)))) ;; [7B, 12G]
 
+;; Shifts by constant number of bits
+;; TODO: somehow detect whether EIP-145 is activated, and use SHL/SHR/SAR when it is.
 (def (&shl n)
-  ;;(&begin n SHL) ;; TODO: somehow detect whether EIP-145 is activated, and use SHL when it is.
-  (&begin (arithmetic-shift 1 n) MUL))
+  ;;(&begin (arithmetic-shift 1 n) MUL) ;; pre-EIP-145 version
+  (&begin n SHL))
 (def (&shr n)
-  ;;(&begin n SHR) ;; TODO: somehow detect whether EIP-145 is activated, and use SHR when it is.
-  (&begin (arithmetic-shift 1 n) DIV))
+  ;;(&begin (arithmetic-shift 1 n) SWAP1 DIV) ;; pre-EIP-145 version
+  (&begin n SHR))
 (def (&sar n)
-  ;;(&begin n SAR) ;; TODO: somehow detect whether EIP-145 is activated, and use SAR when it is.
-  (&begin (arithmetic-shift 1 n) SDIV))
+  ;;(&begin (arithmetic-shift 1 n) SWAP1 SDIV) ;; pre-EIP-145 version
+  (&begin n SAR))

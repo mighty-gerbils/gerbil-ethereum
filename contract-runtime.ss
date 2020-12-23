@@ -220,22 +220,22 @@
   (&begin
    ;; Init vs running convention!
    ;; Put some values on stack while they're extra cheap.
-   GETPC GETPC GETPC 240 ;; -- 240 2 1 0
+   GETPC GETPC GETPC ;; -- 2 1 0
    ;; Get state frame size, starting with PC, 16 bit
-   DUP4 #|0|# CALLDATALOAD DUP2 #|240|# SHR frame@ ;; -- frame@ sz 240 2 1 0
+   DUP3 #|0|# CALLDATALOAD (&shr 240) frame@ ;; -- frame@ sz 2 1 0
    ;; copy frame to memory
-   DUP2 #|sz|# DUP5 #|2|# DUP3 #|frame@|# CALLDATACOPY ;; -- frame@ sz 240 2 1 0
+   DUP2 #|sz|# DUP4 #|2|# DUP3 #|frame@|# CALLDATACOPY ;; -- frame@ sz 2 1 0
    ;; store calldatapointer and calldatanew
    ;; TODO: in the future, optionally allow for DAG subset reveal
-   DUP2 #|sz|# DUP5 #|2|# ADD ;; -- calldatanew frame@ sz 240 2 1 0
-   DUP1 calldatanew-set! calldatapointer-set! ;; -- frame@ sz 240 2 1 0
+   DUP2 #|sz|# DUP4 #|2|# ADD ;; -- calldatanew frame@ sz 2 1 0
+   DUP1 calldatanew-set! calldatapointer-set! ;; -- frame@ sz 2 1 0
    ;; save the brk variable
-   DUP2 #|sz|# DUP2 #|frame@|# ADD DUP7 #|brk@,==0|# MSTORE ;; -- frame@ sz 240 2 1 0
+   DUP2 #|sz|# DUP2 #|frame@|# ADD DUP6 #|brk@,==0|# MSTORE ;; -- frame@ sz 2 1 0
    ;; compute the digest of the frame just restored
-   SHA3 ;; -- digest 240 2 1 0
+   SHA3 ;; -- digest 2 1 0
    ;; compare to saved merkleized state, jump to saved label if it matches
    ;; BEWARE: we assume the variable *before* the frame is not initialized, and still 0.
-   DUP5 #|0|# SLOAD EQ (- frame@ 30) MLOAD JUMPI ;; -- stack at destination: -- 240 2 1 0
+   DUP5 #|0|# SLOAD EQ (- frame@ 30) MLOAD JUMPI ;; -- stack at destination: -- 2 1 0
 
    ;; Abort. We explicitly PUSH1 0 for the first rather than DUPn,
    ;; because we don't assume stack geometry from the caller when aborting.
@@ -304,7 +304,7 @@
   (cond
    ((= n-bits 256) &safe-add) ;; [8B, 28G]
    ((zero? n-bits) POP) ;; [1B, 2G]
-   (else (&begin ADD DUP1 n-bits SHR &require-not!)))) ;; [8B, 25G]
+   (else (&begin ADD DUP1 (&shr n-bits) &require-not!)))) ;; [8B, 25G]
 
 ;; Assuming x y are both of integer-length n-bits or less,
 ;; abort unless their sum is also of integer-length n-bits, return the sum
@@ -376,7 +376,7 @@
    ((= n-bytes 32) (&begin (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))
    ;; TODO: for programs that use a lot of memory, optimize the last few of these to not use memory?
    ;; But first, optimize the lot of memory into less memory
-   (else (&begin (- 256 (* 8 n-bytes)) SHL (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))))
+   (else (&begin (&shl (- 256 (* 8 n-bytes))) (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))))
 
 ;; call precompiled contract #1 to recover the signer and message from a signature
 ;; TESTING STATUS: Used by buy-sig
@@ -404,7 +404,7 @@
   (if (zero? n-bytes)
     0
     (&begin calldatapointer@ MLOAD DUP1 #| calldatapointer@ |# 32 + calldatapointer@ MSTORE CALLDATALOAD
-            (when (< n-bytes 32) (&begin (* 8 (- 32 n-bytes)) SHR)))))
+            (when (< n-bytes 32) (&shr (* 8 (- 32 n-bytes)))))))
 
 ;; TESTING STATUS: Used by buy-sig.
 (def &read-published-data-to-mem
