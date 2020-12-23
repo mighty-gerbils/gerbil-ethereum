@@ -235,7 +235,7 @@
    SHA3 ;; -- digest 2 1 0
    ;; compare to saved merkleized state, jump to saved label if it matches
    ;; BEWARE: we assume the variable *before* the frame is not initialized, and still 0.
-   DUP5 #|0|# SLOAD EQ (- frame@ 30) MLOAD JUMPI ;; -- stack at destination: -- 2 1 0
+   DUP4 #|0|# SLOAD EQ (- frame@ 30) MLOAD JUMPI ;; -- stack at destination: -- 2 1 0
 
    ;; Abort. We explicitly PUSH1 0 for the first rather than DUPn,
    ;; because we don't assume stack geometry from the caller when aborting.
