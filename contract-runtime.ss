@@ -567,5 +567,5 @@
 ;; TESTING STATUS: Used by buy-sig.
 (def (&check-participant-or-timeout! must-act: obliged-actor@ or-end-in-favor-of: other-actor@)
   (&begin
-   (&call 'check-participant-or-timeout other-actor@ obliged-actor@)
+   (&call 'check-participant-or-timeout obliged-actor@ other-actor@)
    POP)) ;; pop the other-actor@ left on the stack
