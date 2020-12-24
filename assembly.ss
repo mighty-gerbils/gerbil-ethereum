@@ -87,6 +87,7 @@
     ([f . l]
      (apply (hash-get fixup-functions f) (map (cut eval-fixup-expression labels <>) l)))))
 
+;; : Bytes (Table Offset <- Symbol) <- Directives
 (def (assemble directives)
   (def a (new-assembler))
   (cond

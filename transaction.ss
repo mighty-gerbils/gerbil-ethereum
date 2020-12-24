@@ -80,7 +80,7 @@
                               nonce gasPrice gas to value data chainid))
   (signed-tx-bytes<- nonce gasPrice gas to value data v r s))
 
-(defstruct (TransactionRejected exception) (receipt)) ;; (Or TransactionReceipt String Unit)
+(defstruct (TransactionRejected exception) (receipt)) ;; (Or TransactionReceipt String)
 (defstruct (StillPending exception) ())
 (defstruct (ReplacementTransactionUnderpriced exception) ())
 (defstruct (IntrinsicGasTooLow exception) ())

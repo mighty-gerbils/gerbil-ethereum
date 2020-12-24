@@ -274,7 +274,7 @@
 ;; to cover the amount that the contract believes should have been deposited (from deposit@ MLOAD).
 ;; TESTING STATUS: Insufficiently tested
 (def &check-sufficient-deposit
-  (&begin deposit@ MLOAD CALLVALUE LT &require-not!)) ;; [8B, 25G]
+  (&begin deposit CALLVALUE LT &require-not!)) ;; [8B, 25G]
 
 ;; TODO: *in the future*, have a variant of contracts that allows for posting markets,
 ;; whereby whoever posts the message to the blockchain might not be the participant,
@@ -328,7 +328,7 @@
 (def &deposit!
   ;; Scheme pseudocode: (lambda (amount) (increment! deposit amount))
   ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
-  (&begin deposit@ MLOAD &safe-add deposit@ MSTORE)) ;; [14B, 40G]
+  (&begin deposit &safe-add deposit-set!)) ;; [14B, 40G]
 
 ;; TESTING STATUS: Wholly untested.
 (def &send-ethers!
@@ -382,12 +382,12 @@
 ;; TESTING STATUS: Used by buy-sig
 (def &ecrecover0 ;; -- v r s digest --> address success
   (&begin
-   &brk ;; -- brk digest v r s
+   brk ;; -- brk digest v r s
    SWAP1 #|digest|# DUP2 #|brk|# MSTORE ;; -- brk v r s
    SWAP1 #|v|# DUP2 #|brk|# 32 ADD MSTORE ;; -- brk r s
    SWAP1 #|r|# DUP2 #|brk|# 64 ADD MSTORE ;; -- brk s
    SWAP1 #|s|# DUP2 #|brk|# 96 ADD MSTORE ;; -- brk
-   32 DUP2 #|brk|# 128 DUP2 #|brk|# 0 1 GAS ;; -- gas address value argstart:brk argwidth:128 retstart:brk retwidth:32 brk
+   32 DUP2 #|brk|# 128 DUP2 #|brk|# 1 GAS ;; -- gas address argstart:brk argwidth:128 retstart:brk retwidth:32 brk
    STATICCALL SWAP1 MLOAD))
 
 ;; TESTING STATUS: Used by buy-sig. TODO: check with bad signature.
