@@ -11,6 +11,7 @@
 
 ;; TODO: Handle "query returned more than 1000 results" when too many contracts created in interval!!!
 ;; TODO: Support watching multiple Ethereum-like networks in one image
+;; Use "paging_options" https://explorer.energyweb.org/eth-rpc-api-docs -- available on geth???
 
 ;; : Quantity
 (define-persistent-variable next-unprocessed-block Nat "ETH.nextUnprocessedBlock" 0)
@@ -24,6 +25,22 @@
     (get-current-block!))
   current-block)
 
+;; Watch the contract until we either find logs or we reach past the to-block.
+;; Return two values: a list of log entries found, and the last block that was scanned.
+(def (watch-contract-step
+      contract-address from-block to-block
+      confirmations: (confirmations (ethereum-confirmations-wanted-in-blocks)))
+  (if (<= from-block to-block)
+    (let ()
+      (def current-block (wait-until-block (+ from-block confirmations)))
+      (def confirmed-block (- current-block confirmations))
+      ;; TODO: correctly process timeouts and/or overly long lists
+      (values (eth_getLogs {address: contract-address
+                              fromBlock: from-block
+                              toBlock: (min to-block confirmed-block)})
+              confirmed-block))
+    (values '() to-block)))
+
 ;; Watch all logs from a contract from a block to another (included),
 ;; and process the log events through a function f.
 ;; If some blocks are in the future, wait until they happen to return.
@@ -33,11 +50,9 @@
                      confirmations: (confirmations (ethereum-confirmations-wanted-in-blocks)))
   (while (<= from-block to-block)
     (let ()
-      ;; TODO: if only waiting for confirmed blocks, wait for confirmation first.
       (def current-block (wait-until-block (+ from-block confirmations)))
       (def confirmed-block (- current-block confirmations))
       ;; TODO: correctly process timeouts and/or overly long lists
-      ;; See https://infura.io/docs/ethereum/json-rpc/eth-getLogs
       (def logs (eth_getLogs {address: contract-address
                               fromBlock: from-block
                               toBlock: (min to-block confirmed-block)}))
