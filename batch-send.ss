@@ -41,7 +41,7 @@
 
     ;; Initialize the loop invariant
     [&jumpdest 'loop-init] ;; -- 0
-    1 (arithmetic-shift 1 96) DUP2 #|1|# DUP2 #|2**96|# SUB CALLDATASIZE DUP5
+    1 (arithmetic-shift 1 96) DUP2 #|1|# DUP2 #|2**96|# SUB CALLDATASIZE DUP5 #|0|#
     ;; -- 0 size 2**96-1 2**96 1 0
     [&jump1 'loop-entry] ;; jump to entry, skipping inter-loop action
 
