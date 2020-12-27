@@ -229,8 +229,8 @@
    ;; TODO: in the future, optionally allow for DAG subset reveal
    DUP2 #|sz|# DUP4 #|2|# ADD ;; -- calldatanew frame@ sz 2 1 0
    DUP1 calldatanew-set! calldatapointer-set! ;; -- frame@ sz 2 1 0
-   ;; save the brk variable
-   DUP2 #|sz|# DUP2 #|frame@|# ADD DUP6 #|brk@,==0|# MSTORE ;; -- frame@ sz 2 1 0
+   ;; save the brk variable -- NB: importantly, brk-start must be properly initialized
+   (cut &push-bytes <> (unbox (brk-start))) DUP6 #|brk@,==0|# MSTORE ;; -- frame@ sz 2 1 0
    ;; compute the digest of the frame just restored
    SHA3 ;; -- digest 2 1 0
    ;; compare to saved merkleized state, jump to saved label if it matches
@@ -361,9 +361,6 @@
 ;; TESTING STATUS: Wholly untested.
 (def (&unsafe-post-increment-at! addr increment)
   (&begin addr MLOAD DUP1 increment ADD addr MSTORE)) ;; for small address, small size [10B, 21G]
-
-;; TESTING STATUS: Wholly untested. TODO: shouldn't that already be defined by some above macro?
-(def &brk (&begin brk@ MLOAD)) ;; [3B, 6G]
 
 ;; TESTING STATUS: Wholly untested.
 (def (&brk-cons n-bytes)
