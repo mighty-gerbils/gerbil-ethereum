@@ -2,7 +2,7 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/foreign
   :std/misc/bytes :std/misc/repr
-  :clan/base :clan/poo/poo
+  :clan/base :clan/io :clan/poo/poo
   :clan/poo/brace :clan/poo/io
   :clan/crypto/keccak :clan/crypto/secp256k1
   ./types ./hex)
@@ -119,7 +119,7 @@
   (write-byte (+ recid 27) port))
 
 (def (unmarshal-signature port)
-  (def compact (read-bytes 64 port))
+  (def compact (unmarshal-n-bytes 64 port))
   (def recid (- (read-byte port) 27))
   (secp256k1-sig (secp256k1-recoverable-signature<-bytes compact recid)))
 

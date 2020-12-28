@@ -143,8 +143,8 @@
    .ethabi-display-type: (cut display .ethabi-name <>)
    .ethabi-head-length: 32
    .element?: (λ (x) (and (bytes? x) (<= (bytes-length x) 65535)))
-   .marshal: write-sized16-bytes
-   .unmarshal: read-sized16-bytes
+   .marshal: marshal-sized16-bytes
+   .unmarshal: unmarshal-sized16-bytes
    .ethabi-tail-length: (lambda (x) (+ 32 (ceiling-align (bytes-length x) 32)))
    .ethabi-encode-into:
    (lambda (x bytes start head get-tail set-tail!)
@@ -299,11 +299,11 @@
   .json<-: (lambda (v) (vector-map (lambda (_ x) (json<- type x)) v))
   .<-json: (lambda (j) (vector-unfold (lambda (_ l) (values (json<- type (car l)) (cdr l))) (length j) j))
   .marshal: (let (m (.@ type .marshal))
-              (lambda (v port) (write-uint16 (vector-length v) port)
+              (lambda (v port) (marshal-uint16 (vector-length v) port)
                  (vector-for-each (lambda (_ x) (m x port)) v)))
   .unmarshal: (let (u (.@ type .unmarshal))
                 (lambda (port)
-                  (def size (read-uint16 port))
+                  (def size (unmarshal-uint16 port))
                   (vector-unfold (lambda (_) (u port)) size)))
   .ethabi-tail-length: (lambda (x) (vector-fold (lambda (_ acc v) (+ acc (.ethabi-element-tail-length v)))
                                            (+ 32 (* .ethabi-element-head-length (vector-length x))) x))
