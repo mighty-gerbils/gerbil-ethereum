@@ -1,7 +1,7 @@
 (export #t)
 
 (import
-  :gerbil/gambit/exceptions :gerbil/gambit/ports
+  :gerbil/gambit/bytes :gerbil/gambit/exceptions :gerbil/gambit/ports
   :std/format :std/misc/list :std/misc/repr :std/srfi/13 :std/sugar :std/test
   :clan/exception :clan/syntax :clan/with-id
   :clan/poo/poo :clan/poo/brace :clan/poo/io (only-in :clan/poo/mop sexp<- json<-)
@@ -51,6 +51,11 @@
   (when type (printf "  json: ~a\n  sexp: ~a\n"
                      (X (json-string<- type x)) (X (object->string (sexp<- type x))))))
 
+(def (make-signature-wrong sig)
+  (def bytes (bytes<- Signature sig))
+  (bytes-set! bytes 4 (1- (bytes-ref bytes 4))) ;; arbitrarily decrement the fifth byte
+  (<-bytes Signature bytes))
+
 (def signing-test
   (test-suite "Test suite for ethereum/signing"
     (test-case "check test users"
@@ -76,7 +81,8 @@
           (show-representations signature: signature Signature)
           (check-equal? (json<- PublicKey pubkey) pubkeyj)
           (check-equal? (json<- Address address) addressj)
-          (check-equal? (signature-valid? String address signature data) #t)))
+          (check-equal? (signature-valid? String address signature data) #t)
+          (check-equal? (signature-valid? String address (make-signature-wrong signature) data) #f)))
       (check-user croesus "0x25c0bb1A5203AF87869951AEf7cF3FEdD8E330fC" ;; "0x000d836201318ec6899a67540690382780743280"
                   "0x3dfbd16d74816ad656f6c98e2a6634ca1930b5fc450eb93ca0a92574a30d00ff8eefd9d1cc3cd81cbb021b3f29abbbabfd29da7feef93f40f63a1e512c240517")
       (check-user alice "0xC54e86DFFb87B9736E2E35DD85c775358F1c31CE"
