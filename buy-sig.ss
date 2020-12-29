@@ -57,7 +57,7 @@
   (parameterize ((brk-start (box params-start@)))
     (assemble
      (&begin
-      &simple-contract-prelude
+      (&simple-contract-prelude)
       &define-simple-logging
       (&define-check-participant-or-timeout)
       (&define-end-contract)

@@ -216,7 +216,7 @@
 ;; and log new data, albeit maybe in many chunks of ~400 words (~14KB) Find the optimal solution in gas.
 ;;
 ;; TESTING STATUS: Used by buy-sig
-(def &simple-contract-prelude ;; [39B, ?G]
+(def (&simple-contract-prelude) ;; [39B, ?G]
   (&begin
    ;; Init vs running convention!
    ;; Put some values on stack while they're extra cheap.
