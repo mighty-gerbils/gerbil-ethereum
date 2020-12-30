@@ -412,15 +412,16 @@
 
 ;; NB: must be put just *before* the &define-*-logging, so it will fall through it
 ;; if the tail call is to be handled by another participant
-;; TESTING STATUS: Wholly untested.
+;; TODO: this looks funky, fix it!
+;; TESTING STATUS: CODE NEEDS TO BE REWRITTEN THEN TESTED
 (def &define-tail-call
   (&begin
-   [&jumpdest 'stop-contract-call]
+   [&jumpdest 'stop-contract-call] ;; -- doesn't matter the stack, we just STOP
    STOP
    [&jumpdest 'tail-call-body]
-   frame@ ADD brk@ MSTORE ;; BEWARE: we can only reset the brk because we don't preserve heap data!
    (&mloadat frame@ 2) JUMP
-   [&jumpdest 'tail-call]
+   ;; Should the "frame" below include the pc? the timer-start?
+   [&jumpdest 'tail-call] ;; -- Should we assume the frame is in place? should we accept next-frame-pc next-frame-start next-frame-width?
    ;; -- frame-length TODO: at standard place in frame, info about who is or isn't timing out
    ;; and/or make it a standard part of the cp0 calling convention to catch such.
    (&read-published-datum 1) 'tail-call-body JUMPI
