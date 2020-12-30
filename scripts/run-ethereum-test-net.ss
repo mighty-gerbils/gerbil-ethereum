@@ -162,6 +162,7 @@
 
 ;;;; Support for Mantis
 
+;; See https://hub.docker.com/r/inputoutput/mantis for the latest available images
 ;; docker run -v $GERBIL_APPLICATION_HOME/run/mantis:/root/ -p 8546:8546 -it inputoutput/mantis:2020-kevm
 ;; or simply:
 ;; docker run -p 8545:8546 inputoutput/mantis:2020-kevm
