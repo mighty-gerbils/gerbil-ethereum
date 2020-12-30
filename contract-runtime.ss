@@ -509,7 +509,7 @@
 (def (&SELFDESTRUCT debug: (debug #f)) ;; address -->
   (if debug
     (&begin SELFBALANCE SWAP1 &send-ethers! ;; 1. send all the remaining ethers to given address
-            0 DUP1 DUP1 DUP1 SSTORE RETURN) ;; 2. blank out next state digest, 3. return empty array.
+            0 DUP1 SSTORE STOP) ;; 2. blank out next state digest, 3. return empty array.
     SELFDESTRUCT))
 
 ;; Define the end-contract library function, if reachable.
