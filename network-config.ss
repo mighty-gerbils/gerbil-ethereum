@@ -55,9 +55,10 @@
             "Did you fail to use (ensure-ethereum-connection \"pet\") ?"))
    (lambda () body ...)))
 
+(def (ethereum-config) (ethereum-network-config (current-ethereum-network)))
+
 (def (ethereum-config-accessor field-name)
-  (lambda () (with-ethereum-network
-         (.ref (ethereum-network-config (current-ethereum-network)) field-name))))
+  (lambda () (with-ethereum-network (.ref (ethereum-config) field-name))))
 
 (def (ethereum-connection-accessor field-name)
   (lambda () (with-ethereum-network
