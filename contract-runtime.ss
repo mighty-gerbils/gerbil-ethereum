@@ -545,7 +545,7 @@
 (def (&check-timeout! timeout: (timeout (ethereum-timeout-in-blocks))) ;; -->
   (&begin
    timeout timer-start ADD ;; using &safe-add is probably redundant there.
-   NUMBER LT &require!))
+   NUMBER GT &require-not!))
 
 ;; BEWARE! This is for two-participant contracts only,
 ;; where all the money is on the table, no other assets than Ether.
