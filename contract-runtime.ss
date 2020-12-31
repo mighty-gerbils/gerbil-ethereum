@@ -542,12 +542,10 @@
 
 ;; abort unless saved data indicates a timeout
 ;; TESTING STATUS: Used by buy-sig. Incompletely untested.
-(def (&check-timeout!) ;; -->
+(def (&check-timeout! timeout: (timeout (ethereum-timeout-in-blocks))) ;; -->
   (&begin
-   ;; TODO: negotiate the timeout between users,
-   ;; rather than hard-wiring it to the network as below?
-   (ethereum-timeout-in-blocks) timer-start ADD ;; using &safe-add is probably redundant there.
-   NUMBER LT &require-not!))
+   timeout timer-start ADD ;; using &safe-add is probably redundant there.
+   NUMBER LT &require!))
 
 ;; BEWARE! This is for two-participant contracts only,
 ;; where all the money is on the table, no other assets than Ether.
