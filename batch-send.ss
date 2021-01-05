@@ -34,14 +34,14 @@
    [;; At instruction 0, so push 0 on stack while it's extra cheap!
     ;; a non-zero contract byte costs 220, a zero one only costs 204, so the GETPC optimization
     ;; is worth it if we actually use that 0 at least twice in the source code.
-    GETPC #|0|# ; -- 0
+    GETPC #|0|# GETPC #|1|# ; -- 1 0
     ;; Abort if the caller isn't the contract's owner
     owner CALLER EQ [&jumpi1 'loop-init]
-    DUP1 #|0|# REVERT
+    DUP2 #|0|# REVERT
 
     ;; Initialize the loop invariant
-    [&jumpdest 'loop-init] ;; -- 0
-    1 (arithmetic-shift 1 96) DUP2 #|1|# DUP2 #|2**96|# SUB CALLDATASIZE DUP5 #|0|#
+    [&jumpdest 'loop-init] ;; -- 1 0
+    (expt 2 96) DUP2 #|1|# DUP2 #|2**96|# SUB CALLDATASIZE DUP5 #|0|#
     ;; -- 0 size 2**96-1 2**96 1 0
     [&jump1 'loop-entry] ;; jump to entry, skipping inter-loop action
 

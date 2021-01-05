@@ -1,9 +1,10 @@
 (export #t)
 
 (import
+  :gerbil/gambit/bytes
   :std/format :std/iter :std/misc/list-builder :std/srfi/1 :std/sugar :std/test
-  :clan/decimal :clan/debug :clan/json :clan/poo/poo :clan/persist/db
-  ../ethereum ../known-addresses ../json-rpc ../nonce-tracker ../batch-call
+  :clan/decimal :clan/debug :clan/json :clan/poo/poo :clan/poo/io :clan/persist/db
+  ../types ../ethereum ../signing ../known-addresses ../json-rpc ../nonce-tracker ../batch-call
   ../transaction ../tx-tracker
   ./signing-test ./30-transaction-integrationtest ./50-batch-send-integrationtest)
 
@@ -30,7 +31,10 @@
       ;; Check for two log entries from trivial-logger in the receipt
       (def logs (.@ receipt logs))
       (check-equal? (length logs) 2)
-      (def (get-foo log) [(.@ log address) (bytes->string (.@ log data))])
-      (check-equal? (get-foo (car logs)) [trivial-logger "Nothing here"])
-      (check-equal? (get-foo (cadr logs)) [trivial-logger "Just lost one gwei"])
+      (def (get-foo log) [(0x<-address (.@ log address))
+                          (map (.@ Bytes32 .json<-) (.@ log topics))
+                          (bytes->string (.@ log data))])
+      (def expected-topics [(json<- Bytes32 (bytes-append (make-bytes 12) (bytes<- Address batch-call-address)))])
+      (check-equal? (get-foo (car logs)) [(0x<-address trivial-logger) expected-topics "Nothing here"])
+      (check-equal? (get-foo (cadr logs)) [(0x<-address trivial-logger) expected-topics "Just lost one gwei"])
       )))

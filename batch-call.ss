@@ -34,17 +34,23 @@
 ;;  but still includes the transaction as "failed" on the blockchain, and transfers the gas
 ;;  from the transaction sender to the miners).
 
-;; Create the runtime code for a batch contract associated to given owner
+;; Create the runtime code for a batch call contract associated to given owner
+;; An owner is needed because the calls made by this contract will themselves have
+;; the contract's address as the CALLER (there's no way to make the top-level tx itself
+;; a DELEGATECALL, it's always an implicit CALL), therefore to be able to usefully call an ERC20
+;; without anyone being able to spend the tokens, we can have only one owner
+;; to a given batch-call contract.
 ;; : Bytes <- Address
-(def (batch-call-contract-runtime)
+(def (batch-call-contract-runtime owner)
   (assemble/bytes
    [;; At instruction 0, so push 0 on stack while it's extra cheap!
     ;; a non-zero contract byte costs 220, a zero one only costs 204, so the GETPC optimization
     ;; is worth it if we actually use that 0 at least twice in the source code.
-    GETPC #|0|# ; -- 0
-    1 (arithmetic-shift 1 96) DUP2 #|1|# DUP2 #|2**96|# SUB CALLDATASIZE DUP5
+    GETPC #|0|# GETPC #|1|# ; -- 1 0
+    (expt 2 96) DUP2 #|1|# DUP2 #|2**96|# SUB CALLDATASIZE DUP5
     ;; -- 0 size 2**96-1 2**96 1 0
-    [&jump1 'loop-entry] ;; jump to entry, skipping inter-loop action
+    owner CALLER EQ [&jumpi1 'loop-entry] ;; jump to loop entry
+    DUP1 #|0|# DUP1 #|0|# REVERT ;; abort if not called by rightful owner
 
     ;; The loop: inter-loop action
     [&jumpdest 'loop] ;; -- msgstart msgwidth cursor totalsize 2**96-1 2**96 1 0
@@ -76,7 +82,7 @@
     ;; loop if successful, revert everything if failed.
     [&jumpi1 'loop]
     ;; -- msgstart msgwidth cursor totalsize 2**96-1 2**96 1 0
-    DUP8 DUP1 REVERT]))
+    DUP8 #|0|# DUP1 #|0|# REVERT]))
 
 ;; Create the runtime code for a batch contract associated to given owner
 (def batch-call-contract-init (rcompose batch-call-contract-runtime stateless-contract-init))
@@ -84,11 +90,11 @@
 ;; Ensure that there is a batch transfer contract associated with the owner
 ;; on the blockchain and saved to the working database, and
 ;; return the ContractConfig for that contract.
-(def (ensure-batch-call-contract creator)
+(def (ensure-batch-call-contract owner)
   (def config (ensure-contract-config/db
                (string->bytes "batch-call-contract")
-               (create-contract creator (batch-call-contract-init))))
-  (eth-log ['ensure-batch-call-contract (0x<-address creator) (nickname<-address creator)
+               (create-contract owner (batch-call-contract-init owner))))
+  (eth-log ['ensure-batch-call-contract (0x<-address owner) (nickname<-address owner)
                                         '=> (json<- ContractConfig config)])
   config)
 
@@ -118,12 +124,15 @@
 ;; Useful for testing, and not much else --- maybe move it to t/batch-call-integrationtest.ss
 (def (trivial-logger-contract-runtime)
   (assemble/bytes
-   [GETPC #|0|# CALLDATASIZE DUP2 #|0|# DUP1 #|0|# CALLDATACOPY CALLDATASIZE SWAP1 #|0 size|# LOG0 STOP]))
+   [GETPC #|0|#
+    CALLDATASIZE DUP2 #|0|# DUP1 #|0|# CALLDATACOPY
+    CALLER CALLDATASIZE DUP3 #|0|# LOG1
+    STOP]))
 (def trivial-logger-contract-init (rcompose trivial-logger-contract-runtime stateless-contract-init))
-(def (ensure-trivial-logger-contract creator)
+(def (ensure-trivial-logger-contract owner)
   (def config (ensure-contract-config/db
                (string->bytes "trivial-logger-contract")
-               (create-contract creator (trivial-logger-contract-init))))
-  (eth-log ['ensure-trivial-logger-contract (0x<-address creator) (nickname<-address creator)
+               (create-contract owner (trivial-logger-contract-init))))
+  (eth-log ['ensure-trivial-logger-contract (0x<-address owner) (nickname<-address owner)
                                             '=> (json<- ContractConfig config)])
   config)
