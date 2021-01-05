@@ -180,7 +180,8 @@
 ;; Second, the frame state as merkleized. These are the fields present in all frames:
 (define-consecutive-addresses this-ctx frame@ params-start@
   (pc 2) ;; Code segment address from which to continue evaluation
-  (timer-start Block)) ;; Block at which the timer was started
+  (timer-start Block) ;; Block at which the timer was started
+  #;(challenged-participant Offset)) ;; TODO? offset of the parameter containing the participant challenged to post before timeout
 
 ;; Then there will be per-frame parameter fields, to be defined in the proper scope with:
 (defrule (define-frame-params ctx params ...)

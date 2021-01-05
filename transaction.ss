@@ -49,8 +49,7 @@
       (def signature (signature<-vrs y-parity+27 r s))
       (def signed-tx-bytes (signed-tx-bytes<- nonce gasPrice gas to value data chainid 0 0))
       (def from (recover-signer-address signature (keccak256<-bytes signed-tx-bytes)))
-      (and from
-           {from nonce gasPrice gas to value data v r s}))))
+      (and from {from nonce gasPrice gas to value data v r s}))))
 
 ;; This function computes the v value to put in the signed transaction data,
 ;; based on the v returned by the secp256k1 primitive (which is y-element parity+27)
