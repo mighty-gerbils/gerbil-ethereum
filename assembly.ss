@@ -166,7 +166,7 @@
 
 ;; For precise semantics, see evm.md in https://github.com/kframework/evm-semantics
 (define-ethereum-bytecodes
-  (#x00 STOP 0) ;; Halts execution.
+  (#x00 STOP 0) ;; Halts execution (success, same as 0 0 RETURN)
   (#x01 ADD 3) ;; Addition operation.
   (#x02 MUL 5) ;; Multiplication operation.
   (#x03 SUB 3) ;; Subtraction operation
@@ -234,7 +234,7 @@
   (#x5a GAS 2) ;; the amount of available gas, including the corresponding reduction the amount of available gas
   (#x5b JUMPDEST 1) ;; Mark a valid destination for jumps
   ;; #x5c - #x5f  Unused
-  (#x60 PUSH1 3) ;; Place 1 byte item on stack
+  (#x60 PUSH1 3) ;; Place 1-byte item on stack
   (#x61 PUSH2 3) ;; Place 2-byte item on stack
   (#x62 PUSH3 3) ;; Place 3-byte item on stack
   (#x63 PUSH4 3) ;; Place 4-byte item on stack
@@ -461,3 +461,11 @@
 (def (&sar n)
   ;;(&begin (arithmetic-shift 1 n) SWAP1 SDIV) ;; pre-EIP-145 version
   (&begin n SAR))
+
+(def (&if &cond &then &else)
+  (def then-label (generate-label "&then"))
+  (def endif-label (generate-label "&endif"))
+  (&begin &cond [&jumpi2 then-label]
+          &else [&jump2 endif-label]
+          [&label then-label] &then
+          [&label endif-label]))
