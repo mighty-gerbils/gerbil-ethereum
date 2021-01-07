@@ -169,7 +169,8 @@
 ;; connect via port 8546
 ;; To exec
 ;; docker exec -it $(run-mantis-test-net.ss mantis-container) bash
-(def mantis-docker-image "inputoutput/mantis:2020-kevm")
+(def mantis-docker-image "inputoutput/mantis:2020-kevm") ;; NB: there are both -evm and -kevm variants
+(def mantis-yolo-conf "yolo-kevm.conf") ;; our override file, also with -evm or -kevm
 (def mantis-run-directory (run-path "mantis")) ;; Determine the runtime directory
 
 (define-entry-point (mantis-containers)
@@ -217,7 +218,7 @@
     arguments: ["run"
                 ;; Mantis will create files under /root/.mantis and /root/.ethash, *owned by root* (!)
                 ;;;;"-v" (format "~a:/root" mantis-run-directory) ;; followed by :${options} if needed
-                ;;;;"-v" (format "~a:/here" here)
+                "-v" (format "~a:/here" here)
                 ;; Outside the image, use eth-rpc-port. *inside*, /conf says it's 8546.
                 "-p" (format "~d:8546" eth-rpc-port)
                 ;; We could try to persist the state inside the docker container, but
@@ -233,6 +234,7 @@
                 ;; This shouldn't be needed in the current image
                 ;;;;"-c" "cd / ; echo \"$GENESIS\" > /conf/genesis.json ; exec mantis -Dconfig.file=/conf/yolo.conf"
                 ;;;;"sh" "-c" "cd / && cat /here/yolo-evm.conf > /conf/yolo.conf && exec mantis"
+                "sh" "-c" (format "cd / && cp /conf/yolo.conf /here/~a.orig ; cat /here/~a > /conf/yolo.conf && exec mantis" mantis-yolo-conf mantis-yolo-conf)
                 ]
     stdin-redirection: #f
     stdout-redirection: #f

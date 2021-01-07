@@ -30,15 +30,24 @@
    addressExplorerUrl: [String] ;; string-append 0xAddress for address information
    pennyCollector: [Address])) ;; who will get the pennies leftover from self-destructing contracts.
 
-(defstruct ethereum-network (config connection) transparent: #t)
+(define-type EthereumNetworkConnection
+  (Record
+   url: [String]
+   client-version: [String]
+   chain-id: [JsInt]
+   server-chain-id: [JsInt]
+   mantis?: [Bool]))
 
-(def current-ethereum-network (make-parameter (ethereum-network #f #f)))
+(defstruct ethereum-network
+  (config ;; : EthereumNetworkConfig
+   connection) ;; : EthereumNetworkConnection
+  transparent: #t)
 
 (def ethereum-networks #f)
-
 (def (load-ethereum-networks-config (file (config-path "ethereum_networks.json")))
   (set! ethereum-networks (parse-json-file file (.@ (List EthereumNetworkConfig) .<-json))))
 
+(def current-ethereum-network (make-parameter (ethereum-network #f #f)))
 (def (ensure-ethereum-network name)
   (unless ethereum-networks (load-ethereum-networks-config))
   (def config (find (lambda (x) (equal? name (.@ x shortName))) ethereum-networks))
@@ -56,13 +65,12 @@
    (lambda () body ...)))
 
 (def (ethereum-config) (ethereum-network-config (current-ethereum-network)))
-
 (def (ethereum-config-accessor field-name)
   (lambda () (with-ethereum-network (.ref (ethereum-config) field-name))))
 
+(def (ethereum-connection) (ethereum-network-connection (current-ethereum-network)))
 (def (ethereum-connection-accessor field-name)
-  (lambda () (with-ethereum-network
-         (.ref (ethereum-network-connection (current-ethereum-network)) field-name))))
+  (lambda () (with-ethereum-network (.ref (ethereum-connection) field-name))))
 
 (def ethereum-confirmations-wanted-in-blocks (ethereum-config-accessor 'confirmationsWantedInBlocks))
 (def ethereum-block-polling-period-in-seconds (ethereum-config-accessor 'blockPollingPeriodInSeconds))

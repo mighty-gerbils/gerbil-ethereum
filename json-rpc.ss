@@ -136,7 +136,7 @@
 
 (define-type LogObject
   (Record
-   removed: [Bool]
+   removed: [(Maybe Bool) optional: #t default: (void)] ;; not present on Mantis (at least outside eth_newFilter)
    logIndex: [(Maybe Quantity) optional: #t default: (void)]
    transactionIndex: [(Maybe Quantity) optional: #t default: (void)]
    transactionHash: [(Maybe Digest) optional: #t default: (void)]

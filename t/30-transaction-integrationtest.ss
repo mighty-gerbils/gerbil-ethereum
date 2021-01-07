@@ -4,7 +4,7 @@
   :gerbil/gambit/threads
   :std/format :std/sugar :std/test
   :clan/base :clan/debug :clan/failure :clan/json :clan/option :clan/path
-  :clan/poo/poo :clan/poo/io
+  :clan/poo/poo :clan/poo/io :clan/poo/debug
   :clan/persist/db
   ../hex ../types ../network-config ../signing ../known-addresses
   ../ethereum ../json-rpc ../nonce-tracker ../transaction ../watch ../contract-runtime
@@ -15,6 +15,7 @@
   (def from (.@ tx from))
   (reset-nonce from)
   (def signed (make-signed-transaction tx))
+  (DDT debug-send-tx-0: Address from SignedTransaction signed)
   (ignore-errors (send-raw-transaction from signed))
   (def info (.cc (.@ signed tx) from: from))
   (def hash (.@ signed tx hash))
@@ -50,25 +51,25 @@
 (def 30-transaction-integrationtest
   (test-suite "integration test for ethereum/transaction"
     (test-case "Send tokens from Croesus to Trent"
-      (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
+      (reset-nonce croesus) (DDT nonce: Any (peek-nonce croesus))
       (def signed
         (make-signed-transaction (transfer-tokens from: croesus to: trent value: (wei<-ether 2))))
       (def hash (.@ signed tx hash))
-      (DBG signed: (sexp<- SignedTransaction signed))
+      (DDT signed: SignedTransaction signed)
       (ignore-errors (send-and-confirm-transaction croesus signed))
       (def current-block (eth_blockNumber))
       (def confirmationsWantedInBlocks (ethereum-confirmations-wanted-in-blocks))
-      (DBG waiting-for-confirmation: current-block confirmationsWantedInBlocks)
+      (DDT waiting-for-confirmation: poo.Nat current-block poo.Nat confirmationsWantedInBlocks)
       (def target-block (+ current-block confirmationsWantedInBlocks))
       (wait-until-block target-block)
       (def receipt (eth_getTransactionReceipt hash))
       (unless (poo? receipt) (error "No receipt for tx" (0x<-bytes hash) (repr receipt)))
-      (DBG receipt: (sexp<- TransactionReceipt receipt))
+      (DDT receipt: TransactionReceipt receipt)
       (def confirmations (confirmations<-receipt receipt target-block))
-      (DBG confirmations: confirmations)
+      (DDT confirmations: poo.Nat confirmations)
       (unless (<= 0 confirmations) (error "Failed tx" (0x<-bytes hash) (sexp<- TransactionReceipt receipt)))
       (def new-target-block (+ target-block (- confirmationsWantedInBlocks confirmations)))
       (wait-until-block new-target-block)
-      (DBG new-block: (eth_blockNumber))
+      (DDT new-block: poo.Nat (eth_blockNumber))
       (send-and-confirm-transaction croesus signed)
       (reset-nonce croesus))))

@@ -116,7 +116,7 @@
 (def (successful-receipt? receipt)
   (and (poo? receipt)
        (if (ethereum-mantis?)
-         (member (.@ receipt statusCode) [(void) 0]) ;; success on Mantis -- void seems to be a bug
+         (let (code (.@ receipt statusCode)) (or (equal? code 0) (equal? code (void)))) ;; success on Mantis -- void seems to be a bug
          (equal? (.@ receipt status) 1)))) ;; success on Geth
 
 ;; Given some Transaction data and Digest of the online transaction,
@@ -126,15 +126,15 @@
 ;; Otherwise, raise an appropriate exception that details the situation.
 ;; : TransactionReceipt <- Transaction Digest confirmations:(OrFalse Nat) nonce-too-low?:Bool
 (def (confirmed-receipt<-transaction
-      tx hash
+      tx t-hash
       confirmations: (confirmations (ethereum-confirmations-wanted-in-blocks))
       nonce-too-low?: (nonce-too-low? #f))
-  (def receipt (eth_getTransactionReceipt hash))
+  (def receipt (eth_getTransactionReceipt t-hash))
   (cond
    ((successful-receipt? receipt)
     (let ()
       (def-prefixed-slots (r- from to transactionHash gasUsed) receipt)
-      (def-prefixed-slots (t- from to hash gas) tx)
+      (def-prefixed-slots (t- from to gas) tx)
       (unless (and (or (ethereum-mantis?) ;; Mantis doesn't carry these fields in receipt
                        (and (equal? t-from r-from)
                             (equal? t-to r-to)))
@@ -150,8 +150,6 @@
     (with-slots (from nonce) tx
       (def sender-nonce (eth_getTransactionCount from 'latest))
       (cond
-       ((and (= sender-nonce nonce) (ethereum-mantis?))
-        (error (TransactionRejected "Reason unknown (nonce didn't change)")))
        ((>= sender-nonce nonce)
         (if nonce-too-low? (nonce-too-low from) (raise (StillPending))))
        ((< sender-nonce nonce)
@@ -303,9 +301,16 @@
 (def (gas-estimate from to data value)
   (if (and (address? to) (equal? data #u8())) transfer-gas-used
       (let (pre-estimate (eth_estimateGas {from to data value}))
-        ;; Sometimes the geth estimate is not enough, so we arbitrarily double it.
-        ;; TODO: improve on this doubling
-        (* 2 pre-estimate))))
+        (cond
+         ;; Mantis is sometimes deeply confused
+         ((<= pre-estimate transfer-gas-used)
+          (eth-log ["node returned bogus gas estimate" pre-estimate
+                    "from" (json<- Address from) "to" (json<- (Maybe Address) to)
+                    "data" (json<- (Maybe Bytes) data) "value" (json<- Quantity value)])
+          2000000)
+         ;; Sometimes the geth estimate is not enough, so we arbitrarily double it.
+         ;; TODO: improve on this doubling
+         (else (* 2 pre-estimate))))))
 
 ;; TODO: in the future, take into account the market (especially in case of block-buying attack)
 ;; and how much gas this is for to compute an estimate of the gas price.

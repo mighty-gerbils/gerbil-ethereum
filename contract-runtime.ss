@@ -104,7 +104,7 @@
 
 ;; Generic initialization code for stateless contracts
 ;; : Bytes <- Bytes
-;; TESTING STATUS: Used by batch-send
+;; TESTING STATUS: Tested in CI via batch-send, batch-call.
 (def (stateless-contract-init contract-runtime)
   (assemble/bytes (&trivial-contract-init contract-runtime)))
 
@@ -622,4 +622,3 @@
    (map (match <> ([t . v] (&marshal t v))) tvps)
    SUB SWAP1 ;; -- bufstart bufwidth
    SHA3))
-
