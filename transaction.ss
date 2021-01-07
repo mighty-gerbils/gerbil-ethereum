@@ -3,7 +3,7 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes
-  :std/error :std/misc/list :std/sugar :std/text/hex
+  :std/error :std/iter :std/misc/list :std/misc/number :std/sugar :std/text/hex
   :clan/assert :clan/failure :clan/number :clan/option :clan/with-id
   :clan/net/json-rpc
   :clan/poo/poo :clan/poo/io :clan/poo/brace
@@ -296,21 +296,40 @@
 ;; : Quantity
 (def transfer-gas-used 21000)
 
+(def (bytes-count-zeroes bytes)
+  (def c 0)
+  (for (i (in-iota (bytes-length bytes)))
+    (when (zero? (bytes-ref bytes i))
+      (increment! c)))
+  c)
+
+(def Gtxdatazero 4) ;; name used in evm.md
+(def Gtxdatanonzero 16) ;; NB: used to be 68 before EIP-2028
+
+;; Quantity <- Bytes
+(def (intrinsic-gas<-bytes
+      data base: (base transfer-gas-used) zero: (zero Gtxdatazero) nonzero: (nonzero Gtxdatanonzero))
+  (def cz (bytes-count-zeroes data))
+  (def cnz (- (bytes-length data) cz))
+  (+ (* zero cz) (* nonzero cnz) base))
+
 ;; Inputs must be normalized
 ;; : Quantity <- Address (Maybe Address) Bytes Quantity
 (def (gas-estimate from to data value)
   (if (and (address? to) (equal? data #u8())) transfer-gas-used
-      (let (pre-estimate (eth_estimateGas {from to data value}))
+      (let ((intrinsic-gas (intrinsic-gas<-bytes data))
+            (node-estimate (eth_estimateGas {from to data value})))
         (cond
          ;; Mantis is sometimes deeply confused
-         ((<= pre-estimate transfer-gas-used)
-          (eth-log ["node returned bogus gas estimate" pre-estimate
+         ((<= node-estimate intrinsic-gas)
+          (eth-log ["node returned bogus gas estimate" node-estimate
+                    "intrinsic-gas" intrinsic-gas
                     "from" (json<- Address from) "to" (json<- (Maybe Address) to)
                     "data" (json<- (Maybe Bytes) data) "value" (json<- Quantity value)])
-          2000000)
+          (max intrinsic-gas 4000000)) ;; arbitrary number, hopefully large enough.
          ;; Sometimes the geth estimate is not enough, so we arbitrarily double it.
          ;; TODO: improve on this doubling
-         (else (* 2 pre-estimate))))))
+         (else (* 2 node-estimate))))))
 
 ;; TODO: in the future, take into account the market (especially in case of block-buying attack)
 ;; and how much gas this is for to compute an estimate of the gas price.
