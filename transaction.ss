@@ -150,9 +150,12 @@
     (with-slots (from nonce) tx
       (def sender-nonce (eth_getTransactionCount from 'latest))
       (cond
-       ((> sender-nonce nonce) (if nonce-too-low? (nonce-too-low from) (raise (StillPending))))
-       ((= sender-nonce nonce) (error (TransactionRejected "Reason unknown (nonce didn't change)")))
-       ((< sender-nonce nonce) (error (TransactionRejected "BEWARE: nonce too high. Are you queueing transactions? Did you reset a test network?"))))))))
+       ((and (= sender-nonce nonce) (ethereum-mantis?))
+        (error (TransactionRejected "Reason unknown (nonce didn't change)")))
+       ((>= sender-nonce nonce)
+        (if nonce-too-low? (nonce-too-low from) (raise (StillPending))))
+       ((< sender-nonce nonce)
+        (error (TransactionRejected "BEWARE: nonce too high. Are you queueing transactions? Did you reset a test network?"))))))))
 
 ;; Count the number of confirmations for a transaction given by its hash.
 ;; Return -1 if the transaction is (yet) unconfirmed, -2 if it is failed.
