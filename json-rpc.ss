@@ -194,18 +194,6 @@
    value: [(Maybe Quantity) optional: #t default: (void)]
    data: [(Maybe Bytes) optional: #t default: (void)]))
 
-(def (CallParameters<-Operation from operation)
-  (def-slots (to data) operation)
-  {from to data gas: (void) gasPrice: (void) value: (void)})
-
-(def (CallParameters<-PreTransaction pretx)
-  (def-slots (from to data value gas) pretx)
-  {from to data value gas gasPrice: (void)})
-
-(def (CallParameters<-Transaction tx)
-  (def-slots (from to data value gas gasPrice) tx)
-  {from to data value gas gasPrice})
-
 (define-type StateOverrideSet ;; contract data to override before executing the call
   (Record
    balance: [Quantity optional: #t]
