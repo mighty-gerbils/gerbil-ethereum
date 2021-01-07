@@ -49,14 +49,14 @@
   ;; event Approval(address indexed _owner, address indexed _spender, uint256 _value)
   .transferFrom-selector: (selector<-function-signature ["transferFrom" Address Address UInt256])
   .deposit!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk Amount <-) UInt16
-  (lambda (sender amount require! tmp@)
+  (lambda (sender amount require! tmp@) ;; tmp@ is the constant offset to a 100-byte scratch buffer
     ;; instead of [brk] doing [brk@ MLOAD], cache it on stack and have
     ;; a locals mechanism that binds brk to that?
     ;; Or could/should we be using a fixed buffer for these things?
     ;; Note that the transfer must have been preapproved by the sender.
     ;; TODO: is that how we check the result? Or do we need to check the success from the RET area?
     (&begin
-     .transferFrom-selector (&mstoreat/pad-after tmp@ 4)
+     .transferFrom-selector (&mstoreat/overwrite-after tmp@ 4)
      sender (&mstoreat (+ tmp@ 4)) ;; TODO: should this be right-padded instead of left-padded??? TEST IT!
      ADDRESS (&mstoreat (+ tmp@ 36))
      amount (&mstoreat (+ tmp@ 68))
@@ -65,9 +65,9 @@
   .commit-check?: #f ;; (OrFalse (EVMThunk Bool <-)) ;; the ERC20 already manages its accounting invariants
   .approve-selector: (selector<-function-signature ["approve" Address UInt256]) ;; returns bool
   withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- Bool) UInt16
-  (lambda (recipient amount require! tmp@)
+  (lambda (recipient amount require! tmp@) ;; tmp@ is a constant offset to a 68-byte scratch buffer
     (&begin
-     .approve-selector (&mstoreat/pad-after tmp@ 4)
+     .approve-selector (&mstoreat/overwrite-after tmp@ 4)
      recipient (&mstoreat (+ tmp@ 4))
      amount (&mstoreat (+ tmp@ 36))
      32 tmp@ 68 DUP2 0 .contract-address GAS CALL

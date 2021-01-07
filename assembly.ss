@@ -433,8 +433,8 @@
            (&begin (&shl (- 256 n-bits)) (+ addr n-bytes) MLOAD (&shr n-bits) OR addr MSTORE)))))
 
 ;; Like &mstore, but is allowed (not obliged) to overwrite memory after it with padding bytes
-(def (&mstore/pad-after n-bytes)
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mstore/pad-after")
+(def (&mstore/overwrite-after n-bytes)
+  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mstore/overwrite-after")
   (cond
    ((= n-bytes 32) MSTORE) ;; [1B, 3G]
    ((= n-bytes 1) MSTORE8) ;; [1B, 3G]
@@ -442,8 +442,8 @@
    (else (&begin SWAP1 (&shl (- 256 (* 8 n-bytes))) SWAP1 MSTORE)))) ;; [6B, 15G]
 
 ;; Like &mstoreat, but is allowed (not obliged) to overwrite memory after it with padding bytes
-(def (&mstoreat/pad-after addr (n-bytes 32))
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mstoreat/pad-after")
+(def (&mstoreat/overwrite-after addr (n-bytes 32))
+  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mstoreat/overwrite-after")
   (cond
    ((= n-bytes 32) (&begin addr MSTORE)) ;; [4B, 6G] or for small addresses [3B, 6G]
    ((= n-bytes 1) (&begin addr MSTORE8)) ;; [4B, 6G] or for small addresses [3B, 6G]

@@ -2,7 +2,7 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
   :std/misc/number :std/sugar
-  :clan/base :clan/with-id
+  :clan/base :clan/number :clan/with-id
   :clan/poo/poo (only-in :clan/poo/mop Type)
   ./network-config ./assembly ./ethereum ./types)
 
@@ -135,7 +135,7 @@
 ;; will be defined in the lexical context ctx, and will be computed by appending to the param identifier
 ;; the respective suffixes "-types" "-length " "@" "" "-set!".
 ;; The getter and setter will only be usefully defined if the length is between 0 and 32 included.
-;; TODO: support intermediate-speed variables that pad-after?
+;; TODO: support intermediate-speed variables that overwrite-after?
 (defrule (define-consecutive-addresses ctx start end (param type-or-length) ...)
   (begin
     ;; Variable with a name provided by the macro caller above,
@@ -241,6 +241,40 @@
    ;; Abort. We explicitly PUSH1 0 for the first rather than DUPn,
    ;; because we don't assume stack geometry from the caller when aborting.
    [&jumpdest 'abort-contract-call] 0 DUP1 #|0|# REVERT))
+
+;; TESTING STATUS: Wholly untested.
+(def (&memcpy/const-size n overwrite-after?: (overwrite-after? #f) dst-first?: (dst-first? #f))
+  ;; if dst-first?, then (-- dst src), otherwise (-- src dst)
+  (cond
+   ((zero? n) (&begin))
+   ((< 0 n 32) (&begin (if dst-first? SWAP1 void)
+                       (if overwrite-after? (&begin MLOAD SWAP1 MSTORE)
+                           (&begin (&mload n) SWAP1 (&mstore n))))) ;; TODO: optimize on that
+   (else
+    (&begin
+     (if dst-first?
+       (&begin DUP2 MLOAD DUP2 MSTORE)
+       (&begin DUP1 MLOAD DUP3 MSTORE))
+     32 ADD SWAP1 32 ADD
+     (&memcpy/const-size (- n 32) overwrite-after?: overwrite-after? dst-first?: (not dst-first?))))))
+
+;; <-- dst
+;; TESTING STATUS: Wholly untested.
+(def (&memcpy/const-size/const-src addr n overwrite-after?: (overwrite-after? #f))
+  (cond
+   ((zero? n) (&begin))
+   ((<= 1 n 32) (if overwrite-after?
+                 (&begin addr MLOAD SWAP1 MSTORE)
+                 (&begin (&mloadat addr n) (&mstore n))))
+   (else
+    (&begin addr MLOAD DUP2 MSTORE 32 ADD
+            (&memcpy/const-size/const-src (+ addr 32) (- n 32) overwrite-after?: overwrite-after?)))))
+
+;; <-- dst
+;; TESTING STATUS: Wholly untested.
+(def (&memcpy/const-size/expr-src &addr n overwrite-after?: (overwrite-after? #f))
+  (if (nat? &addr) (&memcpy/const-size/const-src &addr n overwrite-after?: overwrite-after?)
+      (&begin &addr (&memcpy/const-size n overwrite-after?: overwrite-after? dst-first?: #f))))
 
 ;; This *defines* [25B] a function with label 'unsafe-memcopy [(53*LEN+35)G]
 ;; that you invoke with the following arguments (top-of-stack onward):
@@ -508,6 +542,7 @@
 ;; If the contract doesn't use our ABI, then step 2 is useless and the contract might still be "usable".
 ;; Also, a real SELFDESTRUCT costs much less gas and always succeeds to send with no opportunity
 ;; for the recipient to either log data or deny the request.
+;; TESTING STATUS: manually tested
 (def (&SELFDESTRUCT debug: (debug #f)) ;; address -->
   (if debug
     (&begin SELFBALANCE SWAP1 &send-ethers! ;; 1. send all the remaining ethers to given address
@@ -566,3 +601,25 @@
   (&begin
    (&call 'check-participant-or-timeout obliged-actor@ other-actor@)
    POP)) ;; pop the other-actor@ left on the stack
+
+;;; Generating bytes to digest values
+;; TESTING STATUS: wholly untested
+(def (&marshal type &value)
+  (def len (param-length type))
+  ;; bufptr <-- bufptr
+  (cond
+   ((zero? len) ;; Singleton type: nothing to marshal
+    (&begin))
+   ((<= 1 len 32) ;; Immediate type: marshal the value on stack, bump the bufptr
+    (&begin &value DUP2 #|bufptr|# (&mstore/overwrite-after len) len ADD))
+   (else ;; Boxed type: marshal the value in the box, bump the bufptr
+    (&begin DUP1 (&memcpy/const-size/expr-src &value len overwrite-after?: #t) len ADD))))
+
+;; TESTING STATUS: wholly untested
+(def (&digest<-tvps tvps)
+  (&begin
+   brk DUP1 DUP1 ;; -- bufptr bufstart bufstart ;; NB: an early DUP1 saves us swaps or reloads later.
+   (map (match <> ([t . v] (&marshal t v))) tvps)
+   SUB SWAP1 ;; -- bufstart bufwidth
+   SHA3))
+
