@@ -374,7 +374,7 @@
 (def (&directives a directives)
   (for-each (cut &directive a <>) directives))
 (def (&begin* l) (cut &directives <> l))
-(def (&begin . l) (&begin* l))
+(defrule (&begin directive ...) (lambda (a) (&directives a [directive ...])))
 
 (def generate-label-counter 0)
 (def (generate-label (g 'g))

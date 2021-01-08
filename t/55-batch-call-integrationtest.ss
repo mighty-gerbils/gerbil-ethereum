@@ -9,8 +9,6 @@
   ./signing-test
   ./30-transaction-integrationtest ./50-batch-send-integrationtest)
 
-(ensure-ethereum-connection "pet")
-
 (def 55-batch-call-integrationtest
   (test-suite "integration test for ethereum/batch-call"
     (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
