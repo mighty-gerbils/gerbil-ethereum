@@ -4,7 +4,7 @@
   :gerbil/gambit/threads
   :std/format :std/sugar :std/test
   :clan/base :clan/debug :clan/failure :clan/json :clan/option :clan/path
-  :clan/poo/poo :clan/poo/io :clan/poo/debug
+  :clan/poo/poo :clan/poo/io :clan/poo/debug :clan/poo/brace
   :clan/persist/db
   ../hex ../types ../network-config ../signing ../known-addresses
   ../ethereum ../json-rpc ../nonce-tracker ../transaction ../watch ../contract-runtime
