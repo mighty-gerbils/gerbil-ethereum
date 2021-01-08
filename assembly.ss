@@ -5,7 +5,7 @@
   :std/misc/bytes :std/misc/number :std/sugar
   :clan/base :clan/number :clan/syntax
   :clan/poo/poo :clan/poo/io
-  ./types ./ethereum ./signing)
+  ./types ./ethereum ./network-config ./signing)
 
 ;; In the future, segments can be nested, and
 ;; offset would be relative to a subsegment of a segment,
@@ -453,14 +453,17 @@
 ;; Shifts by constant number of bits
 ;; TODO: somehow detect whether EIP-145 is activated, and use SHL/SHR/SAR when it is.
 (def (&shl n)
-  ;;(&begin (arithmetic-shift 1 n) MUL) ;; pre-EIP-145 version
-  (&begin n SHL))
+  (if (ethereum-eip145)
+    (&begin n SHL)
+    (&begin (arithmetic-shift 1 n) MUL))) ;; pre-EIP-145 version
 (def (&shr n)
-  ;;(&begin (arithmetic-shift 1 n) SWAP1 DIV) ;; pre-EIP-145 version
-  (&begin n SHR))
+  (if (ethereum-eip145)
+    (&begin n SHR)
+    (&begin (arithmetic-shift 1 n) SWAP1 DIV))) ;; pre-EIP-145 version
 (def (&sar n)
-  ;;(&begin (arithmetic-shift 1 n) SWAP1 SDIV) ;; pre-EIP-145 version
-  (&begin n SAR))
+  (if (ethereum-eip145)
+    (&begin n SAR)
+    (&begin (arithmetic-shift 1 n) SWAP1 SDIV))) ;; pre-EIP-145 version
 
 (def (&if &cond &then &else)
   (def then-label (generate-label "&then"))

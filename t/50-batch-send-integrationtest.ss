@@ -49,12 +49,12 @@
   (test-suite "integration test for ethereum/batch-send"
     (test-case "batch transfer works"
       (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
-      (def balances-before (map (cut eth_getBalance <> 'pending) prefunded-addresses))
+      (def balances-before (map (cut eth_getBalance <> 'latest) prefunded-addresses))
       (def target-amount (+ (apply max balances-before) (wei<-ether 1/1000))) ;; add one thousandth of an ETH in wei
       (DBG before-batch-transfer: balances-before target-amount
            (map decimal-string-ether<-wei balances-before) (decimal-string-ether<-wei target-amount))
       (ensure-addresses-prefunded from: croesus to: prefunded-addresses
                                   min-balance: target-amount target-balance: target-amount)
-      (def balances-after (map (cut eth_getBalance <> 'pending) prefunded-addresses))
+      (def balances-after (map (cut eth_getBalance <> 'latest) prefunded-addresses))
       (DBG after-batch-transfer: balances-after (map decimal-string-ether<-wei balances-after))
       (check-equal? balances-after (make-list (length prefunded-addresses) target-amount)))))

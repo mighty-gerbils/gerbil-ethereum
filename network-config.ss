@@ -10,8 +10,8 @@
   (Record
    ;; These fields are from https://chainid.network/chains.json
    name: [String] ;; the name of the network
-   networkId: [JsInt]
-   chainId: [JsInt]
+   networkId: [JsInt] ;; from JSON RPC method net_version
+   chainId: [JsInt] ;; from JSON RPC method eth_chainId
    shortName: [String] ;; short name for the network, often lowercase, often a tla, e.g. "eth"
    chain: [String] ;; the chain that this network is supporting, e.g. "ETH"
    network: [String] ;; "mainnet" if that's the main net for that chain, or else a test name
@@ -26,6 +26,7 @@
    confirmationsWantedInBlocks: [JsInt] ;; how many confirmations needed for a transaction?
    confirmationsString: [String] ;; a string description of the above
    blockPollingPeriodInSeconds: [JsInt] ;; how many seconds to wait before polling for more blocks
+   eip145: [Bool] ;; is EIP-145 available on this network? (TODO: if so should be a block number)
    txExplorerUrl: [String] ;; string-append 0xTxHash for transaction information
    addressExplorerUrl: [String] ;; string-append 0xAddress for address information
    pennyCollector: [Address])) ;; who will get the pennies leftover from self-destructing contracts.
@@ -76,6 +77,7 @@
 (def ethereum-block-polling-period-in-seconds (ethereum-config-accessor 'blockPollingPeriodInSeconds))
 (def ethereum-timeout-in-blocks (ethereum-config-accessor 'timeoutInBlocks))
 (def ethereum-penny-collector (ethereum-config-accessor 'pennyCollector))
+(def ethereum-eip145 (ethereum-config-accessor 'eip145)) ;; The Mantis KEVM is too old for it, for now.
 
 (def ethereum-url (ethereum-connection-accessor 'url))
 (def ethereum-chain-id (ethereum-connection-accessor 'chain-id))

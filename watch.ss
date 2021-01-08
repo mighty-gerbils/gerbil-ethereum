@@ -108,10 +108,10 @@
   (def hook (lambda (first-unprocessed-block last-unprocessed-block)
               ((process-events filter process)
                (max first-unprocessed-block (- last-unprocessed-block confirmations -1))
-               'pending)))
+               'latest)))
   (hash-put! new-block-hooks name hook)
   (def fromBlock (- (next-unprocessed-block) 1 confirmations))
-  (hook fromBlock 'pending))
+  (hook fromBlock 'latest))
 
 ;; The code in the section below might belong to some library to manage multiple interactions.
 ;; Managing interactions

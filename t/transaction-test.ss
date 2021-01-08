@@ -39,5 +39,6 @@
                     [37 18515461264373351373200002665853028612451056578545711640558177340181847433846 46948507304638947509940763649030358759909902576025900602547168820602576006531])
       (def signed-tx-data-bytes (signed-tx-bytes<- nonce gasPrice gas to value data v2 r s))
       (check-equal? (0x<-bytes signed-tx-data-bytes) "0xf86c098504a817c800825208943535353535353535353535353535353535353535880de0b6b3a76400008025a028ef61340bd939bc2195fe537567866003e1a15d3c71ff63e1590620aa636276a067cbe9d8997f761aecb703304b3800ccf555c9f3dc64214b297fb1966a3b6d83")
-      (check-equal? (0x<-bytes (raw-sign-transaction tx-params 1)) (0x<-bytes signed-tx-data-bytes)))))
+      (check-equal? (0x<-bytes (bytes<-signed-tx (sign-transaction tx-params 1)))
+                    (0x<-bytes signed-tx-data-bytes)))))
 ;;)

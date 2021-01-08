@@ -141,8 +141,8 @@
 (define-type TransactionStatus
   (Sum
    TxWanted: PreTransaction
-   TxSigned: (Tuple PreTransaction SignedTransaction)
-   TxConfirmed: (Tuple PreTransaction SignedTransaction TransactionReceipt)
+   TxSigned: (Tuple PreTransaction SignedTransactionInfo)
+   TxConfirmed: (Tuple PreTransaction SignedTransactionInfo TransactionReceipt)
    TxFailed: (Tuple (delay-type TransactionStatus) ExceptionOrString)))
 (define-sum-constructors TransactionStatus TxWanted TxSigned TxConfirmed TxFailed)
 
@@ -208,14 +208,14 @@
                (continue (TransactionStatus-TxFailed (vector transaction-status e))))
              (match status
                ((TransactionStatus-TxWanted pretx)
-                (match (with-result (make-signed-transaction pretx))
+                (match (with-result (sign-transaction pretx))
                   ((failure e) (invalidate status e))
                   ((some stx) (continue (TransactionStatus-TxSigned (vector pretx stx))))))
                ((TransactionStatus-TxSigned (vector pretx signed))
                 (match (with-result
                         (retry retry-window: 0.05 max-window: 30.0 max-retries: +inf.0
                           (fun (try-confirm)
-                            (def result (with-result (send-and-confirm-transaction user signed)))
+                            (def result (with-result (send-signed-transaction signed)))
                             (match result
                               ((some _) result)
                               ((failure e)

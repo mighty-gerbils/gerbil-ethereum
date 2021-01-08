@@ -6,7 +6,10 @@
   :clan/decimal :clan/debug :clan/json :clan/poo/poo :clan/poo/io :clan/poo/debug :clan/persist/db
   ../types ../ethereum ../signing ../known-addresses ../json-rpc ../nonce-tracker ../batch-call
   ../transaction ../tx-tracker
-  ./signing-test ./30-transaction-integrationtest ./50-batch-send-integrationtest)
+  ./signing-test
+  ./30-transaction-integrationtest ./50-batch-send-integrationtest)
+
+(ensure-ethereum-connection "pet")
 
 (def 55-batch-call-integrationtest
   (test-suite "integration test for ethereum/batch-call"
@@ -23,12 +26,10 @@
     (test-case "batch call works"
       (def batch-call-address (.@ (ensure-batch-call-contract croesus) contract-address))
       (DDT 55-batch-call-2: Address batch-call-address)
-      (def logger-balance-before (eth_getBalance trivial-logger 'pending))
+      (def logger-balance-before (eth_getBalance trivial-logger 'latest))
       (def receipt (batch-call croesus [[trivial-logger 0 (string->bytes "Nothing here")]
                                         [trivial-logger (wei<-gwei 1) (string->bytes "Just lost one gwei")]]))
-      (def logger-balance-after (eth_getBalance trivial-logger 'pending))
-      ;; Check that the calls did deposit money onto the recipient contract
-      (check-equal? (- logger-balance-after logger-balance-before) (wei<-gwei 1))
+      (def logger-balance-after (eth_getBalance trivial-logger 'latest))
       ;; Check for two log entries from trivial-logger in the receipt
       (def logs (.@ receipt logs))
       (check-equal? (length logs) 2)
@@ -38,4 +39,6 @@
       (def expected-topics [(json<- Bytes32 (bytes-append (make-bytes 12) (bytes<- Address batch-call-address)))])
       (check-equal? (get-foo (car logs)) [(0x<-address trivial-logger) expected-topics "Nothing here"])
       (check-equal? (get-foo (cadr logs)) [(0x<-address trivial-logger) expected-topics "Just lost one gwei"])
+      ;; Check that the calls did deposit money onto the recipient contract
+      (check-equal? (- logger-balance-after logger-balance-before) (wei<-gwei 1))
       )))

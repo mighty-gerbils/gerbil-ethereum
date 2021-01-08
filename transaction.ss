@@ -48,8 +48,9 @@
       (def chainid (chainid<-v v))
       (def signature (signature<-vrs y-parity+27 r s))
       (def signed-tx-bytes (signed-tx-bytes<- nonce gasPrice gas to value data chainid 0 0))
-      (def from (recover-signer-address signature (keccak256<-bytes signed-tx-bytes)))
-      (and from {from nonce gasPrice gas to value data v r s}))))
+      (def hash (keccak256<-bytes bytes))
+      (def from (recover-signer-address signature hash))
+      (and from {from nonce gasPrice gas to value data v r s hash}))))
 
 ;; This function computes the v value to put in the signed transaction data,
 ;; based on the v returned by the secp256k1 primitive (which is y-element parity+27)
@@ -67,17 +68,6 @@
   (def signature (make-message-signature secret-key (keccak256<-bytes bytes)))
   (defvalues (v r s) (vrs<-signature signature))
   (values (eip155-v v chainid) r s))
-
-;; : Bytes <- Transaction Quantity
-(def (raw-sign-transaction transaction (chainid (ethereum-chain-id)))
-  (def-slots (from nonce gasPrice gas to value data) transaction)
-  (when (void? value) (set! value 0))
-  (when (void? data) (set! data #u8()))
-  (def keypair (or (keypair<-address from)
-                   (error "Couldn't find registered keypair" (json<- Address from))))
-  (defvalues (v r s) (vrs<-tx (keypair-secret-key keypair)
-                              nonce gasPrice gas to value data chainid))
-  (signed-tx-bytes<- nonce gasPrice gas to value data v r s))
 
 (defstruct (TransactionRejected exception) (receipt)) ;; (Or TransactionReceipt String)
 (defstruct (StillPending exception) ())
@@ -124,17 +114,17 @@
 ;; a TransactionReceipt for the transaction *if and only if* the Transaction
 ;; was indeed included on the blockchain with sufficient confirmations.
 ;; Otherwise, raise an appropriate exception that details the situation.
-;; : TransactionReceipt <- Transaction Digest confirmations:(OrFalse Nat) nonce-too-low?:Bool
+;; : TransactionReceipt <- SignedTransactionInfo confirmations:(OrFalse Nat) nonce-too-low?:Bool
 (def (confirmed-receipt<-transaction
-      tx t-hash
+      tx
       confirmations: (confirmations (ethereum-confirmations-wanted-in-blocks))
       nonce-too-low?: (nonce-too-low? #f))
+  (def-prefixed-slots (t- from to gas hash) tx)
   (def receipt (eth_getTransactionReceipt t-hash))
   (cond
    ((successful-receipt? receipt)
     (let ()
       (def-prefixed-slots (r- from to transactionHash gasUsed) receipt)
-      (def-prefixed-slots (t- from to gas) tx)
       (unless (and (or (ethereum-mantis?) ;; Mantis doesn't carry these fields in receipt
                        (and (equal? t-from r-from)
                             (equal? t-to r-to)))
@@ -171,14 +161,14 @@
 ;; TODO: Make sure we can verify the confirmation from the Ethereum contract,
 ;; by checking the merkle tree and using e.g. Andrew Miller's contract to access old
 ;; block hashes https://github.com/amiller/ethereum-blockhashes
-;; : Unit <- sender: Address recipient: (or Address Unit) Transaction Confirmation
+;; : Unit <- sender: Address recipient: (or Address Unit) TransactionInfo Confirmation
 (def (check-transaction-confirmation
-      tx tx-hash confirmation
+      tx confirmation
       confirmations: (confirmations (ethereum-confirmations-wanted-in-blocks)))
   (def-prefixed-slots (c- transactionHash transactionIndex blockNumber blockHash) confirmation)
-  (unless (equal? tx-hash c-transactionHash)
+  (unless (equal? (.@ tx hash) c-transactionHash)
     (error "Malformed request" "Transaction data digest does not match the provided confirmation"))
-  (def receipt (confirmed-receipt<-transaction tx tx-hash confirmations: confirmations))
+  (def receipt (confirmed-receipt<-transaction tx confirmations: confirmations))
   (def-prefixed-slots (r- transactionHash transactionIndex blockNumber blockHash) receipt)
   (unless (and (equal? c-transactionHash r-transactionHash)
                (equal? c-transactionIndex r-transactionIndex)
@@ -186,7 +176,7 @@
                (equal? c-blockHash r-blockHash))
     (error "confirmation doesn't match receipt information")))
 
-;; Previous implementation, that signs through geth
+;; Previous implementation, that signs through geth, and returns a SignedTransaction
 ;; : SignedTransaction <- Transaction
 #;
 (def (sign-transaction transaction)
@@ -196,21 +186,23 @@
   (personal_signTransaction (TransactionParameters<-PreTransaction transaction)
                             (export-password/string (keypair-password kp))))
 
-;; New implementation with the same interface as the previous one above.
-;; : SignedTransaction <- Transaction ?Nat
-(def (sign-transaction transaction (chainid (ethereum-chain-id)))
-  (def raw (raw-sign-transaction transaction chainid))
-  (def-slots (nonce gasPrice gas to value data v r s) (<-rlpbytes SignedTransactionData raw))
-  (def tx {nonce gasPrice gas to value input: data v r s hash: (keccak256<-bytes raw)})
-  {raw tx})
-
-(def minimum-gas-price (values 1))
-
 ;; Prepare a signed transaction, that you may later issue onto Ethereum network,
-;; from given address, with given operation, value and gas-limit
-;; : SignedTransaction <- PreTransaction
-(def (make-signed-transaction tx)
-  (sign-transaction (complete-transaction tx)))
+;; from a given pre-transaction.
+;; : SignedTransactionInfo <- PreTransaction ?Nat
+(def (sign-transaction tx (chainid (ethereum-chain-id)))
+  (def-slots (from nonce gasPrice gas to value data) (complete-transaction tx))
+  (def keypair (or (keypair<-address from)
+                   (error "Couldn't find registered keypair" (json<- Address from))))
+  (defvalues (v r s) (vrs<-tx (keypair-secret-key keypair)
+                              nonce gasPrice gas to value data chainid))
+  (def raw (signed-tx-bytes<- nonce gasPrice gas to value data v r s))
+  (def hash (keccak256<-bytes raw))
+  {from nonce gasPrice gas to value data v r s hash})
+
+;; : Bytes <- Transaction Quantity
+(def (bytes<-signed-tx tx)
+  (def-slots (nonce gasPrice gas to value data v r s) tx)
+  (signed-tx-bytes<- nonce gasPrice gas to value data v r s))
 
 (def (complete-tx-field tx name valid? mandatory? (default void))
   (def v (.ref tx name void))
@@ -231,8 +223,8 @@
   (complete-tx-field tx 'data bytes? #f (lambda () #u8())))
 (def (complete-tx-value tx)
   (complete-tx-field tx 'value nat? #f (lambda () 0)))
-(def (complete-tx-nonce tx from)
-  (complete-tx-field tx 'nonce nat? #f (cut next-nonce from)))
+(def (complete-tx-nonce tx from) ;; NB: beware concurrency/queueing in transactions from the same person.
+  (complete-tx-field tx 'nonce nat? #f (cut eth_getTransactionCount from 'latest)))
 (def (complete-tx-gas tx from to data value)
   (complete-tx-field tx 'gas nat? #f (cut gas-estimate from to data value)))
 (def (complete-tx-gasPrice tx gas)
@@ -259,20 +251,17 @@
   (def gasPrice (.ref tx 'gasPrice void))
   {from to data value gas nonce gasPrice})
 
-;; : Digest <- Address SignedTransaction
-(def (send-raw-transaction sender signed)
-  (def data (.@ signed raw))
-  (def tx (.cc (.@ signed tx) from: sender))
-  (def hash (.@ tx hash))
-  (eth-log ["send-raw-transaction" (0x<-bytes hash) (json<- SignedTransactionInfo tx)])
-  (match (with-result (eth_sendRawTransaction data))
+;; : TransactionReceipt <- SignedTransactionInfo
+(def (send-signed-transaction tx)
+  (def-slots (hash) tx)
+  (eth-log ["send-signed-transaction" (json<- SignedTransactionInfo tx)])
+  (match (with-result (eth_sendRawTransaction (bytes<-signed-tx tx)))
     ((some transaction-hash)
      (unless (equal? transaction-hash hash)
        (error "eth-send-raw-transaction: invalid hash" transaction-hash hash))
-     hash)
+     (confirmed-receipt<-transaction tx confirmations: #f))
     ((failure (json-rpc-error code: -32000 message: "nonce too low"))
-     (confirmed-receipt<-transaction tx hash confirmations: #f)
-     hash)
+     (confirmed-receipt<-transaction tx confirmations: #f nonce-too-low?: #t))
     ((failure (json-rpc-error code: -32000 message: "replacement transaction underpriced"))
      (raise (ReplacementTransactionUnderpriced)))
     ((failure (json-rpc-error code: -32000 message: "intrinsic gas too low"))
@@ -280,17 +269,9 @@
     ((failure (json-rpc-error code: -32000 message:
                               (? (let (m (string-append "known transaction: " (hex-encode hash)))
                                    (cut equal? <> m)))))
-     (confirmed-receipt<-transaction tx hash confirmations: #f)
-     hash)
+     (confirmed-receipt<-transaction tx confirmations: #f))
     ((failure e)
      (raise e))))
-
-;; : TransactionReceipt <- Transaction SignedTransaction
-(def (send-and-confirm-transaction sender signed)
-  (def hash (send-raw-transaction sender signed))
-  (def tx (.cc (.@ signed tx) from: sender))
-  (assert-equal! hash (.@ tx hash))
-  (confirmed-receipt<-transaction tx hash confirmations: #f))
 
 ;; Gas used for a transfer transaction. Hardcoded value defined in the Yellowpaper.
 ;; : Quantity
@@ -316,30 +297,28 @@
 ;; Inputs must be normalized
 ;; : Quantity <- Address (Maybe Address) Bytes Quantity
 (def (gas-estimate from to data value)
-  (if (and (address? to) (equal? data #u8())) transfer-gas-used
-      (let ((intrinsic-gas (intrinsic-gas<-bytes data))
-            (node-estimate (eth_estimateGas {from to data value})))
-        (cond
-         ;; Mantis is sometimes deeply confused
-         ((<= node-estimate intrinsic-gas)
-          (eth-log ["node returned bogus gas estimate" node-estimate
-                    "intrinsic-gas" intrinsic-gas
-                    "from" (json<- Address from) "to" (json<- (Maybe Address) to)
-                    "data" (json<- (Maybe Bytes) data) "value" (json<- Quantity value)])
-          (max intrinsic-gas 4000000)) ;; arbitrary number, hopefully large enough.
-         ;; Sometimes the geth estimate is not enough, so we arbitrarily double it.
-         ;; TODO: improve on this doubling
-         (else (* 2 node-estimate))))))
+  (if (and (address? to) (equal? data #u8()))
+    transfer-gas-used
+    (let ((intrinsic-gas (intrinsic-gas<-bytes data))
+          (estimate (eth_estimateGas {from to data value})))
+      (when (<= estimate intrinsic-gas)
+        ;; Mantis is sometimes deeply confused
+        (eth-log ["node returned bogus gas estimate" estimate
+                  "intrinsic-gas" intrinsic-gas
+                  "from" (json<- Address from) "to" (json<- (Maybe Address) to)
+                  "data" (json<- (Maybe Bytes) data) "value" (json<- Quantity value)])
+        (set! estimate (max intrinsic-gas 2000000))) ;; arbitrary number, hopefully large enough.
+      ;; Sometimes the geth estimate is not enough, so we arbitrarily double it.
+      ;; TODO: improve on this doubling
+      (* 2 estimate))))
 
 ;; TODO: in the future, take into account the market (especially in case of block-buying attack)
 ;; and how much gas this is for to compute an estimate of the gas price.
-(def mantis-minimum-gas-price (wei<-gwei 1))
+(def minimum-gas-price (values 1)) ;; NB: set it 0 for no effect
 
 (def (gas-price-estimate gas)
   (def node-price (eth_gasPrice))
-  (if (ethereum-mantis?)
-    (max node-price mantis-minimum-gas-price)
-    node-price))
+  (max node-price minimum-gas-price))
 
 ;; : Transaction <- Address Quantity
 (def (transfer-tokens from: from to: to value: value
@@ -348,7 +327,7 @@
 
 ;; : Transaction <- Address Bytes value: ?Quantity gas: ?(Maybe Quantity) gasPrice: ?(Maybe Quantity) nonce: ?(Maybe Quantity)
 (def (create-contract creator initcode
-       value: (value 0) gas: (gas (void)) gasPrice: (gasPrice (void)) nonce: (nonce (void)))
+      value: (value 0) gas: (gas (void)) gasPrice: (gasPrice (void)) nonce: (nonce (void)))
   (complete-pre-transaction {from: creator to: (void) data: initcode value gas gasPrice nonce}))
 
 ;; : Transaction <- Address Address Bytes value: ?Quantity gas: ?(Maybe Quantity) gasPrice: ?(Maybe Quantity) nonce: ?(Maybe Quantity)

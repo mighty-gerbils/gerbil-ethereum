@@ -172,6 +172,9 @@
 (def mantis-docker-image "inputoutput/mantis:2020-kevm") ;; NB: there are both -evm and -kevm variants
 (def mantis-yolo-conf "yolo-kevm.conf") ;; our override file, also with -evm or -kevm
 (def mantis-run-directory (run-path "mantis")) ;; Determine the runtime directory
+;; NB: When editing the configuration, compare to what's in production:
+;; https://github.com/input-output-hk/mantis/blob/develop/src/main/resources/chains/etc-chain.conf
+;; https://github.com/etclabscore/core-geth/blob/master/params/config_classic.go#L30
 
 (define-entry-point (mantis-containers)
   "List current Mantis docker containers"
@@ -216,25 +219,56 @@
   (open-process
    [path: "docker"
     arguments: ["run"
-                ;; Mantis will create files under /root/.mantis and /root/.ethash, *owned by root* (!)
-                ;;;;"-v" (format "~a:/root" mantis-run-directory) ;; followed by :${options} if needed
+                ;;;; We mount this directory so we can easily copy files to override configuration
                 "-v" (format "~a:/here" here)
-                ;; Outside the image, use eth-rpc-port. *inside*, /conf says it's 8546.
+
+                ;;;; Uncomment this line if you want to visibly persist the state on your local disk.
+                ;;;; Beware: docker will create those files *owned by root*
+                ;;"-v" (format "~a:/root/.mantis" mantis-run-directory)
+                ;;;; You could also try to mount some kind of persistent docker volume instead.
+
+                ;;;; The ethash miner creates a reusable 1GB DAG file at startup.
+                ;;;; By keeping it between runs, we save 10-20 minutes of initialization time
+                ;;;; Beware: Docker will create it owned by root, but you should be able to chown it.
+                "-v" (format "~a:/root/.ethash" (run-path "ethash"))
+
+                ;;;; Outside the image, We use eth-rpc-port. *inside*, we let /conf say it's 8546.
                 "-p" (format "~d:8546" eth-rpc-port)
-                ;; We could try to persist the state inside the docker container, but
-                ;; we don't want to and that would require more management above.
-                ;;;;"--name" "mantis-testnet"
-                ;; If we wanted an interactive terminal, we'd use that.
-                ;;;;"-it"
-                ;; If we needed to pass parameters from host to image, we could use this:
-                ;;;;"-e" (format "GENESIS=~a" (string<-json genesis)) ;; not needed anymore
+
+                ;;;; We could try to persist the state of the docker container, but
+                ;;;; we don't want to and that would require more management above.
+                ;;"--name" "mantis-testnet"
+
+                ;;;; If we wanted an interactive terminal, we'd use that.
+                ;;"-it"
+
+                ;;;; If we needed to pass parameters from host to image, we could use this:
+                ;;"-e" (format "GENESIS=~a" (string<-json genesis)) ;; not needed anymore
+
+                ;;;; This is the image name. End of options, after that start of command to run.
                 mantis-docker-image
-                ;; If we need to run a command before mantis...
-                ;;;; "bash" ;; We could stop at bash for the interactive use.
-                ;; This shouldn't be needed in the current image
-                ;;;;"-c" "cd / ; echo \"$GENESIS\" > /conf/genesis.json ; exec mantis -Dconfig.file=/conf/yolo.conf"
-                ;;;;"sh" "-c" "cd / && cat /here/yolo-evm.conf > /conf/yolo.conf && exec mantis"
-                "sh" "-c" (format "cd / && cp /conf/yolo.conf /here/~a.orig ; cat /here/~a > /conf/yolo.conf && exec mantis" mantis-yolo-conf mantis-yolo-conf)
+
+                ;;;; Command to run
+                "bash" ;; We could stop at bash for the interactive use (then see "-it" above).
+
+                ;;;; Script to run at startup
+                "-c" (string-append
+                  "cd / && "
+
+                  ;;;; This shouldn't be needed in the current image
+                  ;;"echo \"$GENESIS\" > /conf/genesis.json && "
+
+                  ;;;; Make a backup of the configuration files we're going to override
+                  "cp /conf/yolo.conf /here/" mantis-yolo-conf ".orig && "
+                  ;;;; This file enables tracing of EVM on the 2020-evm image
+                  ;;"cp /conf/logback.xml /here/logback.xml.orig && "
+
+                  ;;;; Override the IOG-provided configuration files
+                  "cat /here/" mantis-yolo-conf " > /conf/yolo.conf && "
+                  ;;"cat /here/logback.xml > /conf/logback.xml && "
+
+                  ;;;; Final command
+                  "exec mantis")
                 ]
     stdin-redirection: #f
     stdout-redirection: #f
@@ -255,7 +289,7 @@
 (define-entry-point (get-mantis-log (tx #f))
   "copy the mantis log to run/mantis/mantis.log"
   (def container-log (format "~a:/root/.mantis/logs/mantis.log" (car (mantis-containers))))
-  (def host-log (run-path "mantis/mantis.log"))
+  (def host-log (run-path "log/mantis.log"))
   (run-process/batch ["docker" "cp" container-log host-log])
   (when tx
     (let (thex (string-trim-prefix "0x" tx))

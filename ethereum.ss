@@ -127,7 +127,19 @@
    r: [Quantity] ;; UInt256
    s: [Quantity])) ;; UInt256
 
-;; Same as above, but includes a "from:" field as in a Transaction.
+;; Includes from: and hash: fields but not v: r: s:
+(define-type TransactionInfo
+  (Record
+   from: [Address]
+   nonce: [Quantity]
+   gasPrice: [Quantity]
+   gas: [Quantity]
+   to: [(Maybe Address) optional: #t default: (void)]
+   value: [Quantity]
+   data: [Bytes optional: #t default: #u8()]
+   hash: [Digest]))
+
+;; Same as above, but includes a from: field as in a Transaction, and a hash: field as in SignedTx
 (define-type SignedTransactionInfo
   (Record
    from: [Address]
@@ -137,6 +149,7 @@
    to: [(Maybe Address) optional: #t default: (void)]
    value: [Quantity]
    data: [Bytes optional: #t default: #u8()]
+   hash: [Digest]
    v: [Quantity] ;; actually UInt8... plus offset from chainId!
    r: [Quantity] ;; UInt256
    s: [Quantity])) ;; UInt256
@@ -145,11 +158,12 @@
 ;;
 ;; Transaction <: PreTransaction CallParameters ;; e.g. CallParameters has no nonce but mandatory from
 ;; TransactionParameters <: PreTransaction
+;; TransactionInfo <: Transaction {Hash}
 ;; Signature <: VRS
 ;; SignedTransactionData <: ShortTransactionData VRS Transaction
-;; SignedTransactionInfo <: {From} SignedTransactionData
 ;; SignedTx <: SignedTransactionData {Hash}
-;; TransactionInformation <: SignedTransactionInfo SignedTx
+;; SignedTransactionInfo <: SignedTx TransactionInfo
+;; TransactionInformation <: SignedTransactionInfo
 ;;
 ;; Actually, there might be additional types with a slightly more complex hierarchy
 ;; to properly take into account field nullability. Ouch. Or not.

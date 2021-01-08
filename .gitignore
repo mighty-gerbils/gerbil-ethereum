@@ -2,4 +2,4 @@ version.ss
 build-deps
 run
 
-yolo-*evm.conf.orig
+*.orig
