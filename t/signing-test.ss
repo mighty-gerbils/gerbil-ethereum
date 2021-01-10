@@ -22,7 +22,7 @@
                   (address #'name)
                   test-keypairs)
       (begin
-        (def keys (keypair<-secret-key secret-key ""))
+        (def keys (keypair<-seckey-0x secret-key ""))
         (def address (keypair-address keys))
         (push! [(capitalize 'name) keys] test-keys)
         (push! address test-addresses))) ...))
@@ -32,6 +32,7 @@
   (fortysix "0x4646464646464646464646464646464646464646464646464646464646464646")
   (alice    "0xfdc8f15b2dd9229b0b9246094393afc23b3b705c07e674f6cb614120d1627818")
   (bob      "0x9b21b9b06ba77824b8ba6a815f5a075229a708ae88ba7fd935c968fe2c3df172")
+  (penny    "0x03e389119c5322a9d25bc4da7bc84307762b61fd5e290874843011cacf3723d9")
   (yolanda  "0xaedcdea2b91de24d1fe2c8ae4b60687fb3826612962553fa3d0b8486e322aaa7")
   (zander   "0x4884b1bdef8281b40cad15f5525d72a5c9a5db18f213abf28a46bfab8bff2a5f")
   ;; This key was chosen because it's got money on the Mantis test image.
@@ -89,5 +90,7 @@
                   "0x5562695c85f88f6cbaec121d2a3da6666c5dc8540d86358bd569a1882bbe6ddcf45b76f5643133939c8e7a339947ca1b115290d577343023d79c256dbc54bc97")
       (check-user bob "0x9CcaEd210CE8c0Cb49c5Ad1C4f583406c264BA69"
                   "0x9e0a7e3c05e3328c603b0c27fbfdfc5030c95d9ad179a431c14f81e30a64ce95f625447e182a8be718d45f9ab9723f9b8571dd5c5752daa66feb84938b095805")
+      (check-user penny "0xc11498Fa7fd1C261121EC856D6e0056335bcE90e"
+                  "0x5c69b02d8d311481c8afa3df0697b4118cb8cd9833c468def4d636ab03d5d1e7a36d64b335eba27409bbfd324c437c4af70aa017bdf735dcc03f208f170a7fd1")
       (check-user trent "0xF47408143d327e4bc6A87EF4a70A4E0aF09b9A1C"
                   "0x26bd9885f2c9e23d18c3025da70e71a4f7ce237124352882eafbd1cbb1e9742c4fe3847ce1a56a0d19df7a7d385a2134be05208b5d1ccc5d015f5e9a3ba0d7df"))))

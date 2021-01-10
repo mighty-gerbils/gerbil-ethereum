@@ -41,13 +41,20 @@
 ;;  (λ (self (port (current-output-port)) (options (current-representation-options)))
 ;;    (write (sexp<- Keypair self) port)))
 
-(def (keypair<-secret-key seckey-0x passwd)
+(def (keypair<-seckey-0x seckey-0x passwd)
   (def seckey-data (validate Bytes32 (bytes<-0x seckey-0x)))
+  (keypair<-secret-key seckey-data passwd))
+
+(def (keypair<-secret-key seckey-data passwd)
+  (validate Bytes32 seckey-data)
   (validate String passwd)
   (def seckey (secp256k1-seckey seckey-data))
   (def pubkey (secp256k1-pubkey<-seckey seckey-data))
   (def address (address<-public-key pubkey))
   (keypair address pubkey seckey (password passwd)))
+
+(def (generate-keypair passwd)
+  (keypair<-secret-key (generate-secret-key-data) passwd))
 
 
 ;; TODO: handle collisions, exceptions.

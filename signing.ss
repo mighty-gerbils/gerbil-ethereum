@@ -1,6 +1,6 @@
 (export #t)
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/foreign
+  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/foreign :gerbil/gambit/random
   :std/misc/bytes :std/misc/repr
   :clan/base :clan/io :clan/poo/poo
   :clan/poo/brace :clan/poo/io
@@ -36,6 +36,15 @@
 (def (export-secret-key/bytes x) (secp256k1-seckey-data x))
 (def (import-secret-key/json j) (import-secret-key/bytes (<-json Bytes32 j)))
 (def (export-secret-key/json x) (json<- Bytes32 (export-secret-key/bytes x)))
+
+(def (generate-secret-key-data)
+  (!> (random-integer (expt 2 256))
+      (cut + <>
+           (if (file-exists? "/dev/urandom")
+             (<-bytes UInt256 (call-with-input-file "/dev/urandom" (cut read-bytes 32 <>)))
+             0))
+      (cut modulo <> #x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0)
+      (cut bytes<- UInt256 <>)))
 
 ;; Right now, we use the foreign object as the "canonical" in-memory representation.
 ;; Should we instead use canonical bytes that parsed into a foreign object on a need basis?
