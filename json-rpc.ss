@@ -61,7 +61,7 @@
 (define-ethereum-api web3 clientVersion String <-)
 (define-ethereum-api web3 sha3 Bytes32 <- Bytes) ;; keccak256
 
-(define-ethereum-api net version String <-) ;; a decimal number
+(define-ethereum-api net version String <-) ;; a decimal number in a String
 (define-ethereum-api net listening Bool <-)
 (define-ethereum-api net peerCount Quantity <-)
 
@@ -71,7 +71,7 @@
   (Record startingBlock: [Quantity]
           currentBlock: [Quantity]
           highestBlock: [Quantity]))
-(define-ethereum-api eth syncing (Or SyncingStatus False) <-)
+(define-ethereum-api eth syncing (OrFalse SyncingStatus) <-)
 
 (define-ethereum-api eth coinbase Address <-)
 (define-ethereum-api eth mining Bool <-)
