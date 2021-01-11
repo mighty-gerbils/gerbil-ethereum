@@ -472,3 +472,24 @@
           &else [&jump2 endif-label]
           [&jumpdest then-label] &then
           [&jumpdest endif-label]))
+
+(def (&switch comparison-value cases)
+  (def reducer
+    (λ (current-case next-case)
+      (match current-case
+        ([case-value case-code-block]
+          (&if (&begin comparison-value case-value EQ)
+            (&begin* case-code-block)
+            next-case))
+        (else
+          (error "Invalid case in switch expression: " current-case)))))
+  (def nested-ifs (cps-foldl reducer cases))
+  (nested-ifs (&begin 0 DUP1 REVERT)))
+
+;; A fold where the accumulator is a continuation.
+(def (cps-foldl reducer lst)
+  (foldl
+    (λ (cur continuation)
+      (λ (next) (continuation (reducer cur next))))
+    identity
+    lst))
