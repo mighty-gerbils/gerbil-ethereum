@@ -470,5 +470,5 @@
   (def endif-label (generate-label "&endif"))
   (&begin &cond [&jumpi2 then-label]
           &else [&jump2 endif-label]
-          [&label then-label] &then
-          [&label endif-label]))
+          [&jumpdest then-label] &then
+          [&jumpdest endif-label]))
