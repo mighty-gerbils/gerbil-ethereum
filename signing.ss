@@ -54,6 +54,8 @@
    .Bytes: Bytes64
    .element?: (lambda (x) (and (foreign? x) (equal? (foreign-tags x) '(secp256k1-pubkey*))))
    .sexp<-: (lambda (k) `(<-json PublicKey ,(.json<- k)))
+   ;; uncompressed public key has an extra byte at the beginning, which we remove:
+   ;; https://bitcoin.stackexchange.com/questions/57855/c-secp256k1-what-do-prefixes-0x06-and-0x07-in-an-uncompressed-public-key-signif
    .bytes<-: (lambda (k) (subu8vector (bytes<-secp256k1-pubkey k) 1 65))
    .<-bytes: (lambda (b) (secp256k1-pubkey<-bytes (bytes-append #u8(4) b)))
    .json<-: (lambda (x) (json<- Bytes (.bytes<- x)))
@@ -109,15 +111,21 @@
    .ethabi-decode-from:
    (lambda (bytes start head get-tail set-tail!)
      (.call Bytes20 .ethabi-decode-from bytes start head get-tail set-tail!))
-  })
+   })
 
-(def (address<-public-key pubkey)
-  ;; uncompressed public key has an extra byte at the beginning, which we remove:
-  ;; https://bitcoin.stackexchange.com/questions/57855/c-secp256k1-what-do-prefixes-0x06-and-0x07-in-an-uncompressed-public-key-signif
-  (!> (bytes<- PublicKey pubkey)
+(def (address<-data data)
+  (!> data
       keccak256<-bytes
       (cut subu8vector <> 12 32)
       make-address))
+
+(def (address<-public-key pubkey)
+  (address<-data (bytes<- PublicKey pubkey)))
+
+;; https://eips.ethereum.org/EIPS/eip-1014
+(def (address<-create2 creator salt init-code)
+  (address<-data (bytes-append #u8(#xff) (bytes<- Address creator) salt (keccak256<-bytes init-code))))
+
 
 (defstruct secp256k1-sig (data) print: #f equal: #t)
 

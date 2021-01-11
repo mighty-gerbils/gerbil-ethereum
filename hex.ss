@@ -124,8 +124,8 @@
      ((not (eq? (char<=? #\a ch #\f)
                 (zero? (bitwise-and (bytes-ref hashed-digits (arithmetic-shift i -1))
                                     (if (even? i) #x80 #x08)))))
-      (error "Invalid address checksum" hs (+ i 2))))))
+      (error "Invalid address checksum" hs (+ i 2)))))
+  hs)
 
 (def (address-bytes<-0x hs)
-  (validate-address-0x hs)
-  (bytes<-0x hs))
+  (bytes<-0x (validate-address-0x hs)))

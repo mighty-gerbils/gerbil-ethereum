@@ -312,7 +312,7 @@
   (#xf5 CALLBLACKBOX)
   ;; #xf6 - #xf9  Unused
   (#xfa STATICCALL 40) ;; Similar to CALL, but does not modify state
-  (#xfb CREATE2 Complicated) ;; Create a new account and set creation address to sha3(sender + sha3(init code)) % 2
+  (#xfb CREATE2 Complicated) ;; Create a new account with deterministic address
   (#xfd REVERT #t) ;; Stop execution and revert state changes, without consuming all provided gas and providing a reason
   (#xfe INVALID 0) ;; Designated invalid instruction
   (#xff SELFDESTRUCT 5000 #t)) ;; Halt execution and register account for later deletion

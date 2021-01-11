@@ -93,4 +93,38 @@
       (check-user penny "0xc11498Fa7fd1C261121EC856D6e0056335bcE90e"
                   "0x5c69b02d8d311481c8afa3df0697b4118cb8cd9833c468def4d636ab03d5d1e7a36d64b335eba27409bbfd324c437c4af70aa017bdf735dcc03f208f170a7fd1")
       (check-user trent "0xF47408143d327e4bc6A87EF4a70A4E0aF09b9A1C"
-                  "0x26bd9885f2c9e23d18c3025da70e71a4f7ce237124352882eafbd1cbb1e9742c4fe3847ce1a56a0d19df7a7d385a2134be05208b5d1ccc5d015f5e9a3ba0d7df"))))
+                  "0x26bd9885f2c9e23d18c3025da70e71a4f7ce237124352882eafbd1cbb1e9742c4fe3847ce1a56a0d19df7a7d385a2134be05208b5d1ccc5d015f5e9a3ba0d7df"))
+    (test-case "check create2 address"
+      (def (test-vector name addr salt init-code)
+        (0x<-address (address<-create2
+                      (address<-0x addr) (bytes<-0x salt) (bytes<-0x init-code))))
+      (defrule (tv name addr salt init-code result) ;; test vector from EIP-1014
+        (check-equal? (test-vector name addr salt init-code) (validate-address-0x result)))
+      (tv "Example 0" "0x0000000000000000000000000000000000000000"
+          "0x0000000000000000000000000000000000000000000000000000000000000000"
+          "0x00"
+          "0x4D1A2e2bB4F88F0250f26Ffff098B0b30B26BF38")
+      (tv "Example 1" "0xdeadbeef00000000000000000000000000000000"
+          "0x0000000000000000000000000000000000000000000000000000000000000000"
+          "0x00"
+          "0xB928f69Bb1D91Cd65274e3c79d8986362984fDA3")
+      (tv "Example 2" "0xdeadbeef00000000000000000000000000000000"
+          "0x000000000000000000000000feed000000000000000000000000000000000000"
+          "0x00"
+          "0xD04116cDd17beBE565EB2422F2497E06cC1C9833")
+      (tv "Example 3" "0x0000000000000000000000000000000000000000"
+          "0x0000000000000000000000000000000000000000000000000000000000000000"
+          "0xdeadbeef"
+          "0x70f2b2914A2a4b783FaEFb75f459A580616Fcb5e")
+      (tv "Example 4" "0x00000000000000000000000000000000deadbeef"
+          "0x00000000000000000000000000000000000000000000000000000000cafebabe"
+          "0xdeadbeef"
+          "0x60f3f640a8508fC6a86d45DF051962668E1e8AC7")
+      (tv "Example 5" "0x00000000000000000000000000000000deadbeef"
+          "0x00000000000000000000000000000000000000000000000000000000cafebabe"
+          "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+          "0x1d8bfDC5D46DC4f61D6b6115972536eBE6A8854C")
+      (tv "Example 6" "0x0000000000000000000000000000000000000000"
+          "0x0000000000000000000000000000000000000000000000000000000000000000"
+          "0x"
+          "0xE33C0C7F7df4809055C3ebA6c09CFe4BaF1BD9e0"))))
