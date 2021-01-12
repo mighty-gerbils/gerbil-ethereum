@@ -45,10 +45,10 @@
 ;; TransactionReceipt <- Address Bytes value:?(Maybe Quantity)
 (def (evm-eval/onchain from code value: (value (void)))
   ;; Create a contract with the code
-  (defvalues (_ create-receipt) (debug-send-tx {from data: (stateless-contract-init code) value gas: 800000}))
-  (def contract (.@ create-receipt contractAddress))
+  (defvalues (_ creation-receipt) (debug-send-tx {from data: (stateless-contract-init code) value gas: 4000000}))
+  (def contract (.@ creation-receipt contractAddress))
   ;; Call the contract with the value
-  (defvalues (_ call-receipt) (debug-send-tx {from to: contract value gas: 800000}))
+  (defvalues (_ call-receipt) (debug-send-tx {from to: contract value gas: 4000000}))
   (def log (car (.@ call-receipt logs)))
   (.@ log data))
 
