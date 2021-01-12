@@ -8,7 +8,7 @@
 
 (ensure-addresses-prefunded)
 
-(def evm-eval-test
+(def 80-evm-eval-integrationtest
   (test-suite "unit tests for evm functions"
 
     (test-case "returns a value"
