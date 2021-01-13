@@ -619,6 +619,6 @@
 (def (&digest<-tvps tvps)
   (&begin
    brk DUP1 DUP1 ;; -- bufptr bufstart bufstart ;; NB: an early DUP1 saves us swaps or reloads later.
-   (map (match <> ([t . v] (&marshal t v))) tvps)
+   (&begin* (map (match <> ([t . v] (&marshal t v))) tvps))
    SUB SWAP1 ;; -- bufstart bufwidth
    SHA3))
