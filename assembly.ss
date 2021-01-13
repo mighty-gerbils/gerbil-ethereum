@@ -368,6 +368,7 @@
    ((procedure? directive) (directive a))
    ((pair? directive) (apply (car directive) a (cdr directive)))
    ((symbol? directive) (&push-label a directive))
+   ((boolean? directive) (if directive (&push a 1) (&push a 0)))
    ((member directive '(#f #!void ())) (void))
    (else (error "invalid directive" directive))))
 
