@@ -454,7 +454,7 @@
    [&jumpdest 'stop-contract-call] ;; -- doesn't matter the stack, we just STOP
    STOP
    [&jumpdest 'tail-call-body]
-   (&mloadat frame@ 2) JUMP
+   POP (&mloadat frame@ 2) JUMP
    ;; Should the "frame" below include the pc? the timer-start?
    [&jumpdest 'tail-call] ;; -- Should we assume the frame is in place? should we accept next-frame-pc next-frame-start next-frame-width?
    ;; -- frame-length TODO: at standard place in frame, info about who is or isn't timing out
