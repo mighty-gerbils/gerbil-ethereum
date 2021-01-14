@@ -35,10 +35,9 @@
   (penny    "0x03e389119c5322a9d25bc4da7bc84307762b61fd5e290874843011cacf3723d9")
   (yolanda  "0xaedcdea2b91de24d1fe2c8ae4b60687fb3826612962553fa3d0b8486e322aaa7")
   (zander   "0x4884b1bdef8281b40cad15f5525d72a5c9a5db18f213abf28a46bfab8bff2a5f")
-  ;; This key was chosen because it's got money on the Mantis test image.
-  ;; Strategically placed last, so it shows up first in test-addresses,
-  ;; gets registered first if undefined, and then also becomes croesus as per get-first-account.
-  (croesus "0x1167a41c432d1a494408b8fdeecd79bff89a5689925606dff8adf01f4bf92922"))
+  ;; This key was chosen because it's got money on in genesis block for IOHK's Mantis docker image.
+  ;; We now use the same key as the "got all the money" account on our Geth genesis block.
+  (croesus  "0x1167a41c432d1a494408b8fdeecd79bff89a5689925606dff8adf01f4bf92922"))
 
 ;; Register test keypairs
 (for-each (cut apply register-keypair <>) test-keys)

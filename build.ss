@@ -8,9 +8,10 @@
 
 (import :clan/building)
 
-;; TODO: Should we add [copy: "config/ethereum_networks.json"] as a spec item?
 (def (files)
-  [(all-gerbil-modules) ... "scripts/run-ethereum-test-net.ss"])
+  [(all-gerbil-modules) ...
+   "t/signing-test.ss" ;; have a better way to export the test keys?
+   "scripts/run-ethereum-test-net.ss"])
 
 (init-build-environment!
  name: "Gerbil-ethereum"

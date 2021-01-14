@@ -93,7 +93,8 @@
   (hash-remove! keypair-by-address address)
   (unregister-address nickname))
 (def (keypair<-address address)
-  (hash-get keypair-by-address address))
+  (or (hash-get keypair-by-address address) ;; TODO: use hash-ref/default ?
+      (error "No secret key configured for address" (0x<-address address))))
 ;; (or (keypair<-address address) (error "No registered keypair for address" address))
 (def (secret-key<-address address)
   (keypair-secret-key (keypair<-address address)))
