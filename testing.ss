@@ -108,16 +108,79 @@
   (unless success? (raise (TransactionRejected receipt)))
   (values signed receipt))
 
-;; Block can be a block number, latest, earliest, pending, or commit.
-;; if commit, then commit the evaluation to be inspected with remix.ethereum.org
+;; Bytes <- Address Bytes value:?(Maybe Quantity) block:?(Or BlockParameter (Enum onchain))
+;; Block can be a block number, latest, earliest, pending, or onchain.
+;; if onchain, then commit the evaluation to be inspected with remix.ethereum.org
+(def (evm-eval from code value: (value (void)) block: (block 'latest))
+  (if (eq? block 'onchain)
+    (let ()
+      (defvalues (_ creation-receipt) (debug-send-tx {from data: code value gas: 4000000}))
+      (def contract (.@ creation-receipt contractAddress))
+      (eth_getCode contract 'latest))
+    (eth_call {from data: code value} block)))
 
-;; Bytes <- Address Bytes value:?(Maybe Quantity) block:?(Or BlockParameter (Enum commit))
-(def (evm-eval/offchain from code value: (value (void)) block: (block 'latest))
-  (eth_call {from data: code value} block))
+;; TODO: support boxed types
+;; Directive <- t:Type t
+(def (&evm-inline-input t v)
+  (bytes<- t v))
 
-;; TransactionReceipt <- Address Bytes value:?(Maybe Quantity)
-(def (evm-eval/onchain from code value: (value (void)))
-  ;; Create a contract with the code
-  (defvalues (_ creation-receipt) (debug-send-tx {from data: code value gas: 4000000}))
-  (def contract (.@ creation-receipt contractAddress))
-  (eth_getCode contract 'latest))
+;; Directive <- (Listof DependentPair)
+(def (&evm-inline-inputs inputs)
+  (&begin*
+   (map (match <> ([t . v] (&evm-inline-input t v))) (reverse inputs))))
+
+;; Directive <- Type
+(def (&evm-inline-output t)
+  (def len (param-length t))
+  (DDT &evm-inline-output: Type t poo.Nat len)
+  (&begin ;; bufptr[incremented] <-- bufptr val:t
+   DUP1 SWAP2 (&mstore/overwrite-after len) len ADD))
+
+;; TODO: support boxed types as inputs (that may offset the start of the output?) and outputs
+(def (&evm-inline-outputs outputs)
+  (&begin
+   0 ;; start output buffer
+   (&begin* (map (match <> ([t . _] (&evm-inline-output t))) outputs))
+   0))
+
+(def (&evm-test-code inputs action outputs
+                     result-in-memory?: (result-in-memory? #f)
+                     result-start: (result-start 0))
+  (&begin
+   (&evm-inline-inputs inputs)
+   action
+   (&evm-inline-outputs outputs
+                        result-in-memory?: result-in-memory?
+                        result-start: result-start)
+   RETURN
+   [&jumpdest 'abort-contract-call] 0 DUP1 REVERT))
+
+;; result-in-memory? true iff the action already stores its results in memory
+;; result-start is offset of result in memory at the end of the contract
+(def (evm-test inputs action outputs
+               block: (block 'latest)
+               result-in-memory?: (result-in-memory? #f)
+               result-start: (result-start 0))
+  (def code-bytes (assemble/bytes (&evm-test-code inputs action outputs
+                                                  result-in-memory?: result-in-memory?
+                                                  result-start: result-start)))
+  (DDT evm-test-1: (.@ Bytes .json<-) code-bytes)
+  (def result-bytes (evm-eval croesus code-bytes block: block))
+  (DDT evm-test-2: (.@ Bytes .json<-) result-bytes)
+  (def result-list
+    (call-with-input-u8vector
+     result-bytes
+     (lambda (port)
+       (map-in-order (lambda (output-tv) (unmarshal (car output-tv) port)) outputs))))
+  (def expected-result-list
+    (map cdr outputs))
+  (check-equal? result-list expected-result-list))
+
+(def (evm-test-failure inputs action block: (block 'latest))
+  (def code-bytes (assemble/bytes (&evm-test-code inputs action [])))
+  (or
+    (try
+     (evm-eval croesus code-bytes block: block)
+     #f
+     (catch (_) #t))
+    (error "Failed to fail" inputs action)))

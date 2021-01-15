@@ -389,8 +389,8 @@
 ;; TESTING STATUS: Wholly untested.
 (def &validate-sig-data ;; v r s <-- v r s
   (&begin
-   DUP1 27 SUB 2 GT ;; check that v is 27 or 28, which prevents malleability (not 29 or 30)
-   secp256k1-order DUP5 GT ;; s <= s_max
+   DUP1 27 SUB 1 GT ;; check that v is 27 or 28, which prevents malleability (not 29 or 30)
+   (1- secp256k1-order) DUP5 GT ;; s <= s_max
    OR &require-not!))
 
 ;; TESTING STATUS: Wholly untested.
@@ -407,10 +407,11 @@
   (cond
    ((zero? n-bytes) POP)
    ((= n-bytes 1) (&begin (&unsafe-post-increment-at! brk@ 1) MSTORE8))
+   ((< 1 n-bytes 32) (&begin (&shl (- 256 (* 8 n-bytes))) (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))
    ((= n-bytes 32) (&begin (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))
    ;; TODO: for programs that use a lot of memory, optimize the last few of these to not use memory?
    ;; But first, optimize the lot of memory into less memory
-   (else (&begin (&shl (- 256 (* 8 n-bytes))) (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))))
+   (else (error "&brk-cons only for immediate values" n-bytes))))
 
 ;; call precompiled contract #1 to recover the signer and message from a signature
 ;; TESTING STATUS: Used by buy-sig
