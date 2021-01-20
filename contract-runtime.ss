@@ -435,7 +435,7 @@
   (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
   (if (zero? n-bytes)
     0
-    (&begin calldatapointer@ MLOAD DUP1 #| calldatapointer@ |# 32 + calldatapointer@ MSTORE CALLDATALOAD
+    (&begin calldatapointer@ MLOAD DUP1 #| calldatapointer@ |# 32 ADD calldatapointer@ MSTORE CALLDATALOAD
             (when (< n-bytes 32) (&shr (* 8 (- 32 n-bytes)))))))
 
 ;; TESTING STATUS: Used by buy-sig.
