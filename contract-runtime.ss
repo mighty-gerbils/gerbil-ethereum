@@ -323,7 +323,7 @@
 ;; Safely add two UInt256, checking for overflow
 ;; TESTING STATUS: Insufficiently tested
 (def &safe-add
-  ;; Scheme pseudocode: (lambda (x y) (def s (+ x y)) (require! (< (integer-length s) 256)) s)
+  ;; Scheme pseudocode: (lambda (x y) (def s (+ x y)) (require! (<= (integer-length s) 256)) s)
   ;; (unless (> 2**256 (+ x y)) (abort))
   ;; (unless (>= (- 2**256 1) (+ x y)) (abort))
   ;; (unless (>= (- 2**256 1 x) y) (abort))

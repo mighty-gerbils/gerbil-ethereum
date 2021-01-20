@@ -135,7 +135,7 @@
   (def value (eval-fixup-expression (Assembler-labels a) expr))
   (unless value
     (error "fixup has no computed value" offset expr n-bits value))
-  (unless (and (<= 0 value) (< (integer-length value) n-bits))
+  (unless (and (<= 0 value) (<= (integer-length value) n-bits))
     (error "fixup has incorrect computed value" offset expr n-bits value))
   (u8vector-uint-set! (Segment-bytes (Assembler-segment a)) offset value big (n-bytes<-n-bits n-bits))
   (hash-remove! (Assembler-fixups a) offset))
@@ -347,7 +347,7 @@
   (JUMPI a))
 (def (&z a z)
   (cond
-   ((and (> 0 z) (< (integer-length z) 240))
+   ((and (> 0 z) (<= (integer-length z) 240))
     (&z a (bitwise-not z))
     (NOT a))
    ((> 0 z)
