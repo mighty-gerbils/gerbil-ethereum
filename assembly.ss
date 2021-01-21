@@ -109,6 +109,7 @@
 (def (&type a type x)
   (&bytes a ((.@ type .bytes<-) x)))
 (def (&int a i (n-bytes (n-bytes<-n-bits (integer-length i))))
+  (assert! (<= (integer-length i) (* 8 n-bytes)))
   (segment-push-bytes! (Assembler-segment a) (bytes<-nat i n-bytes)))
 (def (&push a i (n-bytes (max 1 (n-bytes<-n-bits (integer-length i)))))
   (assert! (<= 1 n-bytes 32))
