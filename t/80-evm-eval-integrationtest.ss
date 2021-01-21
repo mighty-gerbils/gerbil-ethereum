@@ -4,7 +4,7 @@
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/ports
   :std/iter :std/misc/bytes :std/test :clan/number
   :clan/poo/io :clan/persist/content-addressing
-  ../assembly ../contract-runtime ../types
+  ../assembly ../contract-runtime ../types ../ethereum ../signing
   ./signing-test
   ./10-json-rpc-integrationtest ./30-transaction-integrationtest ./50-batch-send-integrationtest)
 
@@ -65,6 +65,25 @@
       (def digest-value
         [[UInt256 . 7]
          [UInt256 . 21]])
+      (def contract-bytes
+        (assemble/bytes
+          (&begin
+            (&digest<-tvps digest-value)
+            (&mstoreat 0 32)
+            32 0 RETURN)))
+      (def result (evm-eval/offchain alice contract-bytes))
+      (check-equal? (digest digest-value) result))
+
+    (test-case "digest works with realistic frame state"
+      (def digest-value
+        [[UInt16 . 1014]
+         [Block . 2185]
+         [Address . alice]
+         [Address . bob]
+         [Digest . #u8(99 29 22 99 149 169 218 44 150 207 223 114 84 92 253 163 49 233 56 120 20 117 144 222 173 81 88 153 240 137 9 49)]
+         [UInt256 . 1000000000]
+         [UInt256 . 26494137127516106733148689316263385574755820242808037201403224934424794788569]
+         [UInt256 . 1000000000]])
       (def contract-bytes
         (assemble/bytes
           (&begin
