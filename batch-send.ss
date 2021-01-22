@@ -3,7 +3,7 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes
   :clan/base :clan/poo/poo (only-in :clan/poo/mop) :clan/poo/io
-  ./hex ./types ./signing ./known-addresses ./ethereum
+  ./hex ./types ./signing ./known-addresses ./ethereum ./logger
   ./assembly ./transaction ./tx-tracker ./contract-config ./contract-runtime)
 
 ;;; EVM Contract for batch transfers.
@@ -83,16 +83,17 @@
 ;; Ensure that there is a batch transfer contract associated with the owner
 ;; on the blockchain and saved to the working database, and
 ;; return the ContractConfig for that contract.
-(def (ensure-batch-send-contract owner log: (log #f))
+(def (ensure-batch-send-contract owner log: (log eth-log))
   (def config (ensure-contract-config/db
                (u8vector-append (string->bytes "BATC") (bytes<- Address owner))
-               (create-contract owner (batch-contract-init owner))))
-  (when log (log ['ensure-batch-send-contract (0x<-address owner) (nickname<-address owner)
-                  '=> (json<- ContractConfig config)]))
+               (create-contract owner (batch-contract-init owner))
+               log: log))
+  (log ['ensure-batch-send-contract (0x<-address owner) (nickname<-address owner)
+                                    '=> (json<- ContractConfig config)])
   config)
 
 ;; : <- Address (Listof (List Address UInt96))
-(def (batch-send sender transfers log: (log #f))
+(def (batch-send sender transfers log: (log eth-log))
   (def (fmt address amount)
     (validate UInt96 amount)
     (bytes-append (bytes<- Address address)
@@ -103,8 +104,8 @@
     (match <> ([address amount]
                [(0x<-address address) (nickname<-address address) (decimal-string-ether<-wei amount)])))
   (when (< 0 value)
-    (when log (log ["batch transfer" "total-value:" value
-                    "transfers:" (map transfer-description transfers)
-                    "data:" (0x<-bytes data)]))
+    (log ["batch transfer" "total-value:" value
+          "transfers:" (map transfer-description transfers)
+          "data:" (0x<-bytes data)])
     (let (contract (.@ (ensure-batch-send-contract sender log: log) contract-address))
       (post-transaction (call-function sender contract data value: value)))))

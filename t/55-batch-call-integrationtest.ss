@@ -12,7 +12,7 @@
 (def 55-batch-call-integrationtest
   (test-suite "integration test for ethereum/batch-call"
     (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
-    (def trivial-logger (.@ (ensure-trivial-logger-contract croesus) contract-address))
+    (def trivial-logger (.@ (ensure-trivial-logger-contract croesus log: write-json-ln) contract-address))
     (DDT 55-batch-call-0: Address trivial-logger)
     (test-case "trivial-logger works"
       (def receipt (post-transaction (call-function croesus trivial-logger (string->bytes "hello, world"))))
@@ -22,11 +22,12 @@
       (check-equal? [(.@ log address) (bytes->string (.@ log data))]
                     [trivial-logger "hello, world"]))
     (test-case "batch call works"
-      (def batch-call-address (.@ (ensure-batch-call-contract croesus) contract-address))
-      (DDT 55-batch-call-2: Address batch-call-address)
+      (def batch-call-address (.@ (ensure-batch-call-contract croesus log: write-json-ln) contract-address))
+      (DDT 55-batch-call-2: Address batch-call-address Address trivial-logger)
       (def logger-balance-before (eth_getBalance trivial-logger 'latest))
       (def receipt (batch-call croesus [[trivial-logger 0 (string->bytes "Nothing here")]
-                                        [trivial-logger (wei<-gwei 1) (string->bytes "Just lost one gwei")]]))
+                                        [trivial-logger (wei<-gwei 1) (string->bytes "Just lost one gwei")]]
+                               log: write-json-ln))
       (def logger-balance-after (eth_getBalance trivial-logger 'latest))
       ;; Check for two log entries from trivial-logger in the receipt
       (def logs (.@ receipt logs))

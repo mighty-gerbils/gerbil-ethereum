@@ -90,11 +90,12 @@
 ;; Ensure that there is a batch transfer contract associated with the owner
 ;; on the blockchain and saved to the working database, and
 ;; return the ContractConfig for that contract.
-(def (ensure-batch-call-contract owner)
+(def (ensure-batch-call-contract owner log: (log eth-log))
   (def config (ensure-contract-config/db
                (string->bytes "batch-call-contract")
-               (create-contract owner (batch-call-contract-init owner))))
-  (eth-log ['ensure-batch-call-contract (0x<-address owner) (nickname<-address owner)
+               (create-contract owner (batch-call-contract-init owner))
+               log: log))
+  (log ['ensure-batch-call-contract (0x<-address owner) (nickname<-address owner)
                                         '=> (json<- ContractConfig config)])
   config)
 
@@ -106,7 +107,7 @@
             calls))
 
 ;; : <- Address (Listof (TupleList Address UInt96 BytesL16))
-(def (batch-call caller calls)
+(def (batch-call caller calls log: (log eth-log))
   (def data (call-with-output-u8vector (cut marshal-batch-calls calls <>)))
   (def value (foldl + 0 (map cadr calls)))
   (def transfer-description
@@ -117,7 +118,7 @@
     (eth-log ["batch calls" "total-value:" value
               "calls:" (map transfer-description calls)
               "data:" (0x<-bytes data)])
-    (let (contract (.@ (ensure-batch-call-contract caller) contract-address))
+    (let (contract (.@ (ensure-batch-call-contract caller log: log) contract-address))
       (post-transaction (call-function caller contract data value: value gas: 4000000)))))
 
 ;; Trivial contract that logs all its call data with LOG0 then commits the transaction with success.
@@ -129,10 +130,11 @@
     CALLER CALLDATASIZE DUP3 #|0|# LOG1
     STOP]))
 (def trivial-logger-contract-init (rcompose trivial-logger-contract-runtime stateless-contract-init))
-(def (ensure-trivial-logger-contract owner)
+(def (ensure-trivial-logger-contract owner log: (log eth-log))
   (def config (ensure-contract-config/db
                (string->bytes "trivial-logger-contract")
-               (create-contract owner (trivial-logger-contract-init))))
-  (eth-log ['ensure-trivial-logger-contract (0x<-address owner) (nickname<-address owner)
-                                            '=> (json<- ContractConfig config)])
+               (create-contract owner (trivial-logger-contract-init))
+               log: log))
+  (log ['ensure-trivial-logger-contract (0x<-address owner) (nickname<-address owner)
+                                        '=> (json<- ContractConfig config)])
   config)

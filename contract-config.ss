@@ -6,7 +6,7 @@
   :clan/poo/poo :clan/poo/brace :clan/poo/io
   :clan/persist/db
   :clan/crypto/keccak
-  ./hex ./types ./known-addresses ./signing ./ethereum ./json-rpc ./transaction ./tx-tracker)
+  ./hex ./types ./known-addresses ./signing ./ethereum ./logger ./json-rpc ./transaction ./tx-tracker)
 
 (define-type ContractConfig
   (Record
@@ -64,21 +64,26 @@
 ;; : ContractConfig <-
 ;;     (ContractConfig <- 'a) (Unit <- 'a ContractConfig) 'a
 ;;     PreTransaction log:(OrFalse (<- Json))
-(def (ensure-contract getter setter arg pretx log: (log #f))
+(def (ensure-contract getter setter arg pretx log: (log eth-log))
+  (def creator (.@ pretx from))
+  (log ['ensure-contract
+        creator: (0x<-address creator)
+        nickname: (nickname<-address creator)
+        code-hash: (json<- Digest (code-hash<-create-contract pretx))])
   (try
-   (def config (getter arg))
-   (verify-contract-config config pretx)
-   config
+   (def previous-config (getter arg))
+   (when log (log ['ensure-contract-found (json<- ContractConfig previous-config)]))
+   (verify-contract-config previous-config pretx)
+   (when log (log ['ensure-contract-valid (json<- ContractConfig previous-config)]))
+   previous-config
    (catch (_)
-     (def creator (.@ pretx from))
-     (when log (log ['ensure-contract creator: (0x<-address creator)
-                                      nickname: (nickname<-address creator)
-                                      code-hash: (code-hash<-create-contract pretx)]))
+     (log ['ensure-contract-create])
      (def creation-receipt (post-transaction pretx))
      (def config (contract-config<-creation-receipt creation-receipt))
-     (when log (log ['ensure-contract creator: (0x<-address creator)
-                                      nickname: (nickname<-address creator)
-                                      config: (json<- ContractConfig config)]))
+     (log ['ensure-contract-created
+           creator: (0x<-address creator)
+           nickname: (nickname<-address creator)
+           config: (json<- ContractConfig config)])
      (setter arg config)
      config)))
 
