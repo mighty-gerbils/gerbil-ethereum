@@ -161,9 +161,9 @@
 ;; TransactionInfo <: Transaction {Hash}
 ;; Signature <: VRS
 ;; SignedTransactionData <: ShortTransactionData VRS Transaction
-;; SignedTx <: SignedTransactionData {Hash}
+;; SignedTx <: SignedTransactionData {Hash} [RENAMED-SLOT input: <= data:]
 ;; SignedTransactionInfo <: SignedTx TransactionInfo
-;; TransactionInformation <: SignedTransactionInfo
+;; TransactionInformation <: SignedTransactionInfo [RENAMED-SLOT input: <= data:]
 ;;
 ;; Actually, there might be additional types with a slightly more complex hierarchy
 ;; to properly take into account field nullability. Ouch. Or not.

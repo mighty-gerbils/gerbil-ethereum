@@ -14,6 +14,9 @@
 ;; Infura documents its API at:
 ;;   https://infura.io/docs/ethereum/json-rpc/eth-chainId
 ;;
+;; TODO: compare with https://playground.open-rpc.org/?schemaUrl=https://raw.githubusercontent.com/etclabscore/ethereum-json-rpc-specification/master/openrpc.json&uiSchema%5BappBar%5D%5Bui:input%5D=false
+;; https://raw.githubusercontent.com/etclabscore/ethereum-json-rpc-specification/master/openrpc.json
+;;
 ;; TODO:
 ;; - Resolve all the dark spots.
 ;; - Systematically lift all the Geth extensions.
@@ -116,7 +119,7 @@
    value: [Quantity]
    gasPrice: [Quantity]
    gas: [Quantity]
-   input: [Bytes]
+   input: [Bytes] ;; TODO: make sure *we* are always translating input: to/from data: where needed
    v: [(Maybe Quantity) optional: #t default: (void)]
    standard-v: [(Maybe Quantity) optional: #t default: (void)]
    r: [(Maybe UInt256) optional: #t default: (void)]

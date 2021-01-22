@@ -42,9 +42,6 @@
 ;; Register test keypairs
 (for-each (cut apply register-keypair <>) test-keys)
 
-(def (string<-exception e)
-  (call-with-output-string (cut display-exception e <>)))
-
 (def (show-representations name x (type #f))
   (printf "~a:\n  display: ~a\n  write: ~s\n  pr: ~r\n" name x x x)
   (defrule (X foo) (with-catch string<-exception (lambda () foo)))

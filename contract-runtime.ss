@@ -397,6 +397,8 @@
 (def (&unsafe-post-increment-at! addr increment)
   (&begin addr MLOAD DUP1 increment ADD addr MSTORE)) ;; for small address, small size [10B, 21G]
 
+;; Store n-bytes of data from the top-of-stack element into the memory pointed at by brk,
+;; and bump the brk to now point after that data. Similar to the "," operator in FORTH.
 ;; TESTING STATUS: Wholly untested.
 (def (&brk-cons n-bytes)
   ;; Note the optimization wherein we can write extra zeros *after* the destination address
@@ -404,7 +406,7 @@
   (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &brk-cons")
   (cond
    ((zero? n-bytes) POP)
-   ((= n-bytes 1) (&begin (&unsafe-post-increment-at! brk@ n-bytes) MSTORE8))
+   ((= n-bytes 1) (&begin (&unsafe-post-increment-at! brk@ 1) MSTORE8))
    ((= n-bytes 32) (&begin (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))
    ;; TODO: for programs that use a lot of memory, optimize the last few of these to not use memory?
    ;; But first, optimize the lot of memory into less memory
