@@ -13,9 +13,6 @@
 ;; TODO: Support watching multiple Ethereum-like networks in one image
 ;; Use "paging_options" https://explorer.energyweb.org/eth-rpc-api-docs -- available on geth???
 
-;; : Quantity
-(define-persistent-variable next-unprocessed-block Nat "ETH.nextUnprocessedBlock" 0)
-
 (def (wait-until-block target-block)
   (def current-block #f)
   (def (get-current-block!) (set! current-block (eth_blockNumber)))
@@ -36,8 +33,8 @@
       (def confirmed-block (- current-block confirmations))
       ;; TODO: correctly process timeouts and/or overly long lists
       (values (eth_getLogs {address: contract-address
-                              fromBlock: from-block
-                              toBlock: (min to-block confirmed-block)})
+                            fromBlock: from-block
+                            toBlock: (min to-block confirmed-block)})
               confirmed-block))
     (values '() to-block)))
 
@@ -59,6 +56,12 @@
       (for-each f logs)
       (set! from-block (1+ confirmed-block)))))
 
+#| ;;; The code below was hand-translated from my previous CPS-based client JavaScript.
+   ;;; It is untested and most probably needs to be rewritten / refactored in more direct style
+   ;;; with more transactional persistence.
+
+;; : Quantity
+(define-persistent-variable next-unprocessed-block Nat "ETH.nextUnprocessedBlock" 0)
 
 ;; : (Table (Fun <- Quantity) <- String)
 (def new-block-hooks (make-hash-table))
@@ -123,3 +126,4 @@
 (define-persistent-variable active-interactions NatSet "ETH.activeInteractions" (.@ NatSet .empty))
 (define-type MapNatFromDigest (Map Nat <- Digest))
 (define-persistent-variable interactions-by-txhash MapNatFromDigest "ETH.interactionsByTxhash" (.@ MapNatFromDigest .empty))
+|#
