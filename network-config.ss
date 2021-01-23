@@ -15,7 +15,7 @@
    shortName: [String] ;; short name for the network, often lowercase, often a tla, e.g. "eth"
    chain: [String] ;; the chain that this network is supporting, e.g. "ETH"
    network: [String] ;; "mainnet" if that's the main net for that chain, or else a test name
-   nativeCurrency: [(Record name: [String] symbol: [String] decimals: [JsInt])]
+   nativeCurrency: [(Record name: [String] symbol: [Symbol] decimals: [JsInt])]
    rpc: [(List String)] ;; RPC endpoint URLs
    faucets: [(List String)] ;; Faucet website URLs
    infoURL: [String]
@@ -112,7 +112,7 @@
   eip145: #f ;; sometimes we test against Mantis with an old KEVM, so we don't use EIP-145 yet.
   faucets: []
   infoURL: "https://localhost/"
-  pennyCollector: (address<-0x "0xc11498Fa7fd1C261121EC856D6e0056335bcE90e")) ;; user "penny" from t/signing-test.ss
+  pennyCollector: (address<-0x "0xC011edE680f0532044a6ca87aF226741e981e522")) ;; user "penny" from t/signing-test.ss
 
 (defrules def-eth-net ()
   ((_ (name opt ...) slotspec ...)
@@ -126,7 +126,7 @@
   description: "The real thing, PoW mainnet"
   shortName: "eth" chain: "ETH" network: "mainnet"
   chainId: 1 networkId: 1
-  nativeCurrency: {name: "Ether" symbol: "ETH" decimals: 18}
+  nativeCurrency: {name: "Ether" symbol: 'ETH decimals: 18}
   rpc: ["https://mainnet.infura.io/v3/${INFURA_API_KEY}"
         "https://api.mycryptoapi.com/eth"]
   infoURL: "https://ethereum.org"
@@ -138,7 +138,7 @@
   description: "Rinkeby, the public Geth-only PoA testnet"
   chainId: 4 networkId: 4
   shortName: "rin" chain: "ETH" network: "rinkeby"
-  nativeCurrency: {name: "Rinkeby Ether" symbol: "RIN" decimals: 18}
+  nativeCurrency: {name: "Rinkeby Ether" symbol: 'RIN decimals: 18}
   rpc: ["https://rinkeby.infura.io/v3/${INFURA_API_KEY}"]
   faucets: ["https://faucet.rinkeby.io"]
   infoURL: "https://www.rinkeby.io"
@@ -150,7 +150,7 @@
   description: "ETC PoA testnet"
   networkId: 6 chainId: 6
   shortName: "kot" chain: "ETC" network: "kotti"
-  nativeCurrency: {name: "Kotti Ether" symbol:"KOT" decimals: 18}
+  nativeCurrency: {name: "Kotti Ether" symbol: 'KOT decimals: 18}
   rpc: []
   faucets: [] ;; TODO: find the faucet
   infoURL: "https://explorer.jade.builders/?network=kotti"
@@ -163,7 +163,7 @@
   networkId: 41390 chainId: 105
   ;; The two lines below are made up by us -- TODO: find out if there's a better name
   shortName: "david" network: "david" chain: "Cardano"
-  nativeCurrency: {name: "Cardano KEVM Devnet Ether" symbol: "DAVID" decimals: 18}
+  nativeCurrency: {name: "Cardano KEVM Devnet Ether" symbol: 'DAVID decimals: 18}
   eip145: #f ;; until the KEVM is updated, it won't support eip145 yet.
   rpc: ["https://david.kevm.dev-mantis.iohkdev.io:8546"]
   faucets: [] ;; TODO: find the faucet
@@ -176,7 +176,7 @@
   description: "Local PoA testnet"
   networkId: 17 chainId: 1337
   shortName: "pet" chain: "ETH" network: "petnet"
-  nativeCurrency: {name: "Private Ether Test" symbol: "PET" decimals: 18}
+  nativeCurrency: {name: "Private Ether Test" symbol: 'PET decimals: 18}
   rpc: ["http://localhost:8545"]
   txExplorerUrl: "https://localhost/pet/pet/tx/"
   addressExplorerUrl: "https://localhost/pet/pet/address/")

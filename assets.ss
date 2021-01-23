@@ -4,14 +4,36 @@
 
 (export #t)
 (import
+  :std/sugar :std/format :std/misc/string :std/srfi/13
+  :clan/decimal
   :clan/poo/poo
   ./assembly ./types ./ethereum ./abi ./contract-runtime ./signing)
 
-(.def (Ether @ UInt96 ;; or should it just be UInt256 ???
+(.def (TokenAmount @ [] .decimals .validate .symbol)
+  .denominator: (expt 10 .decimals)
+  ;; TODO: should we be including the name of the token in the string? after the number?
+  .string<-: (lambda (x) (format "~a ~a"
+                            (string<-decimal
+                             (/ x .denominator)
+                             leading-decimal-mark-allowed?: #t)
+                            .symbol))
+  .<-string: (lambda (s)
+               (assert! (string-suffix? (format " ~a" .symbol) s))
+               (.validate (*
+                           .denominator
+                           (decimal<-string
+                            s
+                            sign-allowed?: #t
+                            exponent-allowed: #t
+                            start: 0
+                            end: (- (string-length s) (string-length (symbol->string .symbol)) 1))))))
+
+(.def (Ether @ [TokenAmount UInt256] ;; or should it just be UInt96 ???
        .length-in-bytes .length-in-bits)
   .asset-code: 0
+  .name: "Ether"
+  .symbol: 'ETH
   .decimals: 18
-  .denominator: (expt 10 .decimals)
   .Address: Address
   .deposit!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- Bool)
   (lambda (sender amount _require! _tmp@)
@@ -30,13 +52,12 @@
   (lambda (recipient amount require! _tmp@)
     (&begin 0 DUP1 DUP1 DUP1 amount recipient GAS CALL require!))) ;; Transfer! -- gas address value 0 0 0 0
 
-(.def (ERC20 @ UInt256 ;; https://eips.ethereum.org/EIPS/eip-20
+(.def (ERC20 @ [TokenAmount UInt256] ;; https://eips.ethereum.org/EIPS/eip-20
        .contract-address ;; : Address
        .name ;; : String ;; full name, e.g. "FooToken"
        .symbol ;; : Symbol ;; symbol, typically a TLA, e.g. 'FOO
        .decimals) ;; : Nat ;; number of decimals by which to divide the integer amount to get token amount
   .asset-code: .contract-address
-  .denominator: (expt 10 .decimals)
   .Address: Address
   ;; function balanceOf(address _owner) public view returns (uint256 balance)
   ;; function transfer(address _to, uint256 _value) public returns (bool success)
