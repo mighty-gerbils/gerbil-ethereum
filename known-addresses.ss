@@ -1,7 +1,7 @@
 (export #t)
 
 (import
-  :std/format :std/sort :std/sugar
+  :std/format :std/sort :std/srfi/13 :std/sugar :std/text/hex
   :clan/json
   :clan/poo/io :clan/poo/brace :clan/poo/poo
   :clan/crypto/secp256k1
@@ -53,9 +53,15 @@
   (def address (address<-public-key pubkey))
   (keypair address pubkey seckey (password passwd)))
 
-(def (generate-keypair passwd)
-  (keypair<-secret-key (generate-secret-key-data) passwd))
-
+(def (generate-keypair prefix: (prefix "") passwd: (passwd ""))
+  (unless (and (<= (string-length prefix) 40) (string-every unhex* prefix))
+    (error "Invalid keypair prefix" prefix))
+  (def p (string-downcase prefix))
+  (let/cc return
+    (while #t
+      (let (kp (keypair<-secret-key (generate-secret-key-data) passwd))
+        (when (string-prefix? p (hex-encode (address-bytes (keypair-address kp))))
+          (return kp))))))
 
 ;; TODO: handle collisions, exceptions.
 ;; TODO: make these tables Scheme parameters?

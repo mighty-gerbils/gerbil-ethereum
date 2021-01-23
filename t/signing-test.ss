@@ -28,13 +28,16 @@
         (push! address test-addresses))) ...))
 
 (defkeys test-addresses
-  (trent    "0xb6fb0b7e61363ee2f748161338f56953e8aa42642e9990eff17e7de9aa895786")
+  ;; These keys are chosen for a common name and recognizable prefix, for use on private test networks
+  ;; With our naive algorithm, finding a 5-char hex prefix should take a few minutes,
+  ;; a 6-char hex prefix an hour or two, a 7-char hex prefix a day or two.
+  (alice    "0x33bbf7ff271c056cae4eba6503ad46d8cf6f4c35120ef97cc6ee719cf711e767") ;; 0xa71CE
+  (bob      "0x30ce4a96f528bbfcd20d8c0c52f5c691f7e9675ef87e5a955e4e2d6f09c35ab0") ;; 0xb0bb1e
+  (trent    "0x2d7d92a15f28bb6d56823a10c9a361e97bcd27714761dd95113765a9e5b33595") ;; 0x73e27
+  ;; This is the penny collector for private test networks
+  (penny    "0x658cb9b4e92593a1eb186ba5fad03e95cadd11e49f39452bb99afdc79d28031f") ;; 0xc011e ;;... c7 ?
+  ;; This key is used in some of Ethereum standard test-case
   (fortysix "0x4646464646464646464646464646464646464646464646464646464646464646")
-  (alice    "0xfdc8f15b2dd9229b0b9246094393afc23b3b705c07e674f6cb614120d1627818")
-  (bob      "0x9b21b9b06ba77824b8ba6a815f5a075229a708ae88ba7fd935c968fe2c3df172")
-  (penny    "0x03e389119c5322a9d25bc4da7bc84307762b61fd5e290874843011cacf3723d9")
-  (yolanda  "0xaedcdea2b91de24d1fe2c8ae4b60687fb3826612962553fa3d0b8486e322aaa7")
-  (zander   "0x4884b1bdef8281b40cad15f5525d72a5c9a5db18f213abf28a46bfab8bff2a5f")
   ;; This key was chosen because it's got money on in genesis block for IOHK's Mantis docker image.
   ;; We now use the same key as the "got all the money" account on our Geth genesis block.
   (croesus  "0x1167a41c432d1a494408b8fdeecd79bff89a5689925606dff8adf01f4bf92922"))
@@ -82,14 +85,14 @@
           (check-equal? (signature-valid? String address (make-signature-wrong signature) data) #f)))
       (check-user croesus "0x25c0bb1A5203AF87869951AEf7cF3FEdD8E330fC" ;; "0x000d836201318ec6899a67540690382780743280"
                   "0x3dfbd16d74816ad656f6c98e2a6634ca1930b5fc450eb93ca0a92574a30d00ff8eefd9d1cc3cd81cbb021b3f29abbbabfd29da7feef93f40f63a1e512c240517")
-      (check-user alice "0xC54e86DFFb87B9736E2E35DD85c775358F1c31CE"
-                  "0x5562695c85f88f6cbaec121d2a3da6666c5dc8540d86358bd569a1882bbe6ddcf45b76f5643133939c8e7a339947ca1b115290d577343023d79c256dbc54bc97")
-      (check-user bob "0x9CcaEd210CE8c0Cb49c5Ad1C4f583406c264BA69"
-                  "0x9e0a7e3c05e3328c603b0c27fbfdfc5030c95d9ad179a431c14f81e30a64ce95f625447e182a8be718d45f9ab9723f9b8571dd5c5752daa66feb84938b095805")
-      (check-user penny "0xc11498Fa7fd1C261121EC856D6e0056335bcE90e"
-                  "0x5c69b02d8d311481c8afa3df0697b4118cb8cd9833c468def4d636ab03d5d1e7a36d64b335eba27409bbfd324c437c4af70aa017bdf735dcc03f208f170a7fd1")
-      (check-user trent "0xF47408143d327e4bc6A87EF4a70A4E0aF09b9A1C"
-                  "0x26bd9885f2c9e23d18c3025da70e71a4f7ce237124352882eafbd1cbb1e9742c4fe3847ce1a56a0d19df7a7d385a2134be05208b5d1ccc5d015f5e9a3ba0d7df"))
+      (check-user alice "0xa71CEb0990dD1f29C2a064c29392Fe66baf05aE1"
+                  "0xfea1970515a4c6e14e17e412b9e1d3ab9150f829c7df2d1d99726036e45d7ff01a6da0110b702550d4caecd30c6a4a8567280f0746048dc8e19fc7604fa55bfc")
+      (check-user bob "0xb0bb1ed229f5Ed588495AC9739eD1555f5c3aabD"
+                  "0xebc17d370fb860face57b9c4b48e3378604ec333e894b02f8c113e7c2325c5e564e968cba4bae5b1b0466bef65b49a291573508f463075eeccfc31577921c0bf")
+      (check-user penny "0xC011edE680f0532044a6ca87aF226741e981e522"
+                  "0x822985956cfab1735ea1dd0144a62418167f1b768607f79b7d709b099f8f9a8396f92ec6d02329131d8cf1afed0773842b86db19ba118b11463c16e1a237995a")
+      (check-user trent "0x73e27C9B8BF6F00A38cD654079413aA3eDBC771A"
+                  "0x4d484f5419fa4745a6b7e7a9eef7563435543d68250f02fa88c889666578daf600b1935a0624fef6b760a691db1e976d0332786277bbf7c13f39bc54114b58bf"))
     (test-case "check create2 address"
       (def (test-vector name addr salt init-code)
         (0x<-address (address<-create2
