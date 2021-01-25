@@ -2,7 +2,7 @@
 
 (import
   :std/sugar
-  :clan/json :clan/path-config
+  :clan/exception :clan/json :clan/path-config
   :clan/poo/poo :clan/poo/brace :clan/poo/io
   :clan/persist/db
   :clan/crypto/keccak
@@ -72,12 +72,12 @@
         code-hash: (json<- Digest (code-hash<-create-contract pretx))])
   (try
    (def previous-config (getter arg))
-   (when log (log ['ensure-contract-found (json<- ContractConfig previous-config)]))
+   (log ['ensure-contract-found (json<- ContractConfig previous-config)])
    (verify-contract-config previous-config pretx)
-   (when log (log ['ensure-contract-valid (json<- ContractConfig previous-config)]))
+   (log ['ensure-contract-valid (json<- ContractConfig previous-config)])
    previous-config
-   (catch (_)
-     (log ['ensure-contract-create])
+   (catch (e)
+     (log ['ensure-contract-create-because (string<-exception e)])
      (def creation-receipt (post-transaction pretx))
      (def config (contract-config<-creation-receipt creation-receipt))
      (log ['ensure-contract-created
