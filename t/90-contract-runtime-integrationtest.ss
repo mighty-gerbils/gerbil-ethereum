@@ -36,7 +36,7 @@
    (&evm-inline-inputs inputs)
    action
    (&evm-inline-outputs outputs)
-   (if onchain (&begin LOG0 STOP) RETURN)
+   RETURN ;;(if onchain (&begin LOG0 STOP) RETURN)
    [&jumpdest 'abort-contract-call] 0 DUP1 REVERT))
 
 (def (evm-test inputs action outputs onchain: (onchain #f))
