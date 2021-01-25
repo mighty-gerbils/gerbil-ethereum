@@ -2,87 +2,113 @@
 
 (import
   :std/srfi/1 :std/test  :std/format :std/sugar
-  :clan/debug :clan/poo/poo :clan/number
+  :clan/debug :clan/number
+  :clan/poo/poo :clan/poo/io :clan/poo/debug
   ../contract-runtime  ../assembly  ../json-rpc ../types
-  
   ./signing-test ./30-transaction-integrationtest)
 
-  (def (safe-math &value1 &value2 len f ) 
-    (evm-eval/offchain alice
-        (assemble/bytes 
-          (&begin &value1 &value2 f (&mstoreat 0 len) len 0 RETURN [&jumpdest 'abort-contract-call] 0 DUP1 REVERT))
-      ))
+;; TODO: support boxed types
+;; Directive <- t:Type t
+(def (&evm-inline-input t v)
+  (bytes<- t v))
 
-  (def (safe-math-op &value1 &value2 len f ) 
-    
-      (try
-         (safe-math &value1 &value2 len f)
-      (catch (e) -1)))
+;; Directive <- (Listof DependentPair)
+(def (&evm-inline-inputs inputs)
+  (&begin*
+   (map (match <> ([t . v] (&evm-inline-input t v))) (reverse inputs))))
 
+;; Directive <- Type
+(def (&evm-inline-output t)
+  (def len (param-length t))
+  (DDT &evm-inline-output: Type t poo.Nat len)
+  (&begin ;; bufptr[incremented] <-- bufptr val:t
+   DUP1 SWAP2 (&mstore/overwrite-after len) len ADD))
 
-  (def (evm-test inputs output action-op expected-exception?: (expected-exception? #f))
-    (def len (param-length (car output)))
-      (let ((operand1 (cdr (car inputs))) (operand2 (cdr (car (cdr inputs)))) (ans (cdr output)))
-        (if expected-exception?
-          (check-equal? ans
-            (safe-math-op  operand1 operand2 len action-op))  
-          (check-equal? ans (nat<-bytes (safe-math-op operand1 operand2 len action-op)))
-      )))
+;; TODO: support boxed types as inputs (that may offset the start of the output?) and outputs
+(def (&evm-inline-outputs outputs)
+  (&begin
+   0 ;; start output buffer
+   (&begin* (map (match <> ([t . _] (&evm-inline-output t))) outputs))
+   0))
 
+(def (&evm-test-code inputs action outputs onchain: (onchain #f))
+  (&begin
+   (&evm-inline-inputs inputs)
+   action
+   (&evm-inline-outputs outputs)
+   (if onchain (&begin LOG0 STOP) RETURN)
+   [&jumpdest 'abort-contract-call] 0 DUP1 REVERT))
+
+(def (evm-test inputs action outputs onchain: (onchain #f))
+  (def code-bytes
+    (assemble/bytes
+     (&evm-test-code inputs action outputs onchain: onchain)))
+  (DDT evm-test-1: (.@ Bytes .json<-) code-bytes)
+  (def result-bytes
+    (if onchain
+      (evm-eval/onchain croesus code-bytes)
+      (evm-eval/offchain croesus code-bytes)))
+  (DDT evm-test-2: (.@ Bytes .json<-) result-bytes)
+  (def result-list
+    (call-with-input-u8vector
+     result-bytes
+     (lambda (port)
+       (map-in-order (lambda (output-tv) (unmarshal (car output-tv) port)) outputs))))
+  (def expected-result-list
+    (map cdr outputs))
+  (check-equal? result-list expected-result-list))
+
+(def (evm-test-failure inputs action onchain: (onchain #f))
+  (def code-bytes
+    (assemble/bytes
+     (&evm-test-code inputs action [] onchain: onchain)))
+  (or
+    (try
+     (if onchain
+       (evm-eval/onchain croesus code-bytes)
+       (evm-eval/offchain croesus code-bytes))
+     #f
+     (catch (_) #t))
+    (error "Failed to fail" inputs action)))
 
 (def 90-contract-runtime-integrationtest
   (test-suite "integration test for ethereum/contract-runtime"
-   
     (test-case "safe-sub when a operand equal b operand"
-      (evm-test [[UInt8 . 8] [UInt8 . 8]] [UInt8 . 0] &safe-sub) )
+      (evm-test [[UInt8 . 8] [UInt8 . 8]] &safe-sub [[UInt8 . 0]]))
 
-    (test-case "safe-sub when a operan less than b operand"
-      (evm-test [[UInt16 . 42] [UInt16 . 80]] [UInt16 . 38] &safe-sub))
+    (test-case "safe-sub when b operand less than a operand"
+      (evm-test [[UInt16 . 80] [UInt16 . 42]] &safe-sub [[UInt16 . 38]]))
 
-    (test-case "safe-sub when a operand greater than b operand"
-      (evm-test [[UInt8 . 80] [UInt8 . 42]] [UInt8 . 1] &safe-sub expected-exception?: #t))
+    (test-case "safe-sub when b operand greater than a operand"
+      (evm-test-failure [[UInt8 . 42] [UInt8 . 80]] &safe-sub))
 
     (test-case "safe-add normal case"
-      (evm-test [[UInt8 . 8] [UInt8 . 8]] [UInt8 . 16] &safe-add) )
+      (evm-test [[UInt8 . 8] [UInt8 . 8]] &safe-add [[UInt8 . 16]]))
 
     (test-case "safe-add (unless (> 2**256 (+ x y)) (abort))"
-      (evm-test [[UInt256 . (expt 2 255)] [UInt256 . (expt 2 255)]] [UInt256 . 1] &safe-add expected-exception?: #t) )
+      (evm-test-failure [[UInt256 (expt 2 255)...] [UInt256 (expt 2 255)...]] &safe-add))
 
     (test-case "safe-add (unless (>= (- 2**256 1) (+ x y)) (abort))"
-      (evm-test [[UInt256 . (- (expt 2 255) 1)] [UInt256 . (expt 2 255)]] [UInt256 . 1] &safe-add expected-exception?: #t) )
+      (evm-test-failure [[UInt256 (- (expt 2 255) 1)...] [UInt256 (expt 2 255)...]] &safe-add))
 
     (test-case "safe-add (unless (>= (- 2**256 1 x) y) (abort))"
-       (evm-test [[UInt256 . (- (expt 2 250) 1)] [UInt256 . (expt 2 255)]] [UInt256 . 1] &safe-add expected-exception?: #t) )
+      (evm-test-failure [[UInt256 (- (expt 2 250) 1)...] [UInt256 (expt 2 255)...]] &safe-add))
 
     (test-case "safe-add/n-bits n-bits equals 256"
-      (def (&f) (&begin (&safe-add/n-bits 256)))
-       (evm-test [[UInt256 . 4000] [UInt256 . 6000]] [UInt256 . 262144]  &f))
-            ;;(def contract-bytes
-           ;;   (assemble/bytes
-            ;;    (&begin
-            ;;      (expt 2 25)
-            ;;      (expt 2 25)
-             ;;     (&safe-add/n-bits 256)
-            ;;      (&mstoreat 0 32)
-           ;;       32 0 RETURN
-            ;;      [&jumpdest 'abort-contract-call] 0 DUP1 REVERT         
-            ;;      )))
-         ;; (def result (evm-eval/offchain alice contract-bytes))
-         ;; (def unmarshaled-result (nat<-bytes result))
-         ;; (check-equal? (* 262144 256) unmarshaled-result))
+      (evm-test [[UInt256 . 4000] [UInt256 . 6000]] (&safe-add/n-bits 256) [[UInt256 . 10000]]))
 
-
-          (test-case "safe-add/n-bits n-bits equals 0"
-            (def b (&safe-add/n-bits 0))
-            (def contract-bytes
-              (assemble/bytes
+#|
+    (test-case "safe-add/n-bits n-bits equals 0"
+      (def b (&safe-add/n-bits 0))
+      (def contract-bytes
+        (assemble/bytes
                 (&begin
                   (expt 2 25)
                   (expt 2 25)
                   b
                   (&mstoreat 0 32)
                   32 0 RETURN
-                  [&jumpdest 'abort-contract-call] 0 DUP1 REVERT         
+                  [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
                   )))
           (def result (evm-eval/offchain alice contract-bytes))
           (def unmarshaled-result (nat<-bytes result))
@@ -98,14 +124,14 @@
                   (&safe-add/n-bits 10)
                   (&mstoreat 0 32)
                   32 0 RETURN
-                  [&jumpdest 'abort-contract-call] 0 DUP1 REVERT         
+                  [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
                   )))
-            (def result 
+            (def result
               (let/cc return
                 (try
                   (return (evm-eval/offchain alice contract-bytes))
                   (catch (e) (return -1)))))
-            (check-equal? -1 result)) 
+            (check-equal? -1 result))
 
           (test-case "safe-add/n-bits n-bits over size"
             (def contract-bytes
@@ -116,7 +142,7 @@
                   (&safe-add/n-bits 200)
                   (&mstoreat 0 32)
                   32 0 RETURN
-                  [&jumpdest 'abort-contract-call] 0 DUP1 REVERT         
+                  [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
                   )))
             (def result (evm-eval/offchain alice contract-bytes))
             (def unmarshaled-result (nat<-bytes result))
@@ -134,13 +160,13 @@
              ;;     (&safe-mul)
             ;;      (&mstoreat 0 32)
            ;;       32 0 RETURN
-            ;;      [&jumpdest 'abort-contract-call] 0 DUP1 REVERT         
+            ;;      [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
            ;;       )))
            ;; (def result (evm-eval/offchain alice contract-bytes))
            ;; (def unmarshaled-result (nat<-bytes result))
             ;;(check-equal? (* 4398046511104 256) unmarshaled-result))
 
-          
+
           (test-case "safe-mul oveflow case"
             (def contract-bytes
               (assemble/bytes
@@ -150,16 +176,16 @@
                   (&safe-mul)
                   (&mstoreat 0 32)
                   32 0 RETURN
-                  [&jumpdest 'abort-contract-call] 0 DUP1 REVERT         
+                  [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
                   )))
-            (def result 
+            (def result
               (let/cc return
                 (try
                   (return (evm-eval/offchain alice contract-bytes))
                   (catch (e) (return -1)))))
-            (check-equal? -1 result)) 
+            (check-equal? -1 result))
 
-            
+
         (test-case "validate-sig-data"
           (def contract-bytes
             (assemble/bytes
@@ -170,7 +196,7 @@
                 &validate-sig-data
                 (&mstoreat 0 2)
                 2 0 RETURN
-                [&jumpdest 'abort-contract-call] 0 DUP1 REVERT         
+                [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
                 )))
           (def result (evm-eval/offchain alice contract-bytes))
           (def unmarshaled-result (nat<-bytes result))
@@ -187,14 +213,14 @@
                 &validate-sig-data
                 (&mstoreat 0 2)
                 2 0 RETURN
-                [&jumpdest 'abort-contract-call] 0 DUP1 REVERT         
+                [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
                 )))
-          (def result 
+          (def result
             (let/cc return
               (try
                 (return (evm-eval/offchain alice contract-bytes))
                 (catch (e) (return -1)))))
-          (check-equal? -1 result)) 
+          (check-equal? -1 result))
 
         (test-case "validate-sig-data with wrong s value"
           (def contract-bytes
@@ -206,14 +232,14 @@
                 &validate-sig-data
                 (&mstoreat 0 2)
                 2 0 RETURN
-                [&jumpdest 'abort-contract-call] 0 DUP1 REVERT         
+                [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
                 )))
-          (def result 
+          (def result
             (let/cc return
               (try
                 (return (evm-eval/offchain alice contract-bytes))
                 (catch (e) (return -1)))))
-          (check-equal? -1 result)) 
+          (check-equal? -1 result))
 
 
         (test-case "&unsafe-post-increment-at!"
@@ -224,7 +250,7 @@
                 0
                 MSTORE
                 (&unsafe-post-increment-at! 0 20)
-                32 0 RETURN       
+                32 0 RETURN
                 )))
           (def result (evm-eval/offchain alice contract-bytes))
           (def unmarshaled-result (nat<-bytes result))
@@ -238,21 +264,21 @@
                 0
                 MSTORE
                 (&unsafe-post-increment-at! 0  (expt 2 255))
-                32 0 RETURN       
+                32 0 RETURN
                 )))
-          (def result 
+          (def result
           (let/cc return
             (try
               (return (evm-eval/offchain alice contract-bytes))
               (catch (e) (return -1)))))
-        (check-equal? 0 (nat<-bytes result))) 
-      
-      
+        (check-equal? 0 (nat<-bytes result)))
+
+
       (test-case "&memcpy/const-size destination second"
         (def contract-bytes
           (assemble/bytes
             (&begin
-              85 
+              85
               0
               MSTORE
               95
@@ -264,7 +290,7 @@
               96
               0
               (&memcpy/const-size 96)
-              32 160 RETURN     
+              32 160 RETURN
               )))
         (def result (evm-eval/offchain alice contract-bytes))
         (def unmarshaled-result (nat<-bytes result))
@@ -274,7 +300,7 @@
             (def contract-bytes
               (assemble/bytes
                 (&begin
-                  85 
+                  85
                   0
                   MSTORE
                   95
@@ -286,7 +312,7 @@
                   0
                   96
                  (&memcpy/const-size 96 dst-first?: #t)
-                  32 160 RETURN     
+                  32 160 RETURN
                   )))
             (def result (evm-eval/offchain alice contract-bytes))
             (def unmarshaled-result (nat<-bytes result))
@@ -296,7 +322,7 @@
             (def contract-bytes
               (assemble/bytes
                 (&begin
-                  85 
+                  85
                   0
                   MSTORE
                   95
@@ -311,7 +337,7 @@
                   0
                   128
                  (&memcpy/const-size 98 dst-first?: #t)
-                  2 224 RETURN     
+                  2 224 RETURN
                   )))
             (def result (evm-eval/offchain alice contract-bytes))
             (def unmarshaled-result (nat<-bytes result))
@@ -321,7 +347,7 @@
             (def contract-bytes
               (assemble/bytes
                 (&begin
-                  85 
+                  85
                   0
                   MSTORE
                   95
@@ -336,7 +362,7 @@
                   0
                   128
                  (&memcpy/const-size 98 overwrite-after?: #t dst-first?: #t)
-                  2 224 RETURN     
+                  2 224 RETURN
                   )))
             (def result (evm-eval/offchain alice contract-bytes))
             (def unmarshaled-result (nat<-bytes result))
@@ -346,7 +372,7 @@
             (def contract-bytes
               (assemble/bytes
                 (&begin
-                  85 
+                  85
                   0
                   MSTORE
                   95
@@ -360,7 +386,7 @@
                   (&mstore 2)
                   128
                  (&memcpy/const-size/const-src 0 98 overwrite-after?: #t)
-                  2 224 RETURN     
+                  2 224 RETURN
                   )))
             (def result (evm-eval/offchain alice contract-bytes))
             (def unmarshaled-result (nat<-bytes result))
@@ -371,7 +397,7 @@
             (def contract-bytes
               (assemble/bytes
                 (&begin
-                  85 
+                  85
                   0
                   MSTORE
                   95
@@ -385,7 +411,7 @@
                   (&mstore 2)
                   128
                  (&memcpy/const-size/expr-src 0 98 overwrite-after?: #t)
-                  2 224 RETURN     
+                  2 224 RETURN
                   )))
             (def result (evm-eval/offchain alice contract-bytes))
             (def unmarshaled-result (nat<-bytes result))
@@ -396,7 +422,7 @@
          ;;   (def contract-bytes
          ;;     (assemble/bytes
          ;;       (&begin
-         ;;         85 
+         ;;         85
          ;;         0
          ;;         MSTORE
          ;;         95
@@ -410,19 +436,19 @@
          ;;         (&mstore 2)
          ;;         128
          ;;        (&memcpy/const-size/expr-src -1 98 overwrite-after?: #t)
-         ;;         2 224 RETURN     
+         ;;         2 224 RETURN
          ;;         )))
          ;;   (def result (evm-eval/offchain alice contract-bytes))
          ;;   (def unmarshaled-result (nat<-bytes result))
          ;;   (check-equal? 5 unmarshaled-result))
 
       ;; Failing with exception ... invalid jump destination
-      ;; There is an inherent error I can not fathom. 
+      ;; There is an inherent error I can not fathom.
      ;; (test-case "&define-unsafe-memcopy"
      ;;   (def contract-bytes
      ;;     (assemble/bytes
      ;;       (&begin
-     ;;         85 
+     ;;         85
       ;;        0
      ;;         MSTORE
      ;;         95
@@ -440,7 +466,7 @@
      ;;         4
      ;;         &define-unsafe-memcopy
       ;;        32 0 RETURN
-     ;;         [&jumpdest 'abort-contract-call] 0 DUP1 REVERT      
+     ;;         [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
      ;;         )))
      ;;   (def result (evm-eval/offchain alice contract-bytes))
      ;;   (def unmarshaled-result (nat<-bytes result))
@@ -451,15 +477,15 @@
         (def contract-bytes
           (assemble/bytes
             (&begin
-              &check-sufficient-deposit   
-              [&jumpdest 'abort-contract-call] 0 DUP1 REVERT 
+              &check-sufficient-deposit
+              [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
               )))
-        (def result 
+        (def result
           (let/cc return
             (try
               (return (evm-eval/offchain alice contract-bytes))
               (catch (e) (return -1)))))
-        (check-equal? -1 result)) 
+        (check-equal? -1 result))
 
         ;; Pending when CALLVALUE is greater
 
@@ -467,15 +493,15 @@
         (def contract-bytes
           (assemble/bytes
             (&begin
-              &check-sufficient-deposit   
-              [&jumpdest 'abort-contract-call] 0 DUP1 REVERT 
+              &check-sufficient-deposit
+              [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
               )))
-        (def result 
+        (def result
           (let/cc return
             (try
               (return (evm-eval/offchain alice contract-bytes value: 2340000))
               (catch (e) (return -1)))))
-        (check-equal? -1 result)) 
+        (check-equal? -1 result))
 
 
       ;; Underflow error message
@@ -486,7 +512,7 @@
       ;;        CALLER
       ;;        &check-participant!
       ;;        (&mstoreat 0 2)
-      ;;         2 0 RETURN     
+      ;;         2 0 RETURN
        ;;       [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
        ;;       )))
        ;; (def result (evm-eval/offchain alice contract-bytes))
@@ -496,7 +522,7 @@
         (def &deposit!
   ;; Scheme pseudocode: (lambda (amount) (increment! deposit amount))
   ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
-  (&begin deposit &safe-add deposit-set!)) 
+  (&begin deposit &safe-add deposit-set!))
 
       (test-case "&deposit!"
         (def contract-bytes
@@ -508,8 +534,8 @@
               &deposit!
               deposit
               (&mstoreat 0 32)
-               32 0 RETURN  
-               [&jumpdest 'abort-contract-call] 0 DUP1 REVERT    
+               32 0 RETURN
+               [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
               )))
         (def result (evm-eval/offchain alice contract-bytes))
         (def unmarshaled-result (nat<-bytes result))
@@ -527,7 +553,7 @@
     ;;          SELFBALANCE
     ;;          bob
     ;;          &send-ethers!
-     ;;         [&jumpdest 'abort-contract-call] 0 DUP1 REVERT    
+     ;;         [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
      ;;         )))
     ;;    (def result (evm-eval/offchain alice contract-bytes))
      ;;    (def balances-after (map (cut eth_getBalance <> 'latest) prefunded-addresses))
@@ -543,14 +569,14 @@
       ;;        300
       ;;        bob
       ;;        &send-ethers!
-      ;;        [&jumpdest 'abort-contract-call] 0 DUP1 REVERT    
+      ;;        [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
       ;;       )))
       ;;  (def result (evm-eval/offchain alice contract-bytes))
       ;;   (def balances-after (map (cut eth_getBalance <> 'latest) prefunded-addresses))
       ;;  (def unmarshaled-result (nat<-bytes result))
       ;;  (check-equal? (+ (car balances-before) 300) (car balances-after)))
 
-      
+
       (test-case "&brk-cons when n-bytes is 32"
         (def contract-bytes
           (assemble/bytes
@@ -668,8 +694,8 @@
               &start-timer!
               timer-start
               (&mstoreat 0 32)
-               32 0 RETURN  
-               [&jumpdest 'abort-contract-call] 0 DUP1 REVERT    
+               32 0 RETURN
+               [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
               )))
         (def result (evm-eval/offchain alice contract-bytes))
         (def unmarshaled-result (nat<-bytes result))
@@ -682,25 +708,25 @@
               &stop-timer!
               timer-start
               (&mstoreat 0 32)
-               32 0 RETURN  
-               [&jumpdest 'abort-contract-call] 0 DUP1 REVERT    
+               32 0 RETURN
+               [&jumpdest 'abort-contract-call] 0 DUP1 REVERT
               )))
         (def result (evm-eval/offchain alice contract-bytes))
         (def unmarshaled-result (nat<-bytes result))
         (check-equal? (> unmarshaled-result 0) #t))
 
 
-      
+
       (test-case "&marshal UInt256"
         (def contract-bytes
           (assemble/bytes
             (&begin
-              brk 
-              DUP1 
+              brk
               DUP1
-              (&marshal UInt256  7 ) 
+              DUP1
+              (&marshal UInt256  7 )
               (&mstoreat 0 32)
-               32 0 RETURN  
+               32 0 RETURN
               )))
         (def result (evm-eval/offchain alice contract-bytes))
         (def unmarshaled-result (nat<-bytes result))
@@ -710,16 +736,16 @@
         (def contract-bytes
           (assemble/bytes
             (&begin
-              brk 
-              DUP1 
+              brk
               DUP1
-              (&marshal UInt8  7) 
+              DUP1
+              (&marshal UInt8  7)
               (&mstoreat 0 32)
-               32 0 RETURN  
+               32 0 RETURN
               )))
         (def result (evm-eval/offchain alice contract-bytes))
         (def unmarshaled-result (nat<-bytes result))
         (check-equal? (= unmarshaled-result (param-length UInt8)) #t))
 
-
+|#
       ))
