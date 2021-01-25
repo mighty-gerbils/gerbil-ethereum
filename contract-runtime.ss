@@ -4,7 +4,7 @@
   :std/misc/number :std/sugar
   :clan/base :clan/number :clan/with-id
   :clan/poo/poo (only-in :clan/poo/mop Type)
-  ./network-config ./assembly ./ethereum ./types)
+  ./network-config ./assembly ./ethereum ./types ./signing)
 
 ;; TODO:
 ;; * better assembler with segments, etc.?
@@ -390,7 +390,7 @@
 (def &validate-sig-data ;; v r s <-- v r s
   (&begin
    DUP1 27 SUB 2 GT ;; check that v is 27 or 28, which prevents malleability (not 29 or 30)
-   #x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0 DUP5 GT ;; s <= s_max
+   secp256k1-order DUP5 GT ;; s <= s_max
    OR &require-not!))
 
 ;; TESTING STATUS: Wholly untested.

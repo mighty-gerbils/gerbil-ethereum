@@ -37,14 +37,16 @@
 (def (import-secret-key/json j) (import-secret-key/bytes (<-json Bytes32 j)))
 (def (export-secret-key/json x) (json<- Bytes32 (export-secret-key/bytes x)))
 
+(def secp256k1-order #x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0)
+
+(def (randomUInt256)
+  (def r (random-integer (arithmetic-shift 1 256)))
+  (if (file-exists? "/dev/urandom")
+    (+ r (<-bytes UInt256 (call-with-input-file "/dev/urandom" (cut read-bytes 32 <>))))
+    r))
+
 (def (generate-secret-key-data)
-  (!> (random-integer (expt 2 256))
-      (cut + <>
-           (if (file-exists? "/dev/urandom")
-             (<-bytes UInt256 (call-with-input-file "/dev/urandom" (cut read-bytes 32 <>)))
-             0))
-      (cut modulo <> #x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0)
-      (cut bytes<- UInt256 <>)))
+  (bytes<- UInt256 (modulo (randomUInt256) secp256k1-order)))
 
 ;; Right now, we use the foreign object as the "canonical" in-memory representation.
 ;; Should we instead use canonical bytes that parsed into a foreign object on a need basis?

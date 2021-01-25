@@ -1,8 +1,10 @@
 (export #t)
 
 (import
-  :std/format :std/sort :std/srfi/13 :std/sugar :std/text/hex
-  :clan/json
+  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/random
+  :std/format :std/iter :std/sort :std/srfi/13 :std/sugar :std/text/hex
+  :clan/base :clan/json :clan/number
+  :clan/crypto/keccak
   :clan/poo/io :clan/poo/brace :clan/poo/poo
   :clan/crypto/secp256k1
   ./hex ./types ./signing)
@@ -53,15 +55,46 @@
   (def address (address<-public-key pubkey))
   (keypair address pubkey seckey (password passwd)))
 
-(def (generate-keypair prefix: (prefix "") passwd: (passwd ""))
-  (unless (and (<= (string-length prefix) 40) (string-every unhex* prefix))
+(def (nibble-ref bytes i)
+  (def b (bytes-ref bytes (arithmetic-shift i -1)))
+  (if (even? i) (arithmetic-shift b -4) (bitwise-and b 15)))
+
+(def (scoring<-prefix prefix)
+  (def len (string-length prefix))
+  (unless (and (<= len 40) (string-every unhex* prefix))
     (error "Invalid keypair prefix" prefix))
-  (def p (string-downcase prefix))
-  (let/cc return
-    (while #t
-      (let (kp (keypair<-secret-key (generate-secret-key-data) passwd))
-        (when (string-prefix? p (hex-encode (address-bytes (keypair-address kp))))
-          (return kp))))))
+  (def p (make-bytes len))
+  (for ((i (in-range len))) (bytes-set! p i (unhex (string-ref prefix i))))
+  [(lambda (b)
+     (let/cc return
+       (def l (min len (* 2 (bytes-length b))))
+       (for ((i (in-naturals)))
+         (unless (and (< i l) (eqv? (bytes-ref p i) (nibble-ref b i)))
+           (return i)))))
+   len])
+
+(def trivial-scoring [(lambda (_) 0) 0])
+
+(def (generate-keypair scoring: (scoring trivial-scoring) passwd: (passwd ""))
+  (nest
+    (let/cc return)
+    (with ([score-function enough-score] scoring))
+    (let ((best-score-so-far -inf.0)
+          (seed (random-integer secp256k1-order))))
+    (while #t)
+    (let* ((seckey-data (bytes<- UInt256 seed))
+           (seckey (secp256k1-seckey seckey-data))
+           (pubkey (secp256k1-pubkey<-seckey seckey-data))
+           (h (keccak256<-bytes (bytes<- PublicKey pubkey)))
+           (address-bytes (subu8vector h 12 32))
+           (s (score-function address-bytes)))
+      (set! seed (modulo (+ seed (nat<-bytes h)) secp256k1-order)))
+    (when (<= best-score-so-far s))
+    (let (kp (keypair (make-address address-bytes) pubkey seckey (password passwd)))
+      (set! best-score-so-far s)
+      (write-json-ln (export-keypair/json kp)))
+    (when (>= s enough-score))
+    (return kp)))
 
 ;; TODO: handle collisions, exceptions.
 ;; TODO: make these tables Scheme parameters?
