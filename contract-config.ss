@@ -27,7 +27,7 @@
                (error "No contract configuration in DB" db-key))))
 
 (def (db<-contract-config db-key config)
-  (with-tx (tx) (db-put! db-key (bytes<- ContractConfig config)) tx))
+  (with-committed-tx (tx) (db-put! db-key (bytes<- ContractConfig config)) tx))
 
 ;; Query the Ethereum for the configuration given the hash of the transaction creating the contract
 ;; ContractConfig <- TransactionReceipt
