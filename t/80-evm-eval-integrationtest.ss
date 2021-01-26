@@ -12,7 +12,7 @@
 (def 80-evm-eval-integrationtest
   (test-suite "unit tests for evm functions"
 
-    (test-case "returns a value"
+    (test-case "return"
       (def contract-bytes
         (assemble/bytes
           (&begin
@@ -23,7 +23,7 @@
       (def unmarshaled-result (nat<-bytes result))
       (check-equal? (* 42 256) unmarshaled-result))
 
-    (test-case "if works"
+    (test-case "if"
       (def contract-bytes
         (assemble/bytes
           (&begin
@@ -35,7 +35,7 @@
       (def result (evm-eval/offchain alice contract-bytes))
       (check-equal? 0 (nat<-bytes result)))
 
-    (test-case "switch works"
+    (test-case "switch"
       (def contract-bytes
         (assemble/bytes
           (&begin
@@ -48,7 +48,7 @@
       (def result (evm-eval/offchain alice contract-bytes))
       (check-equal? 1 (nat<-bytes result)))
 
-    (test-case "digest works with single value"
+    (test-case "digest with single value"
       (def digest-value
         [[UInt256 . 7]])
       (def contract-bytes
@@ -60,7 +60,7 @@
       (def result (evm-eval/offchain alice contract-bytes))
       (check-equal? (digest digest-value) result))
 
-    (test-case "digest works with multiple values"
+    (test-case "digest with multiple values"
       (def digest-value
         [[UInt256 . 7]
          [UInt256 . 21]])
@@ -73,7 +73,7 @@
       (def result (evm-eval/offchain alice contract-bytes))
       (check-equal? (digest digest-value) result))
 
-    (test-case "digest works with realistic frame state"
+    (test-case "digest with realistic frame state"
       (def digest-value
         [[UInt16 . 1014]
          [Block . 2185]
@@ -90,7 +90,43 @@
             (&mstoreat 0 32)
             32 0 RETURN)))
       (def result (evm-eval/offchain alice contract-bytes))
-      (check-equal? (digest digest-value) result))))
+      (check-equal? (digest digest-value) result)
+
+    (test-case "simple small function"
+      (def contract-bytes
+        (assemble/bytes
+          (&begin
+            'start JUMP
+            (&define-small-function 'sub
+              (&begin SUB))
+            [&jumpdest 'start]
+            (&call 'sub 9 6)
+            (&mstoreat 0 1)
+            1 0 RETURN)))
+
+      (def result (evm-eval/offchain alice contract-bytes))
+      (check-equal? 3 (nat<-bytes result)))
+
+    (test-case "small function calling small function"
+      (def contract-bytes
+        (assemble/bytes
+          (&begin
+            'start JUMP
+            (&define-small-function 'add-then-double
+              (&begin
+                ADD
+                (&mstoreat 0 1)
+                (&call 'multiply 2 (&mloadat 0 1))))
+            (&define-small-function 'multiply
+              (&begin
+                MUL))
+            [&jumpdest 'start]
+            (&call 'add-then-double 3 6)
+            (&mstoreat 0 1)
+            1 0 RETURN)))
+
+      (def result (evm-eval/offchain alice contract-bytes))
+      (check-equal? 18 (nat<-bytes result))))))
 
 (def (digest alst)
   (def out (open-output-u8vector))
