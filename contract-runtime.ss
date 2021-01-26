@@ -4,7 +4,7 @@
   :std/misc/number :std/sugar
   :clan/base :clan/number :clan/with-id
   :clan/poo/poo (only-in :clan/poo/mop Type)
-  ./network-config ./assembly ./ethereum ./types)
+  ./network-config ./assembly ./ethereum ./types ./signing)
 
 ;; TODO:
 ;; * better assembler with segments, etc.?
@@ -323,7 +323,7 @@
 ;; Safely add two UInt256, checking for overflow
 ;; TESTING STATUS: Insufficiently tested
 (def &safe-add
-  ;; Scheme pseudocode: (lambda (x y) (def s (+ x y)) (require! (< (integer-length s) 256)) s)
+  ;; Scheme pseudocode: (lambda (x y) (def s (+ x y)) (require! (<= (integer-length s) 256)) s)
   ;; (unless (> 2**256 (+ x y)) (abort))
   ;; (unless (>= (- 2**256 1) (+ x y)) (abort))
   ;; (unless (>= (- 2**256 1 x) y) (abort))
@@ -389,14 +389,16 @@
 ;; TESTING STATUS: Wholly untested.
 (def &validate-sig-data ;; v r s <-- v r s
   (&begin
-   DUP1 27 SUB 1 DUP2 GT 0 DUP3 LT OR;; check that v is 27 or 28, which prevents malleability (not 29 or 30)
-   #x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0 DUP5 GT ;; s <= s_max
+   DUP1 27 SUB 1 GT ;; check that v is 27 or 28, which prevents malleability (not 29 or 30)
+   secp256k1-order DUP5 GT ;; s <= s_max
    OR &require-not!))
 
 ;; TESTING STATUS: Wholly untested.
 (def (&unsafe-post-increment-at! addr increment)
   (&begin addr MLOAD DUP1 increment ADD addr MSTORE)) ;; for small address, small size [10B, 21G]
 
+;; Store n-bytes of data from the top-of-stack element into the memory pointed at by brk,
+;; and bump the brk to now point after that data. Similar to the "," operator in FORTH.
 ;; TESTING STATUS: Wholly untested.
 (def (&brk-cons n-bytes)
   ;; Note the optimization wherein we can write extra zeros *after* the destination address
@@ -404,11 +406,12 @@
   (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &brk-cons")
   (cond
    ((zero? n-bytes) POP)
-   ((= n-bytes 1) (&begin (&unsafe-post-increment-at! brk@ n-bytes)))
-   ((= n-bytes 32) (&begin (&unsafe-post-increment-at! brk@ n-bytes)))
+   ((= n-bytes 1) (&begin (&unsafe-post-increment-at! brk@ 1) MSTORE8))
+   ((< 1 n-bytes 32) (&begin (&shl (- 256 (* 8 n-bytes))) (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))
+   ((= n-bytes 32) (&begin (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))
    ;; TODO: for programs that use a lot of memory, optimize the last few of these to not use memory?
    ;; But first, optimize the lot of memory into less memory
-   (else (&begin (&shl (- 256 (* 8 n-bytes))) (&unsafe-post-increment-at! brk@ n-bytes)))))
+   (else (error "&brk-cons only for immediate values" n-bytes))))
 
 ;; call precompiled contract #1 to recover the signer and message from a signature
 ;; TESTING STATUS: Used by buy-sig
@@ -435,7 +438,7 @@
   (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)))
   (if (zero? n-bytes)
     0
-    (&begin calldatapointer@ MLOAD DUP1 #| calldatapointer@ |# 32 + calldatapointer@ MSTORE CALLDATALOAD
+    (&begin calldatapointer@ MLOAD DUP1 #| calldatapointer@ |# 32 ADD calldatapointer@ MSTORE CALLDATALOAD
             (when (< n-bytes 32) (&shr (* 8 (- 32 n-bytes)))))))
 
 ;; TESTING STATUS: Used by buy-sig.
@@ -459,10 +462,10 @@
    [&jumpdest 'tail-call] ;; -- Should we assume the frame is in place? should we accept next-frame-pc next-frame-start next-frame-width?
    ;; -- frame-length TODO: at standard place in frame, info about who is or isn't timing out
    ;; and/or make it a standard part of the cp0 calling convention to catch such.
-   (&read-published-datum 1) 'tail-call-body JUMPI
+   (&read-published-datum 1) ISZERO 'tail-call-body JUMPI
    frame@ SHA3 0 SSTORE
    'stop-contract-call
-   [&jumpi1 'commit-contract-call])) ;; update the state, then commit and finally stop
+   [&jump1 'commit-contract-call])) ;; update the state, then commit and finally stop
 
 ;; Logging the data, simple version, optimal for messages less than 6000 bytes of data.
 ;; TESTING STATUS: Used by buy-sig.

@@ -109,6 +109,7 @@
 (def (&type a type x)
   (&bytes a ((.@ type .bytes<-) x)))
 (def (&int a i (n-bytes (n-bytes<-n-bits (integer-length i))))
+  (assert! (<= (integer-length i) (* 8 n-bytes)))
   (segment-push-bytes! (Assembler-segment a) (bytes<-nat i n-bytes)))
 (def (&push a i (n-bytes (max 1 (n-bytes<-n-bits (integer-length i)))))
   (assert! (<= 1 n-bytes 32))
@@ -135,7 +136,7 @@
   (def value (eval-fixup-expression (Assembler-labels a) expr))
   (unless value
     (error "fixup has no computed value" offset expr n-bits value))
-  (unless (and (<= 0 value) (< (integer-length value) n-bits))
+  (unless (and (<= 0 value) (<= (integer-length value) n-bits))
     (error "fixup has incorrect computed value" offset expr n-bits value))
   (u8vector-uint-set! (Segment-bytes (Assembler-segment a)) offset value big (n-bytes<-n-bits n-bits))
   (hash-remove! (Assembler-fixups a) offset))
@@ -347,7 +348,7 @@
   (JUMPI a))
 (def (&z a z)
   (cond
-   ((and (> 0 z) (< (integer-length z) 240))
+   ((and (> 0 z) (<= (integer-length z) 240))
     (&z a (bitwise-not z))
     (NOT a))
    ((> 0 z)

@@ -11,6 +11,7 @@
   ./signing-test ./10-json-rpc-integrationtest ./20-nonce-tracker-integrationtest)
 
 ;; Send a tx, not robust, but useful for debugging
+;; SignedTransactionInfo TransactionReceipt <- PreTx confirmations:Nat
 (def (debug-send-tx
       tx confirmations: (confirmations (ethereum-confirmations-wanted-in-blocks)))
   (def from (.@ tx from))
@@ -44,13 +45,12 @@
 
 ;; TransactionReceipt <- Address Bytes value:?(Maybe Quantity)
 (def (evm-eval/onchain from code value: (value (void)))
+  ;; TODO: always send tx with RETURN and then use eth_getCode to get the result.
   ;; Create a contract with the code
-  (defvalues (_ creation-receipt) (debug-send-tx {from data: (stateless-contract-init code) value gas: 4000000}))
+  (defvalues (_ creation-receipt)
+    (debug-send-tx {from data: (stateless-contract-init code) value gas: 4000000}))
   (def contract (.@ creation-receipt contractAddress))
-  ;; Call the contract with the value
-  (defvalues (_ call-receipt) (debug-send-tx {from to: contract value gas: 4000000}))
-  (def log (car (.@ call-receipt logs)))
-  (.@ log data))
+  (eth_getCode contract 'latest))
 
 (def 30-transaction-integrationtest
   (test-suite "integration test for ethereum/transaction"
