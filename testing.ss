@@ -33,11 +33,11 @@
   (bob      "0x30ce4a96f528bbfcd20d8c0c52f5c691f7e9675ef87e5a955e4e2d6f09c35ab0") ;; 0xb0bb1e
   (trent    "0x2d7d92a15f28bb6d56823a10c9a361e97bcd27714761dd95113765a9e5b33595") ;; 0x73e27
   ;; This is the penny collector for private test networks
-  (penny    "0x59f140e92149d1dc39f00967b5c881e01e6fc1eafa4c06d91075fdc09831ca94") ;; 0xc077ec7
+  (penny    "0x06d14bc1a49f8fde1dd20f57beb4712bf708f8bc441e7c3b7a8ad396ed9db344") ;; 0xC0773c1
   ;; This key is used in some of Ethereum standard test-case
   (fortysix "0x4646464646464646464646464646464646464646464646464646464646464646")
   ;; This key was chosen because it's got money on in genesis block for IOHK's Mantis docker image.
-  ;; We now use the same key as the "got all the money" account on our Geth genesis block.
+  ;; We now configure use od the same key for the "got all the money" account on our Geth genesis block.
   (croesus  "0x1167a41c432d1a494408b8fdeecd79bff89a5689925606dff8adf01f4bf92922"))
 
 ;; Register test keypairs

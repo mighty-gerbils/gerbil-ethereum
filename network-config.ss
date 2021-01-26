@@ -92,7 +92,7 @@
   blockPollingPeriodInSeconds: 5
   eip145: #t
   faucets: []
-  pennyCollector: (address<-0x "0x25a49e1444fF60ADB520B5Cf20712168E74Ad24f")) ;; MuKn production penny collector
+  pennyCollector: (address<-0x "0xC0113C7863cb7c972Bf6BEa2899D3dbae74a9a65")) ;; MuKn production penny collector
 
 (.def shared-test-network
   timeoutInBlocks: 10
@@ -112,7 +112,7 @@
   eip145: #f ;; sometimes we test against Mantis with an old KEVM, so we don't use EIP-145 yet.
   faucets: []
   infoURL: "https://localhost/"
-  pennyCollector: (address<-0x "0xC011edE680f0532044a6ca87aF226741e981e522")) ;; user "penny" from t/signing-test.ss
+  pennyCollector: (address<-0x "0xC0773c13b36eB92813aFE5e89EE89b633c5B1F15")) ;; user "penny" from t/signing-test.ss
 
 (defrules def-eth-net ()
   ((_ (name opt ...) slotspec ...)
