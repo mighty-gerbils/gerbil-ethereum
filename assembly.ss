@@ -495,3 +495,31 @@
       (λ (next) (continuation (reducer cur next))))
     identity
     lst))
+
+;; Calling convention is arguments at top of stack followed by return address.
+;; Use &call to invoke functions defined this way.
+(def (&define-small-function label body-bytes (n-return-values 1))
+  (&begin
+    [&jumpdest label]
+    body-bytes
+    (&swap-n n-return-values) JUMP))
+
+(def (&swap-n n)
+  (assert! (<= 1 n 16) "Invalid swap number")
+  (match n
+    (1 SWAP1)
+    (2 SWAP2)
+    (3 SWAP3)
+    (4 SWAP4)
+    (5 SWAP5)
+    (6 SWAP6)
+    (7 SWAP7)
+    (8 SWAP8)
+    (9 SWAP9)
+    (10 SWAP10)
+    (11 SWAP11)
+    (12 SWAP12)
+    (13 SWAP13)
+    (14 SWAP14)
+    (15 SWAP15)
+    (16 SWAP16)))
