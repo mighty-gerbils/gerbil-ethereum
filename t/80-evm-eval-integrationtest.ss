@@ -4,8 +4,7 @@
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/ports
   :std/iter :std/misc/bytes :std/test :clan/number
   :clan/poo/io :clan/persist/content-addressing
-  ../assembly ../contract-runtime ../types ../ethereum ../signing
-  ./signing-test
+  ../assembly ../contract-runtime ../types ../ethereum ../signing ../testing
   ./10-json-rpc-integrationtest ./30-transaction-integrationtest ./50-batch-send-integrationtest)
 
 (ensure-addresses-prefunded)

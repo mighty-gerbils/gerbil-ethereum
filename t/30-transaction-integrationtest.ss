@@ -6,9 +6,9 @@
   :clan/base :clan/debug :clan/failure :clan/json :clan/option :clan/path
   :clan/poo/poo :clan/poo/io :clan/poo/debug :clan/poo/brace
   :clan/persist/db
-  ../hex ../types ../network-config ../signing ../known-addresses
+  ../hex ../types ../network-config ../signing ../testing ../known-addresses
   ../ethereum ../json-rpc ../nonce-tracker ../transaction ../watch ../contract-runtime
-  ./signing-test ./10-json-rpc-integrationtest ./20-nonce-tracker-integrationtest)
+  ./10-json-rpc-integrationtest ./20-nonce-tracker-integrationtest)
 
 ;; Send a tx, not robust, but useful for debugging
 (def (debug-send-tx

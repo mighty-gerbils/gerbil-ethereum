@@ -10,7 +10,6 @@
 
 (def (files)
   [(all-gerbil-modules) ...
-   "t/signing-test.ss" ;; have a better way to export the test keys?
    "scripts/run-ethereum-test-net.ss"])
 
 (init-build-environment!

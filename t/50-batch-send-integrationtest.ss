@@ -4,8 +4,8 @@
   :std/format :std/iter :std/misc/list-builder :std/srfi/1 :std/sugar :std/test
   :clan/poo/debug
   :clan/decimal :clan/debug :clan/json :clan/persist/db
-  ../ethereum ../known-addresses ../json-rpc ../nonce-tracker ../batch-send
-  ./signing-test ./30-transaction-integrationtest)
+  ../ethereum ../known-addresses ../json-rpc ../nonce-tracker ../batch-send ../testing
+  ./30-transaction-integrationtest)
 
 ;; Display an account having the given balance given a way to print address, optional name and balance
 ;; : 'a <- ('a <- string string) Address TokenAmount

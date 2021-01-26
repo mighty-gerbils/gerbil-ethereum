@@ -5,8 +5,7 @@
   :std/format :std/iter :std/misc/list-builder :std/srfi/1 :std/sugar :std/test
   :clan/decimal :clan/debug :clan/json :clan/poo/poo :clan/poo/io :clan/poo/debug :clan/persist/db
   ../types ../ethereum ../signing ../known-addresses ../json-rpc ../nonce-tracker ../batch-call
-  ../transaction ../tx-tracker
-  ./signing-test
+  ../transaction ../tx-tracker ../testing
   ./30-transaction-integrationtest ./50-batch-send-integrationtest)
 
 (def 55-batch-call-integrationtest

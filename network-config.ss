@@ -101,7 +101,7 @@
   confirmationsString: "about 30 seconds"
   blockPollingPeriodInSeconds: 3
   eip145: #t
-  pennyCollector: (address<-0x "0x1406D9B823F201F07Ea27256597CD8CCB8126579")) ;; MuKn test penny collector
+  pennyCollector: (address<-0x "0xc0773C1073863E8AA4B4b61548B64409F6A60E26")) ;; MuKn test penny collector
 
 (.def private-test-network
   timeoutInBlocks: 5

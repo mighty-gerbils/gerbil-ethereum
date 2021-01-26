@@ -4,8 +4,7 @@
   :std/sugar :std/test
   :clan/list :clan/path-config
   :clan/persist/db
-  ../signing ../json-rpc ../transaction ../nonce-tracker
-  ./signing-test)
+  ../signing ../json-rpc ../transaction ../nonce-tracker ../testing)
 
 ;; Use the test database
 (displayln "Connecting to the test database...")
