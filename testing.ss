@@ -1,10 +1,12 @@
 (export #t)
 
 (import
+  :gerbil/gambit/threads
   :std/format :std/iter :std/misc/list :std/srfi/13 :std/sugar
-  :clan/json :clan/syntax :clan/with-id
-  :clan/poo/poo
-  ./ethereum ./json-rpc ./known-addresses ./batch-send ./assets)
+  :clan/base :clan/json :clan/syntax :clan/with-id
+  :clan/poo/poo :clan/poo/debug :clan/poo/brace
+  ./types ./ethereum ./known-addresses
+  ./network-config ./json-rpc ./transaction ./nonce-tracker ./batch-send ./assets)
 
 (def (capitalize name)
   (def Name (string-downcase (stringify name)))
@@ -50,7 +52,7 @@
 
 (def (get-address-missing-amount min-balance target-balance address)
   (assert! (<= min-balance target-balance))
-  (def balance (eth_getBalance address 'pending))
+  (def balance (eth_getBalance address 'latest))
   (if (>= balance min-balance)
     (begin
       (printf "~a has ~a already. Good.\n"
@@ -80,3 +82,42 @@
             (when (> b 0)
               (c [a b])))))))
   (batch-send funder needful-transfers log: write-json-ln))
+
+;; Send a tx, not robust, but useful for debugging
+(def (debug-send-tx
+      tx confirmations: (confirmations (ethereum-confirmations-wanted-in-blocks)))
+  (def from (.@ tx from))
+  (reset-nonce from)
+  (def signed (sign-transaction tx))
+  (DDT debug-send-tx-0:
+       PreTransaction tx
+       SignedTransactionInfo signed)
+  (def receipt
+    (let/cc return
+      (while #t
+        (try
+         (ignore-errors (send-signed-transaction signed))
+         (return (confirmed-receipt<-transaction signed confirmations: confirmations))
+         (catch StillPending? => void)
+         (catch (TransactionRejected? e) (return (TransactionRejected-receipt e))))
+        (thread-sleep! (ethereum-block-polling-period-in-seconds)))))
+  (def success? (successful-receipt? receipt))
+  (DDT debug-send-tx-1:
+       Bool success?
+       (Or TransactionReceipt Any) receipt)
+  (unless success? (raise (TransactionRejected receipt)))
+  (values signed receipt))
+
+;; Block can be a block number, latest, earliest, pending, or commit.
+;; if commit, then commit the evaluation to be inspected with remix.ethereum.org
+
+;; Bytes <- Address Bytes value:?(Maybe Quantity) block:?(Or BlockParameter (Enum commit))
+(def (evm-eval/offchain from code value: (value (void)) block: (block 'latest))
+  (eth_call {from data: code value} block))
+
+;; TransactionReceipt <- Address Bytes value:?(Maybe Quantity)
+(def (evm-eval/onchain from code value: (value (void)))
+  ;; Create a contract with the code
+  (defvalues (_ creation-receipt) (debug-send-tx {from data: code value gas: 4000000}))
+  (def contract (.@ creation-receipt contractAddress))
+  (eth_getCode contract 'latest))

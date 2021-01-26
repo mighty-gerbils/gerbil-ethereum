@@ -4,24 +4,27 @@
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/ports
   :std/iter :std/misc/bytes :std/test :clan/number
   :clan/poo/io :clan/persist/content-addressing
-  ../assembly ../contract-runtime ../types ../ethereum ../signing ../testing
+  ../types ../ethereum ../network-config ../signing ../assembly ../contract-runtime ../testing
   ./10-json-rpc-integrationtest ./30-transaction-integrationtest ./50-batch-send-integrationtest)
 
-(ensure-addresses-prefunded)
+(def (digest<-tvps alst)
+  (def out (open-output-u8vector))
+  (for ((p alst))
+    (with (([t . v] p)) (marshal t v out)))
+  (digest<-bytes (get-output-u8vector out)))
 
 (def 80-evm-eval-integrationtest
   (test-suite "unit tests for evm functions"
-
     (test-case "return"
       (def contract-bytes
         (assemble/bytes
-          (&begin
-            42
-            (&mstoreat 0 1)
-            2 0 RETURN)))
+         (&begin
+          42
+          (&mstoreat 0 1)
+          2 0 RETURN)))
       (def result (evm-eval/offchain alice contract-bytes))
       (def unmarshaled-result (nat<-bytes result))
-      (check-equal? (* 42 256) unmarshaled-result))
+      (check-equal? unmarshaled-result (* 42 256)))
 
     (test-case "if"
       (def contract-bytes
@@ -46,7 +49,7 @@
             (&mstoreat 0 1)
             1 0 RETURN)))
       (def result (evm-eval/offchain alice contract-bytes))
-      (check-equal? 1 (nat<-bytes result)))
+      (check-equal? (nat<-bytes result) 1))
 
     (test-case "digest with single value"
       (def digest-value
@@ -58,7 +61,7 @@
             (&mstoreat 0 32)
             32 0 RETURN)))
       (def result (evm-eval/offchain alice contract-bytes))
-      (check-equal? (digest digest-value) result))
+      (check-equal? (json<- Digest result) (json<- Digest (digest<-tvps digest-value))))
 
     (test-case "digest with multiple values"
       (def digest-value
@@ -71,7 +74,7 @@
             (&mstoreat 0 32)
             32 0 RETURN)))
       (def result (evm-eval/offchain alice contract-bytes))
-      (check-equal? (digest digest-value) result))
+      (check-equal? (json<- Digest result) (json<- Digest (digest<-tvps digest-value))))
 
     (test-case "digest with realistic frame state"
       (def digest-value
@@ -90,7 +93,7 @@
             (&mstoreat 0 32)
             32 0 RETURN)))
       (def result (evm-eval/offchain alice contract-bytes))
-      (check-equal? (digest digest-value) result)
+      (check-equal? (json<- Digest result) (json<- Digest (digest<-tvps digest-value)))
 
     (test-case "simple small function"
       (def contract-bytes
@@ -105,7 +108,7 @@
             1 0 RETURN)))
 
       (def result (evm-eval/offchain alice contract-bytes))
-      (check-equal? 3 (nat<-bytes result)))
+      (check-equal? (nat<-bytes result) 3))
 
     (test-case "small function calling small function"
       (def contract-bytes
@@ -126,10 +129,4 @@
             1 0 RETURN)))
 
       (def result (evm-eval/offchain alice contract-bytes))
-      (check-equal? 18 (nat<-bytes result))))))
-
-(def (digest alst)
-  (def out (open-output-u8vector))
-  (for ((p alst))
-    (with (([t . v] p)) (marshal t v out)))
-  (digest<-bytes (get-output-u8vector out)))
+      (check-equal? (nat<-bytes result) 18)))))
