@@ -3,8 +3,8 @@
 (import
   :std/srfi/1 :std/test
   :clan/debug :clan/poo/poo
-  ../watch ../json-rpc ../nonce-tracker ../tx-tracker  ../transaction ../batch-call ../ethereum ../network-config
-  ./signing-test ./30-transaction-integrationtest)
+  ../watch ../json-rpc ../nonce-tracker ../testing
+  ./30-transaction-integrationtest)
 
 (def (process-filter filter)
   (display filter))
@@ -14,29 +14,29 @@
     (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
     (def trivial-logger (.@ (ensure-trivial-logger-contract croesus) contract-address))
     (test-case "watch-contract-step"
-      (def current-block (eth_blockNumber))
-      (def target-block (+ current-block (* 4 (ethereum-confirmations-wanted-in-blocks))))    
+      (def before-block (eth_blockNumber))
       (debug-send-tx (call-function croesus trivial-logger (string->bytes "hello, world")))
-      (let ((values a b) (watch-contract-step trivial-logger current-block target-block));; Multiplication is there so that it would wait till the contract it completed if not it returns empty list.
-        (check-equal? (null? a) #f)
-        (check-equal? (= b target-block) #f)
-        (check-equal?  (string=? (bytes->string (.@ (car a) data)) "hello, world") #t))
-
-      (def latest-block (eth_blockNumber))
-      (def to-block (+ latest-block (ethereum-confirmations-wanted-in-blocks)))     
-      (debug-send-tx (call-function croesus trivial-logger (string->bytes "hello, world"))) 
-      (let ((values a b) (watch-contract-step trivial-logger to-block latest-block))
-        (check-equal? (null? a) #t)
-        (check-equal? b latest-block)))
+      (def after-block (eth_blockNumber))
+      (defvalues (logs confirmed-block) (watch-contract-step trivial-logger before-block after-block))
+      (check-equal? (length logs) 1)
+      (check-equal? (<= before-block confirmed-block after-block) #f)
+      (check-equal? (bytes->string (.@ (car logs) data)) "hello, world")
+      (defvalues (more-logs more-confirmed-block)
+        (watch-contract-step trivial-logger (1+ confirmed-block) confirmed-block))
+      (check-equal? morelogs '())
+      (check-equal? more-confirmed-block confirmed-block))
 
     (test-case "watch-contract"
-      (def current-block (eth_blockNumber))
-      (def to-block (+ current-block (ethereum-confirmations-wanted-in-blocks)))
-      (def present-block current-block)
-        (debug-send-tx (call-function croesus trivial-logger (string->bytes "hello, world")))
-        (watch-contract identity trivial-logger current-block to-block)      
-          (check-equal? (= (eth_blockNumber) current-block) #f))
-#|          
+      (def before-block (eth_blockNumber))
+      (debug-send-tx (call-function croesus trivial-logger (string->bytes "hello, world")))
+      (def after-block current-block)
+      (def logs '())
+      (def (process-log log) (push! log logs))
+      (watch-contract process-log trivial-logger current-block to-block)
+      (check-equal? (length logs) 1)
+      (check-equal? (bytes->string (.@ (car logs) data)) "hello, world"))
+
+#|
     (test-case "watchBlockchain"
       (def fromBlock (eth_blockNumber))
       (def receipt (batch-call croesus [[trivial-logger 0 (string->bytes "Nothing here")]

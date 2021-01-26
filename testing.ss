@@ -39,7 +39,7 @@
   ;; This key is used in some of Ethereum standard test-case
   (fortysix "0x4646464646464646464646464646464646464646464646464646464646464646")
   ;; This key was chosen because it's got money on in genesis block for IOHK's Mantis docker image.
-  ;; We now configure use od the same key for the "got all the money" account on our Geth genesis block.
+  ;; We now configure use of the same key for the "got all the money" account on our Geth genesis block.
   (croesus  "0x1167a41c432d1a494408b8fdeecd79bff89a5689925606dff8adf01f4bf92922"))
 
 ;; Register test keypairs

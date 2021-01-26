@@ -37,7 +37,8 @@
 (def (import-secret-key/json j) (import-secret-key/bytes (<-json Bytes32 j)))
 (def (export-secret-key/json x) (json<- Bytes32 (export-secret-key/bytes x)))
 
-(def secp256k1-order #x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0)
+(def secp256k1-p #xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F)
+(def secp256k1-order #xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141)
 
 (def (randomUInt256)
   (def r (random-integer (arithmetic-shift 1 256)))
