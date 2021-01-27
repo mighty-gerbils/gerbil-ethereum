@@ -169,8 +169,8 @@
 ;; connect via port 8546
 ;; To exec
 ;; docker exec -it $(run-mantis-test-net.ss mantis-container) bash
-(def mantis-docker-image "inputoutput/mantis:2020-kevm") ;; NB: there are both -evm and -kevm variants
-(def mantis-yolo-conf "yolo-kevm.conf") ;; our override file, also with -evm or -kevm
+(def mantis-docker-image "inputoutput/mantis:2020-evm") ;; NB: there are both -evm and -kevm variants
+(def mantis-yolo-conf "yolo-evm.conf") ;; our override file, also with -evm or -kevm
 (def mantis-run-directory (run-path "mantis")) ;; Determine the runtime directory
 ;; NB: When editing the configuration, compare to what's in production:
 ;; https://github.com/input-output-hk/mantis/blob/develop/src/main/resources/chains/etc-chain.conf
