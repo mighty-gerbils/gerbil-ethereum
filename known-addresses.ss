@@ -9,11 +9,11 @@
   :clan/crypto/secp256k1
   ./hex ./types ./signing)
 
-(defstruct keypair (address public-key secret-key password) equal: #t)
+(defstruct keypair (address public-key secret-key) equal: #t)
 
 (define-type Keypair
   {(:: @ Type.)
-   ;;Reduced: (Record seckey: [SecretKey] password: [Password])
+   ;;Reduced: (Record seckey: [SecretKey])
    .element?: keypair?
    .sexp<-: (lambda (kp) `(<-json Keypair ,(.json<- kp))) ;; do NOT export private data
    .json<-: (lambda (kp) (json<- Address (keypair-address kp)))
@@ -30,30 +30,27 @@
 (def (export-keypair/json kp)
   (hash ("address" (json<- Address (keypair-address kp)))
         ("seckey" (json<- Bytes32 (export-secret-key/bytes (keypair-secret-key kp))))
-        ("pubkey" (json<- PublicKey (keypair-public-key kp)))
-        ("password" (json<- String (export-password/string (keypair-password kp))))))
+        ("pubkey" (json<- PublicKey (keypair-public-key kp)))))
 (def (import-keypair/json j)
-  (assert! (equal? (sort (hash-keys j) string<?) '("address" "password" "pubkey" "seckey")))
+  (assert! (equal? (sort (hash-keys j) string<?) '("address" "pubkey" "seckey")))
   (keypair (<-json Address (hash-get j "address"))
            (<-json SecretKey (hash-get j "seckey"))
-           (<-json PublicKey (hash-get j "pubkey"))
-           (<-json Password (hash-get j "password"))))
+           (<-json PublicKey (hash-get j "pubkey"))))
 ;;Why can't we do that???
 ;;(defmethod (@@method :pr Keypair)
 ;;  (λ (self (port (current-output-port)) (options (current-representation-options)))
 ;;    (write (sexp<- Keypair self) port)))
 
-(def (keypair<-seckey-0x seckey-0x passwd)
+(def (keypair<-seckey-0x seckey-0x)
   (def seckey-data (validate Bytes32 (bytes<-0x seckey-0x)))
-  (keypair<-secret-key seckey-data passwd))
+  (keypair<-secret-key seckey-data))
 
-(def (keypair<-secret-key seckey-data passwd)
+(def (keypair<-secret-key seckey-data)
   (validate Bytes32 seckey-data)
-  (validate String passwd)
   (def seckey (secp256k1-seckey seckey-data))
   (def pubkey (secp256k1-pubkey<-seckey seckey-data))
   (def address (address<-public-key pubkey))
-  (keypair address pubkey seckey (password passwd)))
+  (keypair address pubkey seckey))
 
 (def (nibble-ref bytes i)
   (def b (bytes-ref bytes (arithmetic-shift i -1)))
@@ -75,7 +72,7 @@
 
 (def trivial-scoring [(lambda (_) 0) 0])
 
-(def (generate-keypair scoring: (scoring trivial-scoring) passwd: (passwd ""))
+(def (generate-keypair scoring: (scoring trivial-scoring))
   (nest
     (let/cc return)
     (with ([score-function enough-score] scoring))
@@ -90,7 +87,7 @@
            (s (score-function address-bytes)))
       (set! seed (modulo (+ seed (nat<-bytes h)) secp256k1-order)))
     (when (<= best-score-so-far s))
-    (let (kp (keypair (make-address address-bytes) pubkey seckey (password passwd)))
+    (let (kp (keypair (make-address address-bytes) pubkey seckey))
       (set! best-score-so-far s)
       (write-json-ln (export-keypair/json kp)))
     (when (>= s enough-score))

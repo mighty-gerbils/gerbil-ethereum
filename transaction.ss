@@ -89,18 +89,10 @@
     (error "No registered keypair for address" 'ensure-eth-signing-key address))
   (try
    (personal_importRawKey (hex-encode (export-secret-key/bytes (keypair-secret-key keypair)))
-                          (export-password/string (keypair-password keypair))
                           timeout: timeout log: log)
    (catch (json-rpc-error? e)
      (unless (equal? (json-rpc-error-message e) "account already exists")
        (raise e)))))
-
-;; NB: geth will refuse to unlock via http (vs https (?)), anyway
-;; : Unit <- Address duration:?Real log:?(Fun Unit <- Json)
-(def (unlock-account address duration: (duration 5) log: (log #f))
-  (when log (log ['unlock-account (0x<-address address) duration]))
-  (def keypair (keypair<-address address))
-  (personal_unlockAccount address (export-password/string (keypair-password keypair)) duration))
 
 ;; : Bool <- TransactionReceipt
 (def (successful-receipt? receipt)
@@ -175,16 +167,6 @@
                (equal? c-blockNumber r-blockNumber)
                (equal? c-blockHash r-blockHash))
     (error "confirmation doesn't match receipt information")))
-
-;; Previous implementation, that signs through geth, and returns a SignedTransaction
-;; : SignedTransaction <- Transaction
-#;
-(def (sign-transaction transaction)
-  (def sender (.@ transaction from))
-  (def kp (keypair<-address sender))
-  (unless kp (error "Couldn't find registered keypair" (json<- Address sender)))
-  (personal_signTransaction (TransactionParameters<-PreTransaction transaction)
-                            (export-password/string (keypair-password kp))))
 
 ;; Prepare a signed transaction, that you may later issue onto Ethereum network,
 ;; from a given pre-transaction.

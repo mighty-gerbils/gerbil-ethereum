@@ -16,7 +16,7 @@
       ;; TODO: complete the test of this example from EIP 155
       ;; https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md
       (def sender-keys
-        (keypair<-seckey-0x "0x4646464646464646464646464646464646464646464646464646464646464646" ""))
+        (keypair<-seckey-0x "0x4646464646464646464646464646464646464646464646464646464646464646"))
       (def from (keypair-address sender-keys))
       (def nonce 9)
       (def gasPrice (wei<-gwei 20))
