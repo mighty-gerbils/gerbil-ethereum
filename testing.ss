@@ -2,11 +2,12 @@
 
 (import
   :gerbil/gambit/threads
-  :std/format :std/iter :std/misc/list :std/srfi/13 :std/sugar
+  :std/format :std/iter :std/misc/list :std/srfi/1 :std/srfi/13 :std/sugar :std/test
   :clan/base :clan/json :clan/syntax :clan/with-id
-  :clan/poo/poo :clan/poo/debug :clan/poo/brace
+  :clan/poo/poo :clan/poo/debug :clan/poo/brace :clan/poo/io
   ./types ./ethereum ./known-addresses
-  ./network-config ./json-rpc ./transaction ./nonce-tracker ./batch-send ./assets)
+  ./network-config ./json-rpc ./transaction ./nonce-tracker
+  ./assembly ./contract-runtime ./batch-send ./assets)
 
 (def (capitalize name)
   (def Name (string-downcase (stringify name)))
@@ -132,16 +133,16 @@
 ;; Directive <- Type
 (def (&evm-inline-output t)
   (def len (param-length t))
-  (DDT &evm-inline-output: Type t poo.Nat len)
-  (&begin ;; bufptr[incremented] <-- bufptr val:t
-   DUP1 SWAP2 (&mstore/overwrite-after len) len ADD))
+  ;;(DDT &evm-inline-output: Type t poo.Nat len)
+  (&begin ;; bufptr[incremented] <-- bufptr result-start result-start val:t
+   SWAP1 SWAP3 DUP2 (&mstore/overwrite-after len) len ADD))
 
 ;; TODO: support boxed types as inputs (that may offset the start of the output?) and outputs
-(def (&evm-inline-outputs outputs)
+(def (&evm-inline-outputs outputs result-start: (result-start 0))
   (&begin
-   0 ;; start output buffer
+   result-start DUP1 DUP1 ;; start output buffer
    (&begin* (map (match <> ([t . _] (&evm-inline-output t))) outputs))
-   0))
+   SUB SWAP1))
 
 (def (&evm-test-code inputs action outputs
                      result-in-memory?: (result-in-memory? #f)
@@ -149,9 +150,10 @@
   (&begin
    (&evm-inline-inputs inputs)
    action
-   (&evm-inline-outputs outputs
-                        result-in-memory?: result-in-memory?
-                        result-start: result-start)
+   (if result-in-memory?
+     (let (result-length (reduce + 0 (map (compose param-length car) outputs)))
+       (&begin result-length result-start))
+     (&evm-inline-outputs outputs result-start: result-start))
    RETURN
    [&jumpdest 'abort-contract-call] 0 DUP1 REVERT))
 
@@ -164,23 +166,22 @@
   (def code-bytes (assemble/bytes (&evm-test-code inputs action outputs
                                                   result-in-memory?: result-in-memory?
                                                   result-start: result-start)))
-  (DDT evm-test-1: (.@ Bytes .json<-) code-bytes)
+  ;;(DDT evm-test-1: Bytes code-bytes)
   (def result-bytes (evm-eval croesus code-bytes block: block))
-  (DDT evm-test-2: (.@ Bytes .json<-) result-bytes)
+  ;;(DDT evm-test-2: Bytes result-bytes)
   (def result-list
     (call-with-input-u8vector
      result-bytes
      (lambda (port)
-       (map-in-order (lambda (output-tv) (unmarshal (car output-tv) port)) outputs))))
+       (map-in-order (lambda (tv) (def t (car tv)) (sexp<- t (unmarshal t port))) outputs))))
   (def expected-result-list
-    (map cdr outputs))
+    (map (lambda (tv) (sexp<- (car tv) (cdr tv))) outputs))
   (check-equal? result-list expected-result-list))
 
 (def (evm-test-failure inputs action block: (block 'latest))
   (def code-bytes (assemble/bytes (&evm-test-code inputs action [])))
-  (or
-    (try
-     (evm-eval croesus code-bytes block: block)
-     #f
-     (catch (_) #t))
-    (error "Failed to fail" inputs action)))
+  (check-equal?
+   (try
+    (evm-eval croesus code-bytes block: block)
+    #f
+    (catch (_) #t)) #t))

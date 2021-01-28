@@ -389,7 +389,7 @@
 ;; TESTING STATUS: Wholly untested.
 (def &validate-sig-data ;; v r s <-- v r s
   (&begin
-   DUP1 27 SUB 1 GT ;; check that v is 27 or 28, which prevents malleability (not 29 or 30)
+   1 27 DUP3 SUB GT ;; check that v is 27 or 28, which prevents malleability (not 29 or 30)
    (1- secp256k1-order) DUP5 GT ;; s <= s_max
    OR &require-not!))
 
@@ -405,7 +405,7 @@
   ;; since we're mixing data with yet unwritten zeroes anyway
   (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &brk-cons")
   (cond
-   ((zero? n-bytes) POP)
+   ((zero? n-bytes) POP) ;; note: we assume a value of a unit type was on stack, that we just pop
    ((= n-bytes 1) (&begin (&unsafe-post-increment-at! brk@ 1) MSTORE8))
    ((< 1 n-bytes 32) (&begin (&shl (- 256 (* 8 n-bytes))) (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))
    ((= n-bytes 32) (&begin (&unsafe-post-increment-at! brk@ n-bytes) MSTORE))
@@ -576,8 +576,8 @@
   (&begin NUMBER timer-start-set!)) ;; [17B, 29G]
 
 ;; TESTING STATUS: Wholly untested.
-(def &stop-timer! ;; -->
-  (&begin (arithmetic-shift 1 62) timer-start-set!)) ;; Timeout in 9 billion years at 15s/block
+(def max-block (1- (arithmetic-shift 1 63))) ;; block in 18 billion years at 15s/block
+(def &stop-timer! (&begin max-block timer-start-set!)) ;; Timeout in an impossibly far future
 
 ;; abort unless saved data indicates a timeout
 ;; TESTING STATUS: Used by buy-sig. Incompletely untested.

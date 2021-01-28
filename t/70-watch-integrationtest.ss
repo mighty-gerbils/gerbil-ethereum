@@ -1,9 +1,9 @@
 (export #t)
 
 (import
-  :std/srfi/1 :std/test
+  :std/misc/list :std/srfi/1 :std/test
   :clan/debug :clan/poo/poo
-  ../watch ../json-rpc ../nonce-tracker ../testing
+  ../watch ../json-rpc ../transaction ../nonce-tracker ../testing ../batch-call
   ./30-transaction-integrationtest)
 
 (def (process-filter filter)
@@ -19,20 +19,20 @@
       (def after-block (eth_blockNumber))
       (defvalues (logs confirmed-block) (watch-contract-step trivial-logger before-block after-block))
       (check-equal? (length logs) 1)
-      (check-equal? (<= before-block confirmed-block after-block) #f)
+      (check-equal? (<= before-block confirmed-block after-block) #t)
       (check-equal? (bytes->string (.@ (car logs) data)) "hello, world")
       (defvalues (more-logs more-confirmed-block)
         (watch-contract-step trivial-logger (1+ confirmed-block) confirmed-block))
-      (check-equal? morelogs '())
+      (check-equal? more-logs '())
       (check-equal? more-confirmed-block confirmed-block))
 
     (test-case "watch-contract"
       (def before-block (eth_blockNumber))
       (debug-send-tx (call-function croesus trivial-logger (string->bytes "hello, world")))
-      (def after-block current-block)
+      (def after-block (eth_blockNumber))
       (def logs '())
       (def (process-log log) (push! log logs))
-      (watch-contract process-log trivial-logger current-block to-block)
+      (watch-contract process-log trivial-logger before-block after-block)
       (check-equal? (length logs) 1)
       (check-equal? (bytes->string (.@ (car logs) data)) "hello, world"))
 

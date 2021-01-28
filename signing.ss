@@ -1,8 +1,9 @@
 (export #t)
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/foreign :gerbil/gambit/random
+  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/foreign
   :std/misc/bytes :std/misc/repr
   :clan/base :clan/io :clan/poo/poo
+  :clan/crypto/random
   :clan/poo/brace :clan/poo/io
   :clan/crypto/keccak :clan/crypto/secp256k1
   ./types ./hex)
@@ -39,12 +40,6 @@
 
 (def secp256k1-p #xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F)
 (def secp256k1-order #xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141)
-
-(def (randomUInt256)
-  (def r (random-integer (arithmetic-shift 1 256)))
-  (if (file-exists? "/dev/urandom")
-    (+ r (<-bytes UInt256 (call-with-input-file "/dev/urandom" (cut read-bytes 32 <>))))
-    r))
 
 (def (generate-secret-key-data)
   (bytes<- UInt256 (modulo (randomUInt256) secp256k1-order)))
