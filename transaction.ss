@@ -82,13 +82,13 @@
   (raise (NonceTooLow)))
 
 ;; : Unit <- Address timeout:?(OrFalse Real) log:?(Fun Unit <- Json)
-(def (ensure-eth-signing-key timeout: (timeout #f) log: (log #f) address)
+(def (ensure-eth-signing-key timeout: (timeout #f) log: (log #f) address password)
   (when log (log ['ensure-eth-signing-key (0x<-address address)]))
   (def keypair (keypair<-address address))
   (unless keypair
     (error "No registered keypair for address" 'ensure-eth-signing-key address))
   (try
-   (personal_importRawKey (hex-encode (export-secret-key/bytes (keypair-secret-key keypair)))
+   (personal_importRawKey (hex-encode (export-secret-key/bytes (keypair-secret-key keypair))) password
                           timeout: timeout log: log)
    (catch (json-rpc-error? e)
      (unless (equal? (json-rpc-error-message e) "account already exists")

@@ -29,7 +29,7 @@
   :gerbil/gambit/bytes :gerbil/gambit/ports :gerbil/gambit/threads
   (for-syntax :std/format)
   :std/format :std/lazy :std/sugar
-  :clan/base :clan/concurrency :clan/json :clan/logger :clan/failure :clan/maybe :clan/option
+  :clan/base :clan/concurrency :clan/json :clan/logger :clan/failure :clan/maybe :clan/option :clan/syntax
   :clan/net/json-rpc
   :clan/poo/poo :clan/poo/brace :clan/poo/io
   ./types ./signing ./ethereum ./network-config ./logger)
@@ -50,35 +50,57 @@
 (defsyntax (define-ethereum-api stx)
   (syntax-case stx (<-)
     ((_ namespace method result-type <- argument-type ...)
-     (let* ((method-name (apply format "~a_~a" (syntax->datum #'(namespace method))))
-            (fun-id (datum->syntax (stx-car stx) (string->symbol method-name))))
-       (with-syntax ((method-name method-name) (fun-id fun-id))
+     (let*-values (((method-name method-formals args-vector)
+                    (syntax-case #'method ()
+                      ((name . formals)
+                       (values #'name #'formals (call<-formals #'(vector) #'formals)))
+                      (name
+                       (let* ((n (length (syntax->datum #'(argument-type ...))))
+                              (vars (formals<-nat n)))
+                         (values #'name vars (cons 'vector vars))))))
+                   ((method-string) (format "~a_~a" (syntax->datum #'namespace)
+                                            (syntax->datum method-name)))
+                   ((fun-id) (datum->syntax (stx-car stx) (string->symbol method-string))))
+       (with-syntax (((formals ...) method-formals)
+                     (args-vector args-vector)
+                     (method-string method-string)
+                     (fun-id fun-id))
          #'(begin
              (def params-type (Tuple argument-type ...))
-             (def (fun-id timeout: (timeout #f) log: (log eth-log) url: (url (ethereum-url)) . a)
-                 (ethereum-json-rpc method-name
+             (def (fun-id timeout: (timeout #f) log: (log eth-log) url: (url (ethereum-url)) formals ...)
+                 (ethereum-json-rpc method-string
                                     (.@ result-type .<-json)
-                                    (.@ params-type .json<-) (list->vector a)
+                                    (.@ params-type .json<-) args-vector
                                     timeout: timeout log: log url: url))))))))
 
-(define-ethereum-api web3 clientVersion String <-)
-(define-ethereum-api web3 sha3 Bytes32 <- Bytes) ;; keccak256
+(define-ethereum-api web3 clientVersion
+  String <-)
+(define-ethereum-api web3 sha3
+  Bytes32 <- Bytes) ;; keccak256
 
-(define-ethereum-api net version String <-) ;; a decimal number in a String
-(define-ethereum-api net listening Bool <-)
-(define-ethereum-api net peerCount Quantity <-)
+(define-ethereum-api net version
+  String <-) ;; a decimal number in a String
+(define-ethereum-api net listening
+  Bool <-)
+(define-ethereum-api net peerCount
+  Quantity <-)
 
-(define-ethereum-api eth protocolVersion String <-) ;; a decimal number
+(define-ethereum-api eth protocolVersion
+  String <-) ;; a decimal number
 
 (define-type SyncingStatus
   (Record startingBlock: [Quantity]
           currentBlock: [Quantity]
           highestBlock: [Quantity]))
-(define-ethereum-api eth syncing (OrFalse SyncingStatus) <-)
+(define-ethereum-api eth syncing
+  (OrFalse SyncingStatus) <-)
 
-(define-ethereum-api eth coinbase Address <-)
-(define-ethereum-api eth mining Bool <-)
-(define-ethereum-api eth hashrate Quantity <-)
+(define-ethereum-api eth coinbase
+  Address <-)
+(define-ethereum-api eth mining
+  Bool <-)
+(define-ethereum-api eth hashrate
+  Quantity <-)
 
 (define-type BlockParameter
   (Union
@@ -185,7 +207,8 @@
     {transactionHash transactionIndex blockNumber blockHash})) ;; Confirmation
 
 ;; Returns a list of address owned by the client
-(define-ethereum-api eth accounts (List Address) <-)
+(define-ethereum-api eth accounts
+  (List Address) <-)
 
 ;; same as Transaction, but without nonce
 (define-type CallParameters
@@ -206,9 +229,11 @@
    stateDiff: [(Map Bytes32 <- Quantity) optional: #t])) ;; override individual slots in account storage
 
 ;; TODO: Geth has an optional third parameter StateOverrideSet
-(define-ethereum-api eth call Data <- CallParameters BlockParameter)
+(define-ethereum-api eth (call params (block 'latest))
+  Data <- CallParameters BlockParameter)
 
-(define-ethereum-api eth chainId (Maybe UInt256) <-)
+(define-ethereum-api eth chainId
+  (Maybe UInt256) <-)
 
 ;; SignedTransactionData + {hash}
 (define-type SignedTx
@@ -230,65 +255,85 @@
    tx: [SignedTx]))
 
 ;; Returns estimate of gas needed for transaction
-(define-ethereum-api eth estimateGas Quantity <- TransactionParameters)
+(define-ethereum-api eth estimateGas
+  Quantity <- TransactionParameters)
 
 ;; Get the current gas price in wei
-(define-ethereum-api eth gasPrice Quantity <-)
+(define-ethereum-api eth gasPrice
+  Quantity <-)
 
 ;; Returns the balance of the account of given address (and block)
-(define-ethereum-api eth getBalance Quantity <- Address BlockParameter)
+(define-ethereum-api eth (getBalance address (block 'latest))
+  Quantity <- Address BlockParameter)
 
 ;; Returns the content of storage in given contract at given memory position, given block
-(define-ethereum-api eth getStorageAt Bytes32 <- Address Quantity BlockParameter)
+(define-ethereum-api eth (getStorageAt address position (block 'latest))
+  Bytes32 <- Address Quantity BlockParameter)
 
 ;; Returns the code of given address (and block)
-(define-ethereum-api eth getCode Bytes <- Address BlockParameter)
+(define-ethereum-api eth (getCode contract-address (block 'latest))
+  Bytes <- Address BlockParameter)
 
 ;; Returns a transaction by the hash code
-(define-ethereum-api eth getTransactionByHash (Maybe TransactionInformation) <- Digest)
+(define-ethereum-api eth getTransactionByHash
+  (Maybe TransactionInformation) <- Digest)
 
 ;; Returns a transaction by block hash and transaction index position
-(define-ethereum-api eth getTransactionByBlockHashAndIndex TransactionInformation <- Digest Quantity)
+(define-ethereum-api eth getTransactionByBlockHashAndIndex
+  TransactionInformation <- Digest Quantity)
 
 ;; Returns a transaction by block height and transaction index position
-(define-ethereum-api eth getTransactionByBlockNumberAndIndex TransactionInformation <- BlockParameter Quantity)
+(define-ethereum-api eth getTransactionByBlockNumberAndIndex
+  TransactionInformation <- BlockParameter Quantity)
 
 ;; Returns the number of transaction at address (and transaction)
-(define-ethereum-api eth getTransactionCount Quantity <- Address BlockParameter)
+(define-ethereum-api eth getTransactionCount
+  Quantity <- Address BlockParameter)
 
 ;; Returns the number of transactions in a block found by its hash code
-(define-ethereum-api eth getTransactionCountByHash Quantity <- Digest)
+(define-ethereum-api eth getTransactionCountByHash
+  Quantity <- Digest)
 
 ;; Returns the number of transactions in a block found by its height
-(define-ethereum-api eth getTransactionCountByNumber Quantity <- BlockParameter)
+(define-ethereum-api eth getTransactionCountByNumber
+  Quantity <- BlockParameter)
 
 ;; Returns the number of uncles in a block found by its hash
-(define-ethereum-api eth getUncleCountByBlockHash Quantity <- Digest)
+(define-ethereum-api eth getUncleCountByBlockHash
+  Quantity <- Digest)
 
 ;; Returns the number of uncles in a block found by its height
-(define-ethereum-api eth getUncleCountByNumber Quantity <- BlockParameter)
+(define-ethereum-api eth getUncleCountByNumber
+  Quantity <- BlockParameter)
 
 ;; Returns uncle information
-(define-ethereum-api eth getUncleByBlockHashAndIndex BlockInformation <- Digest Quantity)
-(define-ethereum-api eth getUncleByBlockNumberAndIndex BlockInformation <- BlockParameter Quantity)
+(define-ethereum-api eth getUncleByBlockHashAndIndex
+  BlockInformation <- Digest Quantity)
+(define-ethereum-api eth getUncleByBlockNumberAndIndex
+  BlockInformation <- BlockParameter Quantity)
 
 ;; Returns a receipt of transaction by transaction hash (not available if transaction still pending)
-(define-ethereum-api eth getTransactionReceipt (Maybe TransactionReceipt) <- Digest)
+(define-ethereum-api eth getTransactionReceipt
+  (Maybe TransactionReceipt) <- Digest)
 
 ;; Create new message call transaction or a contract creation for signed transaction
-(define-ethereum-api eth sendRawTransaction Digest <- Data)
+(define-ethereum-api eth sendRawTransaction
+  Digest <- Data)
 
 ;; NB: Not to be used in our code, it's too flaky wrt various attacks.
 ;; Creates new message call transaction or a contract creation if the datafield contains code.
-(define-ethereum-api eth sendTransaction Digest <- TransactionParameters)
+(define-ethereum-api eth sendTransaction
+  Digest <- TransactionParameters)
 
 ;; Computes an eth signature of (eth-sign-prefix message)
-(define-ethereum-api eth sign Data <- Address Data)
+(define-ethereum-api eth sign
+  Data <- Address Data)
 (def (eth-sign-prefix message)
   (format "\x19;Ethereum Signed Message:\n~a~a" (string-length message) message))
 
 ;; This is the thing specified (and used?) by Geth:
-(define-ethereum-api eth signTransaction Bytes <- TransactionParameters)
+(define-ethereum-api eth signTransaction
+  Bytes <- TransactionParameters)
 ;; However, parity's OpenEthereum documents this richer return type:
 ;;(define-ethereum-api eth signTransaction SignTransactionResult <- TransactionParameters)
 ;; And it's not supported by Mantis.
@@ -316,10 +361,13 @@
           uncles: [(List Digest)]))
 
 ;; boolean: true for full tx objects, false for txhashes only
-(define-ethereum-api eth getblockByHash (Maybe BlockInformation) <- Digest Bool)
-(define-ethereum-api eth getblockByNumber (Maybe BlockInformation) <- BlockParameter Bool)
+(define-ethereum-api eth getblockByHash
+  (Maybe BlockInformation) <- Digest Bool)
+(define-ethereum-api eth getblockByNumber
+  (Maybe BlockInformation) <- BlockParameter Bool)
 
-(define-ethereum-api eth blockNumber Quantity <-)
+(define-ethereum-api eth blockNumber
+  Quantity <-)
 
 (define-type newFilterOptions ;; for newFilter
   (Record fromBlock: [BlockParameter optional: #t default: 'latest]
@@ -333,10 +381,14 @@
           topics: [(Maybe (List (Or Bytes32 Unit (List Bytes32)))) optional: #t default: (void)]
           blockhash: [(Maybe Digest) optional: #t default: (void)]))
 
-(define-ethereum-api eth newFilter Quantity <- newFilterOptions)
-(define-ethereum-api eth newBlockFilter Quantity <-)
-(define-ethereum-api eth newPendingTransactionFilter Quantity <-)
-(define-ethereum-api eth uninstallFilter Bool <- Quantity)
+(define-ethereum-api eth newFilter
+  Quantity <- newFilterOptions)
+(define-ethereum-api eth newBlockFilter
+  Quantity <-)
+(define-ethereum-api eth newPendingTransactionFilter
+  Quantity <-)
+(define-ethereum-api eth uninstallFilter
+  Bool <- Quantity)
 (define-ethereum-api eth getFilterChanges
   (Or (List Digest) ;; for newBlockFilter (block hashes), newPendingTransactionFilter (tx hashes)
       LogObjectList) ;; for newFilter
@@ -347,14 +399,18 @@
   <- Quantity)
 ;; TODO: Check that it is coherent
 ;; Get a list of matchings blocks
-(define-ethereum-api eth getLogs LogObjectList <- getLogsFilterOptions)
+(define-ethereum-api eth getLogs
+  LogObjectList <- getLogsFilterOptions)
 
 ;; returns: 1. current block header pow-hash, 2. seed hash used for the DAG,
 ;; 3. boundary condition (“target”), 2^256 / difficulty.
-(define-ethereum-api eth getWork (Tuple Bytes32 Bytes32 Bytes32) <-)
-(define-ethereum-api eth submitWork Bool <- Bytes32 Bytes32 Bytes32)
+(define-ethereum-api eth getWork
+  (Tuple Bytes32 Bytes32 Bytes32) <-)
+(define-ethereum-api eth submitWork
+  Bool <- Bytes32 Bytes32 Bytes32)
 
-(define-ethereum-api shh version String <-)
+(define-ethereum-api shh version
+  String <-)
 (define-type ShhMessageSent
   (Record
    from: [(Maybe Bytes60)]
@@ -363,17 +419,24 @@
    payload: [Bytes]
    priority: [Quantity]
    ttl: [Quantity])) ;; time to live in seconds.
-(define-ethereum-api shh post Bool <- ShhMessageSent)
-(define-ethereum-api shh newIdentity Bytes60 <-)
-(define-ethereum-api shh hasIdentity Bool <- Bytes60)
-(define-ethereum-api shh newGroup Bytes60 <-)
-(define-ethereum-api shh addToGroup Bool <- Bytes60)
+(define-ethereum-api shh post
+  Bool <- ShhMessageSent)
+(define-ethereum-api shh newIdentity
+  Bytes60 <-)
+(define-ethereum-api shh hasIdentity
+  Bool <- Bytes60)
+(define-ethereum-api shh newGroup
+  Bytes60 <-)
+(define-ethereum-api shh addToGroup
+  Bool <- Bytes60)
 (define-type ShhFilter
   (Record
    to: [(Maybe Bytes60)]
    topics: [(List (Or Bytes Unit (List Bytes)))]))
-(define-ethereum-api shh newFilter Quantity <- ShhFilter)
-(define-ethereum-api shh uninstallFilter Bool <- Quantity)
+(define-ethereum-api shh newFilter
+  Quantity <- ShhFilter)
+(define-ethereum-api shh uninstallFilter
+  Bool <- Quantity)
 (define-type ShhMessageReceived
   (Record
    hash: [Digest]
@@ -385,22 +448,29 @@
    topics: [(List Bytes)] ;; Array of DATA topics the message contained.
    payload: [Bytes] ;; The payload of the message.
    workProved: [Quantity])) ;; Integer of the work this message required before it was send (?).
-(define-ethereum-api shh getFilterChanges (List ShhMessageReceived) <- Quantity)
-(define-ethereum-api shh getMessages (List ShhMessageReceived) <- Quantity)
+(define-ethereum-api shh getFilterChanges
+  (List ShhMessageReceived) <- Quantity)
+(define-ethereum-api shh getMessages
+  (List ShhMessageReceived) <- Quantity)
 
 ;;;; Geth extensions, Personal Namespace https://geth.ethereum.org/docs/rpc/ns-personal
 ;; Not present in Mantis. Is it present in Parity, though I haven't looked for discrepancies.
 
 ;; Arguments: (1) SecretKey as hex string, no 0x prefix, (2) passphrase.
-(define-ethereum-api personal importRawKey Address <- String String)
+(define-ethereum-api personal importRawKey
+  Address <- String String)
 
-(define-ethereum-api personal listAccounts (List Address) <-)
+(define-ethereum-api personal listAccounts
+  (List Address) <-)
 
-(define-ethereum-api personal lockAccount Bool <- Address) ;; returns true if account found (?)
+(define-ethereum-api personal lockAccount
+  Bool <- Address) ;; returns true if account found (?)
 
-(define-ethereum-api personal newAccount Address <- String) ;; argument is passphrase
+(define-ethereum-api personal newAccount
+  Address <- String) ;; argument is passphrase
 
-(define-ethereum-api personal unlockAccount Bool <- ;; returns true if found?
+(define-ethereum-api personal unlockAccount
+  Bool <- ;; returns true if found?
   Address
   String ;; passphrase
   (Maybe JsInt)) ;; duration in seconds (default 300)
@@ -410,7 +480,8 @@
 
 ;;; The sign method calculates an Ethereum specific signature of:
 ;;; (keccak256<-bytes (ethereum-sign-message-wrapper message))
-(define-ethereum-api personal sign Signature <- String Address String) ;; message address passphrase
+(define-ethereum-api personal sign
+  Signature <- String Address String) ;; message address passphrase
 ;;; Looking at the code in go-ethereum, the length that matters is the length in bytes.
 ;;; However, the JSON RPC API passes the string as JSON, which will be UTF-8 encoded,
 ;;; so it might be "interesting" to try to sign arbitrary bytes that are not valid JSON string.
@@ -427,10 +498,12 @@
   (compose ethereum-sign-message-wrapper/bytes string->bytes))
 
 ;;; Recover the signer of a message signed with personal_sign
-(define-ethereum-api personal ecRecover Address <- String Signature) ;; message signature
+(define-ethereum-api personal ecRecover
+  Address <- String Signature) ;; message signature
 
 ;; https://github.com/ethereum/go-ethereum/pull/15971/files
-(define-ethereum-api personal signTransaction SignedTransaction <- TransactionParameters String)
+(define-ethereum-api personal signTransaction
+  SignedTransaction <- TransactionParameters String)
 
 ;; txpool namespace https://geth.ethereum.org/docs/rpc/ns-txpool
 (define-type TxPoolEntry
