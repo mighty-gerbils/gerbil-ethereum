@@ -390,7 +390,7 @@
 (def &validate-sig-data ;; v r s <-- v r s
   (&begin
    1 27 DUP3 SUB GT ;; check that v is 27 or 28, which prevents malleability (not 29 or 30)
-   (1- secp256k1-order) DUP5 GT ;; s <= s_max
+   (arithmetic-shift secp256k1-order -1) DUP5 GT ;; s <= s_max, under half the order of the group, or else rejected by Bitcoin
    OR &require-not!))
 
 ;; TESTING STATUS: Wholly untested.
