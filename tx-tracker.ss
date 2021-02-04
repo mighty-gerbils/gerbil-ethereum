@@ -333,7 +333,8 @@
 ;; TODO: do it transactionally. Reserve a ticket number first?
 ;; : TransactionTracker.Key TransactionTracker <- Address PreTransaction
 (def (issue-pre-transaction pre)
-  (displayln "issue-pre-transaction:" pre-transaction)
+  (DDT issue-pre-transaciton:
+    PreTransaction pre)
   (.call UserTransactionsTracker add-transaction (.@ pre from) (TransactionStatus-TxWanted pre)))
 
 ;; : Transaction SignedTransaction TransactionReceipt <- FinalTransactionStatus
@@ -348,12 +349,15 @@
 
 ;; : TransactionReceipt <- TransactionTracker
 (def (receipt<-tracker tracker)
+  (DDT receipt<-tracker:
+    TransactionTracker tracker)
   (match (track-transaction tracker)
     ((TransactionStatus-TxConfirmed (vector _ _ TransactionReceipt))
      TransactionReceipt)))
 
 ;; : TransactionReceipt <- PreTransaction
 (def (post-transaction pre-transaction)
-  (displayln "post-transaction:" pre-transaction)
+  (DDT post-transaction:
+    PreTransaction pre-transaction)
   (defvalues (_key tracker) (issue-pre-transaction pre-transaction))
   (receipt<-tracker tracker))
