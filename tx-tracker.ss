@@ -6,7 +6,7 @@
   :clan/base :clan/concurrency :clan/exception
   :clan/failure :clan/option
   :clan/net/json-rpc
-  :clan/poo/poo :clan/poo/brace :clan/poo/io :clan/poo/trie
+  :clan/poo/poo :clan/poo/brace :clan/poo/io :clan/poo/trie :clan/poo/debug
   :clan/persist/db :clan/persist/persist
   ./hex ./types ./signing ./known-addresses ./ethereum ./json-rpc ./nonce-tracker ./transaction)
 
@@ -206,6 +206,8 @@
              (def (invalidate transaction-status e)
                (reset-nonce user)
                (continue (TransactionStatus-TxFailed (vector transaction-status e))))
+             (DDT .restore-loop:
+              Any status)
              (match status
                ((TransactionStatus-TxWanted pretx)
                 (match (with-result (sign-transaction pretx))
@@ -331,6 +333,7 @@
 ;; TODO: do it transactionally. Reserve a ticket number first?
 ;; : TransactionTracker.Key TransactionTracker <- Address PreTransaction
 (def (issue-pre-transaction pre)
+  (displayln "issue-pre-transaction:" pre-transaction)
   (.call UserTransactionsTracker add-transaction (.@ pre from) (TransactionStatus-TxWanted pre)))
 
 ;; : Transaction SignedTransaction TransactionReceipt <- FinalTransactionStatus
@@ -351,5 +354,6 @@
 
 ;; : TransactionReceipt <- PreTransaction
 (def (post-transaction pre-transaction)
+  (displayln "post-transaction:" pre-transaction)
   (defvalues (_key tracker) (issue-pre-transaction pre-transaction))
   (receipt<-tracker tracker))

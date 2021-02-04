@@ -6,7 +6,7 @@
   :std/error :std/iter :std/misc/list :std/misc/number :std/sugar :std/text/hex
   :clan/assert :clan/failure :clan/number :clan/option :clan/with-id
   :clan/net/json-rpc
-  :clan/poo/poo :clan/poo/io :clan/poo/brace
+  :clan/poo/poo :clan/poo/io :clan/poo/brace :clan/poo/debug
   :clan/crypto/keccak :clan/persist/db
   ./hex ./types ./rlp ./ethereum ./signing ./known-addresses
   ./logger ./network-config ./json-rpc ./nonce-tracker)
@@ -172,7 +172,17 @@
 ;; from a given pre-transaction.
 ;; : SignedTransactionInfo <- PreTransaction ?Nat
 (def (sign-transaction tx (chainid (ethereum-chain-id)))
+  (DDT sign-transaciton:
+    PreTransaction tx)
   (def-slots (from nonce gasPrice gas to value data) (complete-transaction tx))
+  (DDT complete-transaciton:
+    Any from
+    Any nonce
+    Any gasPrice
+    Any gas
+    Any to
+    Any value
+    Any data)
   (def keypair (or (keypair<-address from)
                    (error "Couldn't find registered keypair" (json<- Address from))))
   (defvalues (v r s) (vrs<-tx (keypair-secret-key keypair)
