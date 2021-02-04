@@ -350,7 +350,7 @@
 ;; : TransactionReceipt <- TransactionTracker
 (def (receipt<-tracker tracker)
   (DDT receipt<-tracker:
-    TransactionTracker tracker)
+    Any tracker)
   (match (track-transaction tracker)
     ((TransactionStatus-TxConfirmed (vector _ _ TransactionReceipt))
      TransactionReceipt)))
