@@ -315,18 +315,25 @@
     (action
      user
      (fun (add-transaction get-state set-state! tx)
+       (DDT add-transaction: Any tx)
        (def state (get-state))
+       (DDT add-transaction-1: Any state)
        (def txsn (.@ state transaction-counter))
+       (DDT add-transaction-2: Any txsn)
        (def key {(user) (txsn)})
+       (DDT add-transaction-3: Any key)
        (def tracker (.call TransactionTracker make key (lambda _ transaction-status) tx))
+       (DDT add-transaction-4: Any tracker)
        (when (.call NatSet .empty? (.@ state ongoing-transactions))
          (.call TransactionTracker activate key))
+       (DDT add-transaction-5: Any #t)
        (def new-state
         (!> state
             (cut .call Lens .modify
                  (slot-lens 'ongoing-transactions) (cut .call NatSet .cons txsn <>) <>)
             (cut .call Lens .modify
                  (slot-lens 'transaction-counter) 1+ <>)))
+       (DDT add-transaction-6: Any new-state)
        (set-state! new-state)
        (values key tracker)))))
 
