@@ -12,7 +12,7 @@
 (import
   :gerbil/gambit/bytes
   :std/misc/number :std/misc/repr :std/srfi/1 :std/sugar
-  :clan/io :clan/poo/poo :clan/poo/mop
+  :clan/io :clan/poo/object :clan/poo/mop
   :clan/crypto/keccak)
 
 

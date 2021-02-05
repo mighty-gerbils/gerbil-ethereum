@@ -5,7 +5,7 @@
   :std/error :std/misc/completion :std/text/hex
   :clan/base :clan/concurrency :clan/failure :clan/option :clan/maybe
   :clan/net/json-rpc
-  :clan/poo/poo :clan/poo/brace :clan/poo/io
+  :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/persist/db :clan/persist/persist
   ./types ./ethereum ./signing ./json-rpc)
 

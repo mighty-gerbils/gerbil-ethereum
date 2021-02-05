@@ -4,7 +4,7 @@
   :gerbil/gambit/exceptions :gerbil/gambit/ports
   :std/format :std/misc/list :std/misc/repr :std/srfi/13 :std/sugar :std/test
   :clan/exception :clan/syntax :clan/with-id
-  :clan/poo/poo :clan/poo/brace :clan/poo/io
+  :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/crypto/keccak
   ../hex ../rlp ../types ../ethereum ../known-addresses ../signing ../transaction
   ./signing-test)

@@ -6,7 +6,7 @@
   :clan/base :clan/concurrency :clan/exception
   :clan/failure :clan/option
   :clan/net/json-rpc
-  :clan/poo/poo :clan/poo/brace :clan/poo/io :clan/poo/trie
+  :clan/poo/object :clan/poo/brace :clan/poo/io :clan/poo/trie
   :clan/persist/db :clan/persist/persist
   ./hex ./types ./signing ./known-addresses ./ethereum ./json-rpc ./nonce-tracker ./transaction)
 
@@ -231,7 +231,7 @@
                   ((some (failure e))
                    (invalidate status e))
                   ((some (some x))
-                   (invalidate status (Invalid "unexpected result" x)))
+                   (invalidate status (Invalid ["unexpected result" x])))
                   ((failure e)
                    (invalidate status e))))
                (final

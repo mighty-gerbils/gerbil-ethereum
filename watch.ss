@@ -5,7 +5,7 @@
   :gerbil/gambit/threads
   :std/sugar
   :clan/concurrency :clan/exception
-  :clan/poo/poo :clan/poo/brace
+  :clan/poo/object :clan/poo/brace
   :clan/persist/persist
   ./types ./ethereum ./network-config ./json-rpc)
 

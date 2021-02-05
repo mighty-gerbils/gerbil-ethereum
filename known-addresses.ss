@@ -5,7 +5,7 @@
   :std/format :std/iter :std/sort :std/srfi/13 :std/sugar :std/text/hex
   :clan/base :clan/json :clan/number
   :clan/crypto/keccak
-  :clan/poo/io :clan/poo/brace :clan/poo/poo
+  :clan/poo/io :clan/poo/brace :clan/poo/object
   :clan/crypto/secp256k1
   ./hex ./types ./signing)
 
@@ -115,7 +115,10 @@
   (hash-remove! address-by-nickname nickname)
   (hash-remove! nickname-by-address address))
 
-
+(def (parse-address x)
+  (or (ignore-errors (<-json Address x))
+      (ignore-errors (address<-nickname x))
+      (error "Address not recognized" x)))
 
 ;; TODO: make this table Scheme parameters?
 (def keypair-by-address (make-hash-table))

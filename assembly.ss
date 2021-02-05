@@ -4,7 +4,7 @@
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
   :std/misc/bytes :std/misc/number :std/sugar
   :clan/base :clan/number :clan/syntax
-  :clan/poo/poo :clan/poo/io
+  :clan/poo/object :clan/poo/io
   ./types ./ethereum ./network-config ./signing)
 
 ;; In the future, segments can be nested, and
@@ -401,7 +401,7 @@
    (else (&begin MLOAD (&shr (- 256 (* 8 n-bytes))))))) ;; [4B, 9G]
 
 (def (&mloadat addr (n-bytes 32))
-  (when (poo? n-bytes) ;; accept a fixed-size type descriptor
+  (when (object? n-bytes) ;; accept a fixed-size type descriptor
     (set! n-bytes (.@ n-bytes .length-in-bytes)))
   (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mloadat")
   (cond

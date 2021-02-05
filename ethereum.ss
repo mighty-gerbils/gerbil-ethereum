@@ -3,7 +3,7 @@
 (import
   :std/sugar
   :clan/maybe :clan/number :clan/decimal
-  :clan/poo/poo :clan/poo/io :clan/poo/brace
+  :clan/poo/object :clan/poo/io :clan/poo/brace
   (only-in :clan/poo/mop sexp<-)
   (only-in :clan/poo/type Sum define-sum-constructors)
   ./types ./hex ./signing)

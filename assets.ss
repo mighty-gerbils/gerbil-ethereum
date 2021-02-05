@@ -6,7 +6,7 @@
 (import
   :std/sugar :std/format :std/misc/string :std/srfi/13
   :clan/decimal
-  :clan/poo/poo
+  :clan/poo/object
   ./assembly ./types ./ethereum ./abi ./contract-runtime ./signing)
 
 (.def (TokenAmount @ [] .decimals .validate .symbol)

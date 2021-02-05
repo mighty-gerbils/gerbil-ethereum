@@ -3,7 +3,7 @@
 (import
   :std/sugar :std/text/json
   :clan/json :clan/path-config
-  :clan/poo/poo :clan/poo/io :clan/poo/brace
+  :clan/poo/object :clan/poo/io :clan/poo/brace
   ./types ./signing ./ethereum ./logger)
 
 (define-type EthereumNetworkConfig
@@ -84,72 +84,84 @@
 (def ethereum-chain-id (ethereum-connection-accessor 'chain-id))
 (def ethereum-mantis? (ethereum-connection-accessor 'mantis?))
 
-(.def production-network
+(.def network-defaults
+  blockPollingPeriodInSeconds: ? 5
+  chainId: ? 0
+  eip145: ? #t
+  faucets: ? []
+  pennyCollector: ? (address<-0x "0xC0113C7863cb7c972Bf6BEa2899D3dbae74a9a65")) ;; MuKn production penny collector
+
+(.def (production-network @ network-defaults)
   timeoutInBlocks: 11520
   timeoutString: "about 48 hours"
   confirmationsWantedInBlocks: 100
-  confirmationsString: "about 25 minutes"
-  blockPollingPeriodInSeconds: 5
-  eip145: #t
-  faucets: []
-  pennyCollector: (address<-0x "0xC0113C7863cb7c972Bf6BEa2899D3dbae74a9a65")) ;; MuKn production penny collector
+  confirmationsString: "about 25 minutes")
 
-(.def shared-test-network
+(.def (shared-test-network @ network-defaults)
   timeoutInBlocks: 10
   timeoutString: "about 2.5 minutes"
   confirmationsWantedInBlocks: 2
   confirmationsString: "about 30 seconds"
   blockPollingPeriodInSeconds: 3
-  eip145: #t
   pennyCollector: (address<-0x "0xc0773C1073863E8AA4B4b61548B64409F6A60E26")) ;; MuKn test penny collector
 
-(.def private-test-network
+(.def (private-test-network @ network-defaults)
   timeoutInBlocks: 5
   timeoutString: "about a minute and a half minutes"
   confirmationsWantedInBlocks: 1
   confirmationsString: "about 15 seconds"
   blockPollingPeriodInSeconds: 1
-  eip145: #f ;; sometimes we test against Mantis with an old KEVM, so we don't use EIP-145 yet.
-  faucets: []
+  eip145: #t ;; NB: This will not work against a Mantis using an old KEVM, where you should use #f
   infoURL: "https://localhost/"
-  pennyCollector: (address<-0x "0xC0773c13b36eB92813aFE5e89EE89b633c5B1F15")) ;; user "penny" from t/signing-test.ss
+  pennyCollector: (address<-0x "0xC0773c13b36eB92813aFE5e89EE89b633c5B1F15")) ;; user "penny" from testing.ss
 
 (defrules def-eth-net ()
   ((_ (name opt ...) slotspec ...)
-   (let (key (symbol->string 'name))
-     (hash-put! ethereum-networks key
-                (.o (:: opt ...) slotspec ...))))
+   (let ((key (symbol->string 'name))
+         (config {(:: opt ...) slotspec ...}))
+     (hash-put! ethereum-networks key config)
+     (hash-put! ethereum-networks (.@ config shortName) config)
+     (hash-put! ethereum-networks (.@ config network) config)))
   ((d sym slotspec ...) (d (sym @ []) slotspec ...)))
 
-(def-eth-net (ethereum @ production-network)
+(.def (etherscanable @ [] network)
+  etherscanUrl:
+  (apply string-append ["https://" (if (equal? network "mainnet") [] [network "."])... "etherscan.io/"])
+  txExplorerUrl: (string-append etherscanUrl "tx/")
+  addressExplorerUrl: (string-append etherscanUrl "address/"))
+
+(def-eth-net (ethereum @ [production-network etherscanable])
   name: "Ethereum Mainnet"
   description: "The real thing, PoW mainnet"
-  shortName: "eth" chain: "ETH" network: "mainnet"
-  chainId: 1 networkId: 1
+  shortName: "eth" chain: "ETH" network: "mainnet" chainId: 1 networkId: 1
   nativeCurrency: {name: "Ether" symbol: 'ETH decimals: 18}
   rpc: ["https://mainnet.infura.io/v3/${INFURA_API_KEY}"
         "https://api.mycryptoapi.com/eth"]
-  infoURL: "https://ethereum.org"
-  txExplorerUrl: "https://etherscan.io/tx/"
-  addressExplorerUrl: "https://etherscan.io/address/")
+  infoURL: "https://ethereum.org")
 
-(def-eth-net (rinkeby @ shared-test-network)
+(def-eth-net (ropsten @ [shared-test-network etherscanable])
+  name: "Ethereum Testnet Ropsten"
+  shortName: "rop" chain: "ETH" network: "ropsten" chainId: 3 networkId: 3
+  nativeCurrency: {name: "Ropsten Ether" symbol: "ROP" decimals: 18}
+  rpc: ["https://ropsten.infura.io/v3/${INFURA_API_KEY}"
+        "wss://ropsten.infura.io/ws/v3/${INFURA_API_KEY}"]
+  faucets: ["https://faucet.ropsten.be/"
+            "https://faucet.ropsten.be/donate/${ADDRESS}"]
+  infoURL: "https://github.com/ethereum/ropsten")
+
+(def-eth-net (rinkeby @ [shared-test-network etherscanable])
   name: "Ethereum Testnet Rinkeby"
   description: "Rinkeby, the public Geth-only PoA testnet"
-  chainId: 4 networkId: 4
-  shortName: "rin" chain: "ETH" network: "rinkeby"
+  shortName: "rin" chain: "ETH" network: "rinkeby" chainId: 4 networkId: 4
   nativeCurrency: {name: "Rinkeby Ether" symbol: 'RIN decimals: 18}
   rpc: ["https://rinkeby.infura.io/v3/${INFURA_API_KEY}"]
   faucets: ["https://faucet.rinkeby.io"]
-  infoURL: "https://www.rinkeby.io"
-  txExplorerUrl: "https://rinkeby.etherscan.io/tx/"
-  addressExplorerUrl: "https://rinkeby.etherscan.io/address/")
+  infoURL: "https://www.rinkeby.io")
 
 (def-eth-net (kotti @ shared-test-network)
   name: "Ethereum Classic Testnet Kotti"
   description: "ETC PoA testnet"
-  networkId: 6 chainId: 6
-  shortName: "kot" chain: "ETC" network: "kotti"
+  shortName: "kot" chain: "ETC" network: "kotti" networkId: 6 chainId: 6
   nativeCurrency: {name: "Kotti Ether" symbol: 'KOT decimals: 18}
   rpc: []
   faucets: [] ;; TODO: find the faucet
@@ -161,8 +173,8 @@
   name: "Cardano KEVM Devnet"
   description: "Cardano side-chain with Mantis KEVM client devnet"
   networkId: 41390 chainId: 105
-  ;; The two lines below are made up by us -- TODO: find out if there's a better name
-  shortName: "david" network: "david" chain: "Cardano"
+  ;; The two lines below are made up by us -- TODO: find out if there are better names
+  shortName: "david" chain: "Cardano" network: "david"
   nativeCurrency: {name: "Cardano KEVM Devnet Ether" symbol: 'DAVID decimals: 18}
   eip145: #f ;; until the KEVM is updated, it won't support eip145 yet.
   rpc: ["https://david.kevm.dev-mantis.iohkdev.io:8546"]
@@ -174,8 +186,7 @@
 (def-eth-net (pet @ private-test-network)
   name: "Private Ethereum Testnet"
   description: "Local PoA testnet"
-  networkId: 17 chainId: 1337
-  shortName: "pet" chain: "ETH" network: "petnet"
+  shortName: "pet" chain: "ETH" network: "petnet" networkId: 17 chainId: 1337
   nativeCurrency: {name: "Private Ether Test" symbol: 'PET decimals: 18}
   rpc: ["http://localhost:8545"]
   txExplorerUrl: "https://localhost/pet/pet/tx/"

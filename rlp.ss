@@ -14,7 +14,7 @@
         :gerbil/gambit/bytes
         :gerbil/gambit/ports
         :clan/base :clan/io
-        :clan/poo/poo
+        :clan/poo/object
         :clan/poo/mop
         (only-in :clan/number bytes<-nat nat<-bytes integer-length-in-bytes))
 

@@ -6,7 +6,7 @@
   :std/error :std/iter :std/misc/list :std/misc/number :std/sugar :std/text/hex
   :clan/assert :clan/failure :clan/number :clan/option :clan/with-id
   :clan/net/json-rpc
-  :clan/poo/poo :clan/poo/io :clan/poo/brace
+  :clan/poo/object :clan/poo/io :clan/poo/brace
   :clan/crypto/keccak :clan/persist/db
   ./hex ./types ./rlp ./ethereum ./signing ./known-addresses
   ./logger ./network-config ./json-rpc ./nonce-tracker)
@@ -96,7 +96,7 @@
 
 ;; : Bool <- TransactionReceipt
 (def (successful-receipt? receipt)
-  (and (poo? receipt)
+  (and (object? receipt)
        (if (ethereum-mantis?)
          (let (code (.@ receipt statusCode)) (or (equal? code 0) (equal? code (void)))) ;; success on Mantis -- void seems to be a bug
          (equal? (.@ receipt status) 1)))) ;; success on Geth
@@ -126,7 +126,7 @@
       (when (and confirmations (> confirmations (confirmations<-receipt receipt)))
         (raise (StillPending)))
       receipt))
-   ((poo? receipt)
+   ((object? receipt)
     (raise (TransactionRejected receipt)))
    (else
     (with-slots (from nonce) tx
@@ -144,7 +144,7 @@
   (cond
    ((successful-receipt? receipt)
     (- block-number (.@ receipt blockNumber)))
-   ((poo? receipt)
+   ((object? receipt)
     -2)
    (else -1)))
 
@@ -187,7 +187,7 @@
   (signed-tx-bytes<- nonce gasPrice gas to value data v r s))
 
 (def (complete-tx-field tx name valid? mandatory? (default void))
-  (def v (.ref tx name void))
+  (def v (with-catch void (cut .ref tx name)))
   (cond
    ((valid? v) v)
    ((or mandatory? (not (void? v)))
@@ -229,8 +229,8 @@
   (def-field data tx)
   (def-field value tx)
   (def-field gas tx from to data value)
-  (def nonce (.ref tx 'nonce void))
-  (def gasPrice (.ref tx 'gasPrice void))
+  (def nonce (with-catch void (cut .ref tx 'nonce)))
+  (def gasPrice (with-catch void (cut .ref tx 'gasPrice)))
   {from to data value gas nonce gasPrice})
 
 ;; : TransactionReceipt <- SignedTransactionInfo

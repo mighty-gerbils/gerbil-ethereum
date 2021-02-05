@@ -10,7 +10,7 @@
   :std/sort :std/srfi/1 :std/srfi/13 :std/srfi/43 :std/sugar :std/text/json
   :clan/base :clan/io :clan/json :clan/list
   :clan/maybe :clan/number :clan/syntax
-  :clan/poo/poo :clan/poo/io :clan/poo/rationaldict
+  :clan/poo/object :clan/poo/io :clan/poo/rationaldict
   (except-in :clan/poo/mop Bool)
   (prefix-in (only-in :clan/poo/mop Bool) poo.)
   (except-in :clan/poo/number Nat UInt. UInt IntSet)
@@ -55,12 +55,12 @@
        (format "expected a number or a string representing a number, given ~a" (json-object->string j))))))
 
 ;; Variable-length Nat
-(.def (Nat @ [methods.bytes<-marshal poo.Nat] .validate)
+(.def (Nat @ [poo.Nat] .validate)
   .sexp<-: (lambda (x) `(nat<-0x ,(0x<-nat x)))
   .json<-: 0x<-nat
   .<-json: (compose .validate number<-json))
 
-(.def (NatSet @ RationalSet) sexp: 'NatSet Elt: Nat)
+(define-type (NatSet @ RationalSet) Elt: Nat)
 
 (def (ensure-zeroes bytes start len)
   (for (i (in-range len))
@@ -131,13 +131,12 @@
                  (((uid ui)...) (map foo [60 64 65 256])) ;; Shh id / PubKey / Signature / Bloom filter
                  (((id i)...) #'((rid ri)... (uid ui)...)))
     #'(begin
-        (defrule (d name n) (.def (name @ BytesN.) n: n sexp: 'name))
+        (defrule (d name n) (define-type (name @ BytesN.) n: n))
         (d id i)...
         (register-simple-eth-type rid)...)))
 (defBytesNs)
 
-(.def (BytesL16 @ [methods.bytes<-marshal BytesN.])
-   sexp: 'BytesL16
+(define-type (BytesL16 @ [methods.bytes<-marshal BytesN.])
    .Length: UInt16
    .ethabi-name: "bytes"
    .ethabi-display-type: (cut display .ethabi-name <>)
@@ -165,7 +164,7 @@
 (define-type Bytes BytesL16)
 (register-simple-eth-type Bytes)
 
-(.def (String @ poo.String)
+(define-type (String @ poo.String)
    .element?: (λ (x) (and (string? x)
                           (or (< (string-length x) 16384)
                               (and (not (< 65535 (string-length x)))
@@ -184,7 +183,7 @@
 (register-simple-eth-type String)
 
 ;; TODO: have a function that only interns the string to a symbol if already found?
-(.def (Symbol @ poo.Symbol)
+(define-type (Symbol @ poo.Symbol)
   .ethabi-name: "string"
   .ethabi-display-type: (cut display .ethabi-name <>)
   .ethabi-head-length: 32
@@ -198,7 +197,7 @@
   (lambda (bytes start head get-tail set-tail!)
     (maybe-intern-symbol (.call .String .ethabi-decode-from bytes start head get-tail set-tail!))))
 
-(.def (Bool @ poo.Bool)
+(define-type (Bool @ poo.Bool)
   .ethabi-name: "bool"
   .ethabi-display-type: (cut display .ethabi-name <>)
   .ethabi-head-length: 32

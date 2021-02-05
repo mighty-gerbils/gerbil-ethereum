@@ -2,7 +2,7 @@
 
 (import
   :std/misc/list :std/srfi/1 :std/test
-  :clan/debug :clan/poo/poo
+  :clan/debug :clan/poo/object
   ../watch ../json-rpc ../transaction ../nonce-tracker ../testing ../batch-call
   ./30-transaction-integrationtest)
 

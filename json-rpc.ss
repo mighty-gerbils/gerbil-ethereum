@@ -31,7 +31,7 @@
   :std/format :std/lazy :std/sugar
   :clan/base :clan/concurrency :clan/json :clan/logger :clan/failure :clan/maybe :clan/option :clan/syntax
   :clan/net/json-rpc
-  :clan/poo/poo :clan/poo/brace :clan/poo/io
+  :clan/poo/object :clan/poo/brace :clan/poo/io
   ./types ./signing ./ethereum ./network-config ./logger)
 
 ;; We use a mutex for access to the ethereum node, not to overload it and get timeouts.
@@ -548,7 +548,7 @@
 
 (def (current-ethereum-connection-for? name)
   (match (current-ethereum-network)
-    ((ethereum-network (? poo? config) (? poo? connection))
+    ((ethereum-network (? object? config) (? object? connection))
      (equal? name (.@ config name)))
     (_ #f)))
 
@@ -565,7 +565,7 @@
       (poll-for-ethereum-node url message: message)))
   (def client-version (web3_clientVersion url: url))
   (def mantis? (string-prefix? "mantis/" client-version))
-  (def configured-chain-id (.ref config 'chainId (lambda _ 0)))
+  (def configured-chain-id (.ref config 'chainId))
   (def server-chain-id
     (match (with-result (eth_chainId url: url))
       ((some id) id)

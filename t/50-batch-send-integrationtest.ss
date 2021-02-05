@@ -3,7 +3,7 @@
 (import
   :std/format :std/misc/list-builder :std/srfi/1 :std/sugar :std/test
   :clan/debug
-  :clan/poo/poo :clan/poo/debug
+  :clan/poo/object :clan/poo/debug
   :clan/persist/db
   ../ethereum ../known-addresses ../json-rpc ../nonce-tracker ../batch-send ../testing ../assets
   ./30-transaction-integrationtest)

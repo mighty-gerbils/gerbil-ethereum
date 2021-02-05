@@ -3,7 +3,7 @@
 (import
   :std/sugar
   :clan/exception :clan/json :clan/path-config
-  :clan/poo/poo :clan/poo/brace :clan/poo/io
+  :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/persist/db
   :clan/crypto/keccak
   ./hex ./types ./known-addresses ./signing ./ethereum ./logger ./json-rpc ./transaction ./tx-tracker)
@@ -50,9 +50,9 @@
   (def chain-config (contract-config<-creation-receipt
                      (eth_getTransactionReceipt (.@ config creation-hash))))
   ;; TODO: automatically implement equality for records, better than that.
-  (display-poo-ln verify-contract-config: "\n"
-                  config: ContractConfig config "\n"
-                  chain-config: ContractConfig chain-config)
+  (display-object-ln verify-contract-config: "\n"
+                     config: ContractConfig config "\n"
+                     chain-config: ContractConfig chain-config)
   (unless (equal? (bytes<- ContractConfig config)
                   (bytes<- ContractConfig chain-config))
     (error "Contract configuration not matched by on-chain transaction"

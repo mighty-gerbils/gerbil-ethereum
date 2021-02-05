@@ -3,7 +3,7 @@
 (import :std/iter
         :gerbil/gambit/bytes
         :std/sugar :std/test
-        :clan/base :clan/poo/poo :clan/poo/io :clan/poo/brace
+        :clan/base :clan/poo/object :clan/poo/io :clan/poo/brace
         ../rlp ../hex ../types ../ethereum ../transaction ../signing)
 
 (def (bs . vs)

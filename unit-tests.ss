@@ -9,4 +9,4 @@
 (add-load-path gerbil-ethereum-src)
 
 (init-test-environment!)
-(import :mukn/ethereum/version)
+(import :mukn/ethereum/version :mukn/ethereum/cli)

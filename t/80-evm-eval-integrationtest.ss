@@ -5,7 +5,7 @@
   :std/format :std/iter :std/misc/bytes :std/srfi/1 :std/sugar :std/test
   :clan/debug :clan/number
   :clan/crypto/keccak
-  :clan/poo/poo :clan/poo/io :clan/poo/debug :clan/poo/brace
+  :clan/poo/object :clan/poo/io :clan/poo/debug :clan/poo/brace
   :clan/persist/content-addressing
   ../types ../ethereum ../signing ../known-addresses ../assembly ../contract-runtime
   ../network-config ../json-rpc ../testing

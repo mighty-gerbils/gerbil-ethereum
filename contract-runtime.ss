@@ -3,7 +3,7 @@
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
   :std/misc/number :std/sugar
   :clan/base :clan/number :clan/with-id
-  :clan/poo/poo (only-in :clan/poo/mop Type)
+  :clan/poo/object (only-in :clan/poo/mop Type)
   ./network-config ./assembly ./ethereum ./types ./signing)
 
 ;; TODO:

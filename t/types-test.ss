@@ -5,7 +5,7 @@
   :gerbil/gambit/exceptions
   :std/error :std/text/hex :std/text/json :std/sort :std/srfi/1 :std/sugar :std/test
   :std/misc/hash
-  :clan/base :clan/poo/poo :clan/poo/io :clan/poo/brace (only-in :clan/poo/mop define-type)
+  :clan/base :clan/json :clan/poo/object :clan/poo/io :clan/poo/brace (only-in :clan/poo/mop define-type)
   ../types ../hex)
 
 (define-type EthereumRpcConfig
@@ -46,7 +46,6 @@
 
 (def types-test
   (test-suite "test suite for ethereum/types"
-   (parameterize ((json-symbolic-keys #f))
     (test-case "Nat"
       (check-equal? (<-json Nat "0x0") 0)
       (check-equal? (<-json Nat 0) 0)
@@ -56,15 +55,14 @@
       (check-rep (.@ Nat .<-json) (.@ Nat .json<-) "0x37" 55)
       (check-rep (.@ Nat .<-json) (.@ Nat .json<-) "0x50" 80))
     (test-case "Record"
-      (check-rep (compose .sorted-alist (.@ EthereumRpcConfig .<-json) list->hash-table)
+      (check-rep (compose .alist/sort (.@ EthereumRpcConfig .<-json) list->hash-table)
                  (compose sort-alist hash->list (.@ EthereumRpcConfig .json<-) .<-alist)
                  '(("host" . "localhost") ("port" . "0x50") ("scheme" . "http"))
                  '((host . "localhost") (port . 80) (scheme . http)))
-      (check-rep (compose .sorted-alist (.@ EthereumRpcConfig .<-bytes) bytes<-0x)
+      (check-rep (compose .alist/sort (.@ EthereumRpcConfig .<-bytes) bytes<-0x)
                  (compose 0x<-bytes (.@ EthereumRpcConfig .bytes<-) .<-alist)
                  "0x00046874747000096c6f63616c686f73740050"
-                 '((host . "localhost") (port . 80) (scheme . http)))
-      )
+                 '((host . "localhost") (port . 80) (scheme . http))))
     (test-case "Sum"
       (check-equal? (element? Zoth "this is not a poo") #f)
       (check-equal? (element? Zoth (Zoth-z #())) #t)
@@ -78,18 +76,11 @@
       (check-equal? (element? Zoth (Zoth-h #(5 8 13))) #t)
       (check-equal? (element? Zoth (Zoth-h #(5 8 13 14))) #f)
       (check-equal? (element? Zoth (Zoth-h #(5 -1 13))) #f)
-      (parameterize ((json-symbolic-keys #t))
-        (check-equal? (element? Zoth (<-json Zoth (string->json-object "{\"tag\": \"z\", \"value\": []}"))) #t)
-        (check-equal? (hash->list/sort (json<- Zoth (Zoth-z #())) symbol<?)
-                      '((tag . "z") (value . ())))
-        (check-equal? (.sorted-alist (<-json Zoth (hash (tag "z") (value []))))
-                      '((tag . z) (value . #()))))
-      (parameterize ((json-symbolic-keys #f))
-        (check-equal? (element? Zoth (<-json Zoth (string->json-object "{\"tag\": \"z\", \"value\": []}"))) #t)
-        (check-equal? (hash->list/sort (json<- Zoth (Zoth-z #())) string<?)
-                      '(("tag" . "z") ("value" . ())))
-        (check-equal? (.sorted-alist (<-json Zoth (hash ("tag" "z") ("value" []))))
-                      '((tag . z) (value . #()))))
+      (check-equal? (element? Zoth (<-json Zoth (json<-string "{\"tag\": \"z\", \"value\": []}"))) #t)
+      (check-equal? (hash->list/sort (json<- Zoth (Zoth-z #())) string<?)
+                    '(("tag" . "z") ("value" . ())))
+      (check-equal? (.alist/sort (<-json Zoth (hash ("tag" "z") ("value" []))))
+                    '((tag . z) (value . #())))
       (check-equal? (sort-alist (hash->list (.call Zoth .json<- (Zoth-z #()))))
                     '(("tag" . "z") ("value" . ())))
       (check-equal? (sort-alist (hash->list (.call Zoth .json<- (Zoth-o #(1)))))
@@ -115,4 +106,4 @@
       (check-rep list<-0xlou8 0xlou8<-list "0x00" [])
       (check-rep list<-0xlou8 0xlou8<-list "0x013700" [55])
       (check-rep list<-0xlou8 0xlou8<-list "0x0159019001e900" [89 144 233])
-      ))))
+      )))

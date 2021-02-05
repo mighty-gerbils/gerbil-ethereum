@@ -4,7 +4,7 @@
   :gerbil/gambit/threads
   :std/format :std/iter :std/misc/list :std/srfi/1 :std/srfi/13 :std/sugar :std/test
   :clan/base :clan/json :clan/syntax :clan/with-id
-  :clan/poo/poo :clan/poo/debug :clan/poo/brace :clan/poo/io
+  :clan/poo/object :clan/poo/debug :clan/poo/brace :clan/poo/io
   ./types ./ethereum ./known-addresses
   ./network-config ./json-rpc ./transaction ./nonce-tracker
   ./assembly ./contract-runtime ./batch-send ./assets)

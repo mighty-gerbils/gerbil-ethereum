@@ -5,7 +5,7 @@
 (import
   :std/misc/number :std/sugar
   :clan/io
-  :clan/poo/poo :clan/poo/brace :clan/poo/io
+  :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/persist/content-addressing
   ./assembly ./types ./ethereum ./signing ./known-addresses ./network-config
   ./json-rpc ./transaction ./tx-tracker

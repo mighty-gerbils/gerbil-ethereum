@@ -2,7 +2,7 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes
-  :clan/base :clan/poo/poo (only-in :clan/poo/mop) :clan/poo/io
+  :clan/base :clan/poo/object (only-in :clan/poo/mop) :clan/poo/io
   ./hex ./types ./signing ./known-addresses ./ethereum ./logger
   ./assembly ./transaction ./tx-tracker ./contract-config ./contract-runtime)
 
