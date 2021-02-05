@@ -231,31 +231,31 @@
                 [[Address . alice]
                  [Bool . #t]]))
 
-  (test-case "&read-published-data-to-mem"
-    (evm-test [[UInt256 . 5000]]
-              (&begin NUMBER &read-published-data-to-mem)
-              [[UInt256 . 5000]] result-in-memory?: #t result-start: calldatapointer@))
+    ;; TODO: create an on-chain contract that uses &read-published-data-to-mem,
+    ;; then send it data in a transaction, and see how it processes it.
+    ;;;;(test-case "&read-published-data-to-mem"
+    ;;;;  (void))
 
-  ;; TODO: for &SELFDESTRUCT, create a contract first, put money in it,
-  ;; and check that the money has been transfered to Bob in the end?
-  ;;;;(test-case "&SELFDESTRUCT"
-  ;;;;  (evm-test [] (&begin bob (&SELFDESTRUCT)) [[UInt256 . 0]]))
+    ;; TODO: for &SELFDESTRUCT, create a contract first, put money in it,
+    ;; and check that the money has been transfered to Bob in the end?
+    ;;;;(test-case "&SELFDESTRUCT"
+    ;;;;  (evm-test [] (&begin bob (&SELFDESTRUCT)) [[UInt256 . 0]]))
 
-  ;; TODO: for start-timer, etc., do some comparison between timer-start and NUMBER before and after?
-  (test-case "&start-timer!"
-    (evm-test [] (&begin &start-timer!
-                         timer-start NUMBER EQ)
-              [[Bool . #t]]))
+    ;; TODO: for start-timer, etc., do some comparison between timer-start and NUMBER before and after?
+    (test-case "&start-timer!"
+      (evm-test [] (&begin &start-timer!
+                           timer-start NUMBER EQ)
+                [[Bool . #t]]))
 
-  (test-case "&stop-timer!"
-    (evm-test [] (&begin &stop-timer!
-                         timer-start max-block EQ)
-              [[Bool . #t]]))
+    (test-case "&stop-timer!"
+      (evm-test [] (&begin &stop-timer!
+                           timer-start max-block EQ)
+                [[Bool . #t]]))
 
-  (test-case "&marshal UInt256"
-    (evm-test [] (&begin brk DUP1 DUP1 (&marshal UInt256 7))
-              [[UInt256 . 32]]))
+    (test-case "&marshal UInt256"
+      (evm-test [] (&begin brk DUP1 DUP1 (&marshal UInt256 7))
+                [[UInt256 . 32]]))
 
-  (test-case "&marshal UInt8"
-    (evm-test [] (&begin brk DUP1 DUP1 (&marshal UInt256 7))
-              [[UInt8 . 32]]))))
+    (test-case "&marshal UInt8"
+      (evm-test [] (&begin brk DUP1 DUP1 (&marshal UInt256 7))
+                [[UInt8 . 32]]))))
