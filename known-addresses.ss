@@ -2,12 +2,12 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/random
-  :std/format :std/iter :std/sort :std/srfi/13 :std/sugar :std/text/hex
-  :clan/base :clan/json :clan/number
+  :std/format :std/iter :std/misc/list :std/sort :std/srfi/13 :std/sugar :std/text/hex
+  :clan/base :clan/json :clan/list :clan/number
   :clan/crypto/keccak
-  :clan/poo/io :clan/poo/brace :clan/poo/object
+  :clan/poo/io :clan/poo/brace :clan/poo/object :clan/poo/debug
   :clan/crypto/secp256k1
-  ./hex ./types ./signing)
+  ./hex ./logger ./types ./signing)
 
 (defstruct keypair (address public-key secret-key) equal: #t)
 
@@ -98,13 +98,25 @@
 (def address-by-nickname (make-hash-table))
 (def nickname-by-address (make-hash-table))
 (def (register-address nickname address)
+  (def conflicts '())
+  (let (old-nick (hash-get nickname-by-address address))
+    (when (and old-nick (not (string-ci= old-nick nickname)))
+      (push! [old-nick (0x<-address address)] conflicts)))
+  (let (old-addr (hash-get address-by-nickname (string-downcase nickname)))
+    (when (and old-addr (not (equal? old-addr address)))
+      (push! [nickname old-addr] conflicts)))
+  (unless (null? conflicts)
+    (let (new [nickname (0x<-address address)])
+      (eth-log ["Address registration conflict" "new" new "conflicts" conflicts])
+      ;; TODO: ensure the alerts go all the way to the UI, whatever the UI is.
+      (DDT "register-address conflict:" identity new identity conflicts)))
   (hash-put! nickname-by-address address nickname)
-  (hash-put! address-by-nickname nickname address))
+  (hash-put! address-by-nickname (string-downcase nickname) address))
 (def (nickname<-address address)
   (hash-get nickname-by-address address))
   ;; (or (get-nickname-of-address address) (error "No registered nickname for address" (0x<-address address)))
 (def (address<-nickname nickname)
-  (hash-get address-by-nickname nickname))
+  (hash-get address-by-nickname (string-downcase nickname)))
   ;; (or (address<-nickname nickname) (error "No registered nickname" nickname)))
 (def (nicknamed-string<-address address)
   (def s (0x<-address address))
@@ -112,7 +124,7 @@
   (if n (format "~a (~a)" n s) s))
 (def (unregister-address nickname)
   (def address (address<-nickname nickname))
-  (hash-remove! address-by-nickname nickname)
+  (hash-remove! address-by-nickname (string-downcase nickname))
   (hash-remove! nickname-by-address address))
 
 (def (parse-address x)
