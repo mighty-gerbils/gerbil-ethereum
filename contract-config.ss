@@ -50,9 +50,6 @@
   (def chain-config (contract-config<-creation-receipt
                      (eth_getTransactionReceipt (.@ config creation-hash))))
   ;; TODO: automatically implement equality for records, better than that.
-  (display-object-ln verify-contract-config: "\n"
-                     config: ContractConfig config "\n"
-                     chain-config: ContractConfig chain-config)
   (unless (equal? (bytes<- ContractConfig config)
                   (bytes<- ContractConfig chain-config))
     (error "Contract configuration not matched by on-chain transaction"
