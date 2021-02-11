@@ -34,7 +34,7 @@
 (def (import-keypair/json j)
   (assert! (equal? (sort (hash-keys j) string<?) '("address" "pubkey" "seckey")))
   (keypair (<-json Address (hash-get j "address"))
-           (<-json SecretKey (hash-get j "seckey"))
+           (<-json Bytes32 (hash-get j "seckey"))
            (<-json PublicKey (hash-get j "pubkey"))))
 ;;Why can't we do that???
 ;;(defmethod (@@method :pr Keypair)
