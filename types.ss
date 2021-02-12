@@ -74,6 +74,8 @@
 (.def (UInt. @ [poo.UInt.] .length-in-bits .length-in-bytes .validate)
   .json<-: 0x<-nat
   .<-json: (compose .validate number<-json)
+  .string<-: number->string
+  .<-string: string->number
   .rlp<-: rlp<-nat
   .<-rlp: (compose .validate nat<-rlp)
   .ethabi-name: (format "uint~d" .length-in-bits)
@@ -112,6 +114,7 @@
   .sexp<-: (lambda (x) `(bytes<-0x ,(0x<-bytes x)))
   .json<-: 0x<-bytes
   .<-json: (compose .validate bytes<-0x)
+  .<-string: bytes<-0x
   .rlp<-: identity
   .<-rlp: .validate
   .ethabi-padding: (- 32 n)

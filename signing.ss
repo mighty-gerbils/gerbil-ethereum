@@ -92,6 +92,8 @@
    .element?: address?
    .json<-: 0x<-address
    .<-json: (compose make-address (.@ Bytes20 .<-json))
+   .string<-: 0x<-address
+   .<-string: address<-0x
    .sexp<-: (lambda (x) `(address<-0x ,(0x<-address x)))
    .<-bytes: (compose make-address (.@ Bytes20 .validate))
    .bytes<-: address-bytes
