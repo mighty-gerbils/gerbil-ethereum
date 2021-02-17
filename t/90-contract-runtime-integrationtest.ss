@@ -80,7 +80,7 @@
 
 (def 90-contract-runtime-integrationtest
   (test-suite "integration test for ethereum/contract-runtime"
-    (test-case "safe-sub when a operand equal b operand"
+    (test-case "safe-sub when a operand equals b operand"
       (evm-test [[UInt8 . 8] [UInt8 . 8]] &safe-sub [[UInt8 . 0]]))
 
     (test-case "safe-sub when b operand less than a operand"
