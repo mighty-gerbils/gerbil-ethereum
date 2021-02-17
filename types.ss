@@ -28,21 +28,19 @@
 ;; --- something for types in general, including Record, Union, Maybe
 ;; --- something for ethereum types in particular
 
-(.def (DelayedType @ [Type.] .get-delegate)
-  .element?: (lambda (v) (element? (.get-delegate) v))
-  .validate: (case-lambda
-              ((v) (validate (.get-delegate) v))
-              ((v ctx) (validate (.get-delegate) v ctx)))
-  .sexp<-: (lambda (v) (sexp<- (.get-delegate) v))
-  .json<-: (lambda (v) (json<- (.get-delegate) v))
-  .<-json: (lambda (j) (<-json (.get-delegate) j))
-  .bytes<-: (lambda (v) (bytes<- (.get-delegate) v))
-  .<-bytes: (lambda (b) (<-bytes (.get-delegate) b))
-  .marshal: (lambda (v out) (marshal (.get-delegate) v out))
-  .unmarshal: (lambda (in) (unmarshal (.get-delegate) in)))
+(.def (DelayedType. @ [Type.] delayed-type)
+  .element?: (.@ delayed-type .element?)
+  .validate: (.@ delayed-type .validate)
+  .sexp<-: (.@ delayed-type .sexp<-)
+  .json<-: (.@ delayed-type .json<-)
+  .<-json: (.@ delayed-type .<-json)
+  .bytes<-: (.@ delayed-type .bytes)
+  .<-bytes: (.@ delayed-type .<-bytes)
+  .marshal: (.@ delayed-type .marshal)
+  .unmarshal: (.@ delayed-type .unmarshal))
 
-(defrule (delay-type type-expr)
-  {(:: @ [DelayedType]) sexp: 'type-expr .get-delegate: (lambda () type-expr)})
+(defrule (delay-type delayed-type)
+  {(:: @ [DelayedType.]) sexp: 'delayed-type delayed-type: delayed-type})
 
 (def (number<-json j)
   (cond
@@ -218,7 +216,8 @@
 
 ;; Records
 (def (Record . plist)
-  {(:: @ [(apply poo.Record plist)] .tuple-list<- .<-tuple-list types)
+  {(:: @ [(apply poo.Record plist)] .tuple-list<- .<-tuple-list effective-slots)
+   types: (with-list-builder (c) (.for-each! effective-slots (lambda (_ slot) (c (.@ slot type)))))
    .<-rlp: (lambda (r) (.<-tuple-list (map <-rlp types r)))
    .rlp<-: (lambda (x) (map rlp<- types (.tuple-list<- x)))
    .ethabi-display-type: (cut ethabi-display-types types <>)

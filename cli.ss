@@ -11,7 +11,7 @@
 (define-entry-point (list-ethereum-networks)
   "Show a list of available ethereum networks"
   (for-each
-    (lambda (name) (displayln name))
+    (lambda (name) (displayln name)) ;; TODO: display more, more useful information, aligned.
     (sort (hash-keys ethereum-networks) string<?)))
 
 (def (show-address-by-nickname h)
@@ -29,23 +29,25 @@
 (def options/test
   (make-options
    [(flag 'test "--test" help: "enable testing including test identities")]
-   [(lambda-opt (when {test} (import-testing-module)))]))
+   [(lambda-$ (when ($ test) (import-testing-module)))]))
 
+;; TODO: allow the use of a URL instead of a name in the DB.
+;; Then networkid and chainid are queried from the server.
 (def options/ethereum-network
   (make-options
    [(option 'ethereum-network "-E" "--ethereum-network" default: #f
             help: "name of ethereum network")]
-   [(lambda-opt (ensure-ethereum-connection
-            (or {ethereum-network} (if {test} "pet" "rinkeby"))))]
+   [(lambda-$ (ensure-ethereum-connection
+            (or ($ ethereum-network) (if ($ test) "pet" "rinkeby"))))]
    options/test))
 
 (def options/database
   (make-options
    [(option 'database "-D" "--database" default: #f
             help: "path to local DApp state database")]
-   [(lambda-opt
-     (ensure-db-connection (or {database}
-                               (run-path (if {test} "testdb" "userdb")))))]))
+   [(lambda-$
+     (ensure-db-connection (or ($ database)
+                               (run-path (if ($ test) "testdb" "userdb")))))]))
 
 (def options/from
   (make-options
@@ -59,22 +61,22 @@
 
 (define-entry-point (faucet . arguments)
   "Fund some accounts from the network faucet"
-  (def opt (process-options options/to arguments))
-  (defrule [x] (hash-get opt 'x)) ;; make is so [x] accesses the option.
+  (def args (process-options options/to arguments))
+  (defrule ($ x) (hash-get args 'x))
   ;; TODO: find the faucet, use it.
   (def network (.@ (ethereum-config) network))
   (def faucets (.@ (ethereum-config) faucets))
   (cond
    ((equal? (.@ (ethereum-config) name) "Private Ethereum Testnet")
     (let ()
-      (unless [to] (error "Missing recipient. Please use option --to"))
-      (def to (parse-address [to]))
+      (unless ($ to) (error "Missing recipient. Please use option --to"))
+      (def to (parse-address ($ to)))
        ;; *after* the above, so we have croesus, but the user may have their own alice.
       (import-testing-module)
       (def value-in-ether 5)
       (def value (wei<-ether value-in-ether))
       (def token-symbol (.@ (ethereum-config) nativeCurrency symbol))
-      (def from (address<-nickname "croesus"))
+      (def from (address<-nickname "t/croesus"))
       (printf "\nSending ~a ~a from faucet ~a\n to ~a on network ~a:\n\n"
               value-in-ether token-symbol (0x<-address from) (0x<-address to) network)
       (cli-send-tx {from to value} confirmations: 0)
@@ -93,21 +95,22 @@
 (define-entry-point (transfer . arguments)
   "Send tokens from one account to the other"
   (backtrace-on-abort? #f)
-  (def opt (process-options options/send arguments))
-  (defrule [x] (hash-get opt 'x)) ;; make is so [x] accesses the option.
-  (unless [from] (error "Missing sender. Please use option --from"))
-  (unless [to] (error "Missing recipient. Please use option --to"))
-  (unless [value] (error "Missing value. Please use option --value"))
-  (def from (parse-address [from]))
-  (def to (parse-address [to]))
+  (def args (process-options options/send arguments))
+  (defrule ($ x) (hash-get args 'x))
+  (unless ($ from) (error "Missing sender. Please use option --from"))
+  (unless ($ to) (error "Missing recipient. Please use option --to"))
+  (unless ($ value) (error "Missing value. Please use option --value"))
+  (def from (parse-address ($ from)))
+  (def to (parse-address ($ to)))
   (def decimals (.@ (ethereum-config) nativeCurrency decimals))
   (def token-symbol (.@ (ethereum-config) nativeCurrency symbol))
-  (def value (* (decimal<-string [value]) (expt 10 decimals))) ;; have a function for that?
+  (def value (* (decimal<-string ($ value)) (expt 10 decimals))) ;; have a function for that?
   (def network (.@ (ethereum-config) network))
   (printf "\nSending ~a ~a from ~a to ~a on network ~a:\n"
           value token-symbol (0x<-address from) (0x<-address to) network)
   (printf "\nBalance before\n for ~a: ~a ~a,\n for ~a: ~a ~a\n"
-          ;; TODO: use a function to correctly print with the right number of decimals
+          ;; TODO: use a function to correctly print with the right number of decimals,
+          ;; with the correct token-symbol, depending on the current network and/or asset
           (0x<-address from) (decimal-string-ether<-wei (eth_getBalance from)) token-symbol
           (0x<-address to) (decimal-string-ether<-wei (eth_getBalance to)) token-symbol)
   (import-testing-module) ;; for debug-send-tx

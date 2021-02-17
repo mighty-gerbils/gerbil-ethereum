@@ -25,7 +25,7 @@
       (begin
         (def keys (keypair<-seckey-0x secret-key))
         (def address (keypair-address keys))
-        (push! [(capitalize 'name) keys] test-keys)
+        (push! [(format "t/~a" (capitalize 'name)) keys] test-keys)
         (push! address test-addresses))) ...))
 
 (defkeys test-addresses

@@ -151,12 +151,30 @@
 
 (def-eth-net (rinkeby @ [shared-test-network etherscanable])
   name: "Ethereum Testnet Rinkeby"
-  description: "Rinkeby, the public Geth-only PoA testnet"
+  description: "Rinkeby, the public PoA (clique) testnet, Geth, Besu, Nethermind and OpenEthereum only"
   shortName: "rin" chain: "ETH" network: "rinkeby" chainId: 4 networkId: 4
   nativeCurrency: {name: "Rinkeby Ether" symbol: 'RIN decimals: 18}
   rpc: ["https://rinkeby.infura.io/v3/${INFURA_API_KEY}"]
   faucets: ["https://faucet.rinkeby.io"]
   infoURL: "https://www.rinkeby.io")
+
+(def-eth-net (kovan @ [shared-test-network etherscanable])
+  name: "Ethereum Testnet Kovan"
+  description: "Kovan, the public PoA (authority round) testnet, OpenEthereum and Nethermind only"
+  shortName: "kov" chain: "ETH" network: "kovan" chainId: 42 networkId: 42
+  nativeCurrency: {name: "Kovan Ether" symbol: 'KOV decimals: 18}
+  rpc: ["https://kovan.poa.network" "http://kovan.poa.network:8545" "https://kovan.infura.io/v3/${INFURA_API_KEY}" "wss://kovan.infura.io/ws/v3/${INFURA_API_KEY}" "ws://kovan.poa.network:8546"]
+  faucets: ["https://faucet.kovan.network" "https://gitter.im/kovan-testnet/faucet"]
+  infoURL: "https://kovan-testnet.github.io/website")
+
+(def-eth-net (goerli @ [shared-test-network etherscanable])
+  name: "Optimistic Ethereum Testnet Goerli"
+  description: "Goerli, the public PoA (authority round) testnet, OpenEthereum and Nethermind only"
+  shortName: "ogor" chain: "ETH" network: "goerli" chainId: 420 networkId: 420
+  nativeCurrency: {name: "Görli Ether" symbol: 'GOR decimals: 18}
+  rpc: ["https://goerli.infura.io/v3/${INFURA_API_KEY}" "wss://goerli.infura.io/ws/v3/${INFURA_API_KEY}" "ws://goerli.poa.network:8546"]
+  faucets: ["https://goerli-faucet.slock.it/" "https://faucet.goerli.mudit.blog/"]
+  infoURL: "https://goerli.net/")
 
 (def-eth-net (kotti @ shared-test-network)
   name: "Ethereum Classic Testnet Kotti"

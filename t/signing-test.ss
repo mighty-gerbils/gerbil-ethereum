@@ -43,15 +43,15 @@
           (check-equal? (signature-valid? String address signature data) #t)
           (check-equal? (signature-valid? String address (make-signature-wrong signature) data) #f)))
       (check-user croesus "0x25c0bb1A5203AF87869951AEf7cF3FEdD8E330fC" ;; "0x000d836201318ec6899a67540690382780743280"
-                  "0x3dfbd16d74816ad656f6c98e2a6634ca1930b5fc450eb93ca0a92574a30d00ff8eefd9d1cc3cd81cbb021b3f29abbbabfd29da7feef93f40f63a1e512c240517")
+                  "3dfbd16d74816ad656f6c98e2a6634ca1930b5fc450eb93ca0a92574a30d00ff8eefd9d1cc3cd81cbb021b3f29abbbabfd29da7feef93f40f63a1e512c240517")
       (check-user alice "0xa71CEb0990dD1f29C2a064c29392Fe66baf05aE1"
-                  "0xfea1970515a4c6e14e17e412b9e1d3ab9150f829c7df2d1d99726036e45d7ff01a6da0110b702550d4caecd30c6a4a8567280f0746048dc8e19fc7604fa55bfc")
+                  "fea1970515a4c6e14e17e412b9e1d3ab9150f829c7df2d1d99726036e45d7ff01a6da0110b702550d4caecd30c6a4a8567280f0746048dc8e19fc7604fa55bfc")
       (check-user bob "0xb0bb1ed229f5Ed588495AC9739eD1555f5c3aabD"
-                  "0xebc17d370fb860face57b9c4b48e3378604ec333e894b02f8c113e7c2325c5e564e968cba4bae5b1b0466bef65b49a291573508f463075eeccfc31577921c0bf")
+                  "ebc17d370fb860face57b9c4b48e3378604ec333e894b02f8c113e7c2325c5e564e968cba4bae5b1b0466bef65b49a291573508f463075eeccfc31577921c0bf")
       (check-user penny "0xC0773c13b36eB92813aFE5e89EE89b633c5B1F15"
-                  "0x214ca55e0820309901dfa488caf451941db517c881078512e9e0c883b4647dbb7208661848d780b040e718a4487e2ee8fcb3d41d6f3d344c9af3cb59f20ca2e0")
+                  "214ca55e0820309901dfa488caf451941db517c881078512e9e0c883b4647dbb7208661848d780b040e718a4487e2ee8fcb3d41d6f3d344c9af3cb59f20ca2e0")
       (check-user trent "0x73e27C9B8BF6F00A38cD654079413aA3eDBC771A"
-                  "0x4d484f5419fa4745a6b7e7a9eef7563435543d68250f02fa88c889666578daf600b1935a0624fef6b760a691db1e976d0332786277bbf7c13f39bc54114b58bf"))
+                  "4d484f5419fa4745a6b7e7a9eef7563435543d68250f02fa88c889666578daf600b1935a0624fef6b760a691db1e976d0332786277bbf7c13f39bc54114b58bf"))
     (test-case "check create2 address"
       (def (test-vector name addr salt init-code)
         (0x<-address (address<-create2

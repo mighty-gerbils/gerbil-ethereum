@@ -108,6 +108,8 @@
       (string-set! hex-digits j (char-upcase ch))))
   hex-digits)
 
+;; Returns the same hex string if it is strictly valid wrt EIP-55, throws an error otherwise.
+;; 0xString <- 0xString
 (def (validate-address-0x hs)
   ;; see https://www.quora.com/How-can-we-do-Ethereum-address-validation
   ;; which says to check a bit of the hash, but means byte

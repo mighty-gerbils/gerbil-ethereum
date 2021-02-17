@@ -1,86 +1,12 @@
-(export #t)
+(export #t (import: :clan/crypto/secp256k1))
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/foreign
   :std/misc/bytes :std/misc/repr
   :clan/base :clan/io :clan/poo/object
   :clan/crypto/random
   :clan/poo/brace :clan/poo/io
-  :clan/crypto/keccak :clan/crypto/secp256k1
+  :clan/crypto/keccak :clan/crypto/secp256k1 :clan/crypto/secp256k1-ffi
   ./types ./hex)
-
-;; TODO(2023): Make sure private keys never stay in RAM too long (requires support in gerbil-crypto).
-;; Use some hardware key management system so a master key is used to encrypt the keys
-;; (using a fast symmetric cypher plus salt), and those keys are kept encrypted,
-;; and only decrypted temporarily in buffer that gets overwritten with random noise
-;; as soon as they are not used anymore. This reduces the odds of a breach causing keys to leak
-;; (SPECTER attack, RAM extraction attack, etc.). Same for any required clear-text password
-;; or security token, and for keys for other cyphers -- thus many shared functions and macros.
-
-;; NB: We hide secret keys behind an opaque data structure, so the data won't leak as easily.
-(defstruct secp256k1-seckey (data) print: #f equal: #t)
-(define-type SecretKey
-  {(:: @ [Type.])
-   sexp: 'SecretKey
-   .length-in-bytes: 32
-   .element?: (lambda (x) (and (secp256k1-seckey? x) (element? Bytes32 (secp256k1-seckey-data x))))
-   .string<-: repr
-   .<-string: invalid
-   .bytes<-: invalid
-   .<-bytes: invalid
-   .sexp<-: (lambda (_) '(invalid "Not showing secret key"))
-   .json<-: invalid
-   .<-json: invalid})
-
-;; USE WITH CAUTION.
-;; Do not leak such data to the outside world. In the future, keep it even tighter locked.
-(def (import-secret-key/bytes b) (secp256k1-seckey (validate Bytes32 b)))
-(def (export-secret-key/bytes x) (secp256k1-seckey-data x))
-(def (import-secret-key/json j) (import-secret-key/bytes (<-json Bytes32 j)))
-(def (export-secret-key/json x) (json<- Bytes32 (export-secret-key/bytes x)))
-
-(def secp256k1-p #xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F)
-(def secp256k1-order #xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141)
-
-(def (generate-secret-key-data)
-  (bytes<- UInt256 (modulo (randomUInt256) secp256k1-order)))
-
-;; Right now, we use the foreign object as the "canonical" in-memory representation.
-;; Should we instead use canonical bytes that parsed into a foreign object on a need basis?
-;; TODO: implement :pr methods so we can have easy access to the 0x representation.
-(define-type PublicKey
-  {(:: @ [methods.marshal<-bytes Type.])
-   .Bytes: Bytes64
-   .element?: (lambda (x) (and (foreign? x) (equal? (foreign-tags x) '(secp256k1-pubkey*))))
-   .sexp<-: (lambda (k) `(<-json PublicKey ,(.json<- k)))
-   ;; uncompressed public key has an extra byte at the beginning, which we remove:
-   ;; https://bitcoin.stackexchange.com/questions/57855/c-secp256k1-what-do-prefixes-0x06-and-0x07-in-an-uncompressed-public-key-signif
-   .bytes<-: (lambda (k) (subu8vector (bytes<-secp256k1-pubkey k) 1 65))
-   .<-bytes: (lambda (b) (secp256k1-pubkey<-bytes (bytes-append #u8(4) b)))
-   .json<-: (lambda (x) (json<- Bytes (.bytes<- x)))
-   .<-json: (lambda (x) (.<-bytes (<-json Bytes x)))
-   .string<-: .json<-
-   .<-string: .<-json})
-
-(defstruct password (string) print: #f equal: #t)
-(define-type Password
-  {(:: @ [Type.])
-   sexp: 'Password
-   .element?: (lambda (x) (and (password? x) (element? String (password-string x))))
-   .string<-: repr
-   .<-string: invalid
-   .bytes<-: invalid
-   .<-bytes: invalid
-   .marshal: invalid
-   .unmarshal: invalid
-   .sexp<-: (lambda (_) '(invalid "Not showing password"))
-   .json<-: invalid
-   .<-json: invalid})
-
-;; USE WITH CAUTION.
-;; Do not leak such data to the outside world. In the future, keep it even tighter locked.
-(def (import-password/string j) (password (validate String j)))
-(def (export-password/string j) (password-string j))
-
 
 (defstruct address (bytes) print: #f equal: #t)
 (def 0x<-address (compose 0x<-address-bytes address-bytes))
