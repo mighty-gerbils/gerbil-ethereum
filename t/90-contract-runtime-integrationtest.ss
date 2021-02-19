@@ -63,10 +63,7 @@
     (map cdr outputs))
   (if boolCheck
     (check-equal? (> (car result-list) (car expected-result-list)) #t)
-    (begin 
-    (displayln result-list)
-    (displayln expected-result-list)
-    (check-equal? result-list expected-result-list))))
+    (check-equal? result-list expected-result-list)))
 
 (def (evm-test-failure inputs action onchain: (onchain #f))
   (def code-bytes
