@@ -63,7 +63,10 @@
     (map cdr outputs))
   (if boolCheck
     (check-equal? (> (car result-list) (car expected-result-list)) #t)
-    (check-equal? result-list expected-result-list)))
+    (begin 
+    (displayln result-list)
+    (displayln expected-result-list)
+    (check-equal? result-list expected-result-list))))
 
 (def (evm-test-failure inputs action onchain: (onchain #f))
   (def code-bytes
@@ -120,11 +123,11 @@
       (evm-test-failure [[UInt256 (- (expt 2 250) 1)...] [UInt256 (expt 2 25)...]] (&safe-mul)))
 
     (test-case "validate-sig-data"
-      (evm-test [[UInt256 . #x69f945012f7ea7d3febf11eb1b78e1adc2d1c14c2cf48b25000938cc1860c83e] 
-                 [UInt256 . #x9955af11969a2d2a7f860cb00e6a00cfa7c581f5df2dbe8ea16700b33f4b4b9b]
-                 [UInt256 . 27]] 
+      (evm-test [[UInt256 . #x4e1ce8ea60bc6dfd4068a35462612495850cb645a1c9f475eb969bff21d0b0fb] 
+                 [UInt256 . #x414112aaf13f01dd18a3527cb648cdd51b618ae49d4999112c33f86b7b26e973]
+                 [UInt256 . #xb]] 
                  &validate-sig-data
-                 [[UInt16 . 27]]))
+                 [[UInt16 . 11]]))
 
     (test-case "validate-sig-data with wrong v value"
       (evm-test-failure [[UInt256 . #x69f945012f7ea7d3febf11eb1b78e1adc2d1c14c2cf48b25000938cc1860c83e] 
@@ -217,7 +220,10 @@
 (test-case "&marshal UInt256"
     (evm-test [] (&begin brk DUP1 DUP1  (&marshal UInt256  7)) [[UInt256 . 32]]))
 
+(test-case "&marshal UInt16"
+    (evm-test [] (&begin brk DUP1 DUP1  (&marshal UInt16   7)) [[UInt16 . 2]]))
+
 (test-case "&marshal UInt8"
-    (evm-test [] (&begin brk DUP1 DUP1  (&marshal UInt256  7)) [[UInt8 . 32]]))
+    (evm-test [] (&begin brk DUP1 DUP1  (&marshal UInt8   7)) [[UInt8 . 1]]))
 
       ))
