@@ -7,7 +7,7 @@
   :clan/crypto/keccak
   :clan/poo/object :clan/poo/io :clan/poo/debug :clan/poo/brace
   :clan/persist/content-addressing
-  ../types ../ethereum ../signing ../known-addresses ../assembly ../contract-runtime
+  ../types ../ethereum ../signing ../known-addresses ../assembly ../evm-runtime
   ../network-config ../json-rpc ../testing
   ./30-transaction-integrationtest)
 
@@ -103,7 +103,7 @@
     (test-case "safe-mul normal case"
       (evm-test [[UInt256 (expt 2 25)...] [UInt256 (expt 2 25)...]]
                 (&safe-mul) [[UInt256 (expt 2 50)...]]))
-    (test-case "safe-mul oveflow case"
+    (test-case "safe-mul overflow case"
       (evm-test-failure [[UInt256 (- (expt 2 250) 1)...] [UInt256 (expt 2 25)...]] (&safe-mul)))
 
     (test-case "validate-sig-data"

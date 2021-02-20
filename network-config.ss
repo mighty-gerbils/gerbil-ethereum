@@ -26,15 +26,16 @@
    confirmationsWantedInBlocks: [JsInt] ;; how many confirmations needed for a transaction?
    confirmationsString: [String] ;; a string description of the above
    blockPollingPeriodInSeconds: [JsInt] ;; how many seconds to wait before polling for more blocks
-   eip145: [Bool] ;; is EIP-145 available on this network? (TODO: if so should be a block number)
-   txExplorerUrl: [String] ;; string-append 0xTxHash for transaction information
-   addressExplorerUrl: [String] ;; string-append 0xAddress for address information
+   eip145: [Bool default: #t] ;; is EIP-145 available on this network? (TODO: if so should be a block number)
+   explorerUrl: [String] ;; string-append tx/0xTxHash or address/0xAddress for information
    pennyCollector: [Address])) ;; who will get the pennies leftover from self-destructing contracts.
 
 (define-type EthereumNetworkConnection
   (Record
    url: [String]
    client-version: [String]
+   network-id: [JsInt]
+   server-network-id: [JsInt]
    chain-id: [JsInt]
    server-chain-id: [JsInt]
    mantis?: [Bool]))
@@ -87,8 +88,9 @@
 (.def network-defaults
   blockPollingPeriodInSeconds: ? 5
   chainId: ? 0
-  eip145: ? #t
   faucets: ? []
+  explorerUrl: ? []
+  eip145: ? #t
   pennyCollector: ? (address<-0x "0xC0113C7863cb7c972Bf6BEa2899D3dbae74a9a65")) ;; MuKn production penny collector
 
 (.def (production-network @ network-defaults)
@@ -111,7 +113,6 @@
   confirmationsWantedInBlocks: 1
   confirmationsString: "about 15 seconds"
   blockPollingPeriodInSeconds: 1
-  eip145: #t ;; NB: This will not work against a Mantis using an old KEVM, where you should use #f
   infoURL: "https://localhost/"
   pennyCollector: (address<-0x "0xC0773c13b36eB92813aFE5e89EE89b633c5B1F15")) ;; user "penny" from testing.ss
 
@@ -125,10 +126,8 @@
   ((d sym slotspec ...) (d (sym @ []) slotspec ...)))
 
 (.def (etherscanable @ [] network)
-  etherscanUrl:
-  (apply string-append ["https://" (if (equal? network "mainnet") [] [network "."])... "etherscan.io/"])
-  txExplorerUrl: (string-append etherscanUrl "tx/")
-  addressExplorerUrl: (string-append etherscanUrl "address/"))
+  explorerUrl:
+  (apply string-append ["https://" (if (equal? network "mainnet") [] [network "."])... "etherscan.io/"]))
 
 (def-eth-net (ethereum @ [production-network etherscanable])
   name: "Ethereum Mainnet"
@@ -184,22 +183,20 @@
   rpc: []
   faucets: [] ;; TODO: find the faucet
   infoURL: "https://explorer.jade.builders/?network=kotti"
-  txExplorerUrl: "https://blockscout.com/etc/kotti/tx/"
-  addressExplorerUrl: "https://blockscout.com/etc/kotti/address/")
+  explorerUrl: "https://blockscout.com/etc/kotti/")
 
-(def-eth-net (david @ shared-test-network)
-  name: "Cardano KEVM Devnet"
-  description: "Cardano side-chain with Mantis KEVM client devnet"
-  networkId: 41390 chainId: 105
+(def-eth-net (ced @ shared-test-network)
+  name: "Cardano EVM Devnet"
+  description: "Cardano side-chain with Mantis EVM client devnet"
+  networkId: 42 chainId: 42
   ;; The two lines below are made up by us -- TODO: find out if there are better names
-  shortName: "david" chain: "Cardano" network: "david"
-  nativeCurrency: {name: "Cardano KEVM Devnet Ether" symbol: 'DAVID decimals: 18}
-  eip145: #f ;; until the KEVM is updated, it won't support eip145 yet.
-  rpc: ["https://david.kevm.dev-mantis.iohkdev.io:8546"]
-  faucets: [] ;; TODO: find the faucet
+  shortName: "ced" chain: "Cardano" network: "ced"
+  nativeCurrency: {name: "Cardano EVM Devnet Ether" symbol: 'CED decimals: 18}
+  rpc: ["https://rpc-evm.portal.dev.cardano.org/"]
+  faucets: ["https://faucet-evm.portal.dev.cardano.org/"]
+  web-faucets: ["https://faucet-web-evm.portal.dev.cardano.org/"]
   infoURL: "https://developers.cardano.org/en/virtual-machines/kevm/getting-started/using-the-kevm-devnet/"
-  txExplorerUrl: "https://david.kevm.dev-mantis.iohkdev.io/tx/"
-  addressExplorerUrl: "https://david.kevm.dev-mantis.iohkdev.io/address/")
+  explorerUrl: "https://explorer-evm.portal.dev.cardano.org/")
 
 (def-eth-net (pet @ private-test-network)
   name: "Private Ethereum Testnet"
@@ -207,5 +204,4 @@
   shortName: "pet" chain: "ETH" network: "petnet" networkId: 17 chainId: 1337
   nativeCurrency: {name: "Private Ether Test" symbol: 'PET decimals: 18}
   rpc: ["http://localhost:8545"]
-  txExplorerUrl: "https://localhost/pet/pet/tx/"
-  addressExplorerUrl: "https://localhost/pet/pet/address/")
+  explorerUrl: "https://localhost/pet/pet/")

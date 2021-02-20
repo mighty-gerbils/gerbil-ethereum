@@ -78,7 +78,7 @@
 ;; (define-type Directive (Fun Unit <- Assembler))
 
 (def fixup-functions
-  (hash (+ +) (- -)))
+  (hash (+ +) (- -) (* *)))
 
 (def (eval-fixup-expression labels expr)
   (match expr
@@ -310,10 +310,10 @@
   (#xf2 CALLCODE Complicated) ;; Message-call into this account with alternative account's code
   (#xf3 RETURN 0) ;; Halt execution returning output data
   (#xf4 DELEGATECALL Complicated) ;; Message-call into this account with an alternative account's code, but persisting into this account with an alternative account's code
-  (#xf5 CALLBLACKBOX)
+  (#xf5 CREATE2 Complicated) ;; Create a new account with deterministic address, EIP-1014 (Constantinople)
   ;; #xf6 - #xf9  Unused
   (#xfa STATICCALL 40) ;; Similar to CALL, but does not modify state
-  (#xfb CREATE2 Complicated) ;; Create a new account with deterministic address
+  ;; #xfb - #xfc  Unused
   (#xfd REVERT #t) ;; Stop execution and revert state changes, without consuming all provided gas and providing a reason
   (#xfe INVALID 0) ;; Designated invalid instruction
   (#xff SELFDESTRUCT 5000 #t)) ;; Halt execution and register account for later deletion
@@ -365,7 +365,7 @@
   (cond
    ((exact-integer? directive) (&push a directive))
    ((bytes? directive) (&push-bytes a directive))
-   ((address? directive) (&push-bytes  a (bytes<- Address directive)))
+   ((address? directive) (&push-bytes a (bytes<- Address directive)))
    ((procedure? directive) (directive a))
    ((pair? directive) (apply (car directive) a (cdr directive)))
    ((symbol? directive) (&push-label a directive))

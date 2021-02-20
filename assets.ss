@@ -7,7 +7,7 @@
   :std/sugar :std/format :std/misc/string :std/srfi/13
   :clan/decimal
   :clan/poo/object
-  ./assembly ./types ./ethereum ./abi ./contract-runtime ./signing)
+  ./assembly ./types ./ethereum ./abi ./evm-runtime ./signing)
 
 (.def (TokenAmount @ [] .decimals .validate .symbol)
   .denominator: (expt 10 .decimals)
@@ -63,7 +63,12 @@
   ;; function transfer(address _to, uint256 _value) public returns (bool success)
   ;; function transferFrom(address _from, address _to, uint256 _value) public returns (bool success)
   ;; function approve(address _spender, uint256 _value) public returns (bool success)
-  ;; NB: always reset the approve value to 0 before to set it again to a different non-zero value.
+  ;; NB: *always* reset the approval value to 0 then wait for confirmation
+  ;; before to set it again to a different non-zero value, or the recipient may race the change
+  ;; to extract the sum of the old and new authorizations.
+  ;; OR, first transfer to another account, and have *that* account approve the transfer.
+  ;; This all makes fast ERC20 payments "interesting".
+  ;; https://docs.google.com/document/d/1YLPtQxZu1UAvO9cZ1O2RPXBbT0mooh4DYKjA_jp-RLM/edit#heading=h.6uz9seehjf3n
   ;; function allowance(address _owner, address _spender) public view returns (uint256 remaining)
   ;; Events:
   ;; event Transfer(address indexed _from, address indexed _to, uint256 _value)

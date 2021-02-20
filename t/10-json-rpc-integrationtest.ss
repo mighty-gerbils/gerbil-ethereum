@@ -3,7 +3,7 @@
 (import :std/test :clan/poo/debug ../network-config ../json-rpc)
 
 ;; Use our Private Ethereum Testnet
-(ensure-ethereum-connection "pet")
+(ensure-ethereum-connection (getenv "GERBIL_ETHEREUM_TEST_NETWORK" "pet"))
 
 (def 10-json-rpc-integrationtest
   (test-suite "integration test for ethereum/json-rpc"

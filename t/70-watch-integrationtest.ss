@@ -3,7 +3,7 @@
 (import
   :std/misc/list :std/srfi/1 :std/test
   :clan/debug :clan/poo/object
-  ../watch ../json-rpc ../transaction ../nonce-tracker ../testing ../batch-call
+  ../watch ../json-rpc ../transaction ../nonce-tracker ../testing ../simple-apps
   ./30-transaction-integrationtest)
 
 (def (process-filter filter)
@@ -39,8 +39,10 @@
 #|
     (test-case "watchBlockchain"
       (def fromBlock (eth_blockNumber))
-      (def receipt (batch-call croesus [[trivial-logger 0 (string->bytes "Nothing here")]
-                                        [trivial-logger (wei<-gwei 1) (string->bytes "Just lost one gwei")]]))
+      (def receipt
+        (batch-txs croesus
+                   [(batched-call 0 trivial-logger (string->bytes "Nothing here"))
+                    (batched-call (wei<-gwei 1) trivial-logger (string->bytes "Just lost one gwei"))]))
       (if (successful-receipt? receipt)
         (begin
           (register-confirmed-event-hook "trivial-family" fromBlock  receipt process-filter)

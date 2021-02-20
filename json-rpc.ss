@@ -561,29 +561,24 @@
   (def config (ethereum-network-config network))
   (def url (ethereum-url<-config config))
   (when poll
-    (let (message (format "Connecting to the ~a at ~a ...\n" (.@ config name) url))
-      (poll-for-ethereum-node url message: message)))
+    (poll-for-ethereum-node
+     url message: (format "Connecting to the ~a at ~a ...\n" (.@ config name) url)))
   (def client-version (web3_clientVersion url: url))
   (def mantis? (string-prefix? "mantis/" client-version))
-  (def configured-chain-id (.ref config 'chainId))
+  (def network-id (.@ config networkId))
+  (def server-network-id
+    (with-catch (lambda _ (eth-log "The node doesn't support net_version. Assuming 0.") 0)
+                (cut <-string JsInt (net_version url: url))))
+  (eth-log (if (equal? server-network-id network-id)
+             "The server and configuration agree on networkId. Good."
+             "The server and configuration disagree on networkId. BAD. Trusting configuration."))
+  (def chain-id (.@ config chainId))
   (def server-chain-id
-    (match (with-result (eth_chainId url: url))
-      ((some id) id)
-      ((failure e)
-       (eth-log "The node doesn't support eth_chainId. Assuming 0 (no EIP-155).")
-       0)))
-  (def chain-id ;; The effective value we'll use.
-    (cond
-     (mantis?
-      (eth-log "Using Mantis. Disabling EIP-155 by overriding chainId with 0.")
-      0)
-     ((equal? server-chain-id configured-chain-id)
-      (eth-log "The server and configuration agree on chainId. Good.")
-      configured-chain-id)
-     (else
-      ;;; TODO should we abort instead?
-      (eth-log "The server and configuration disagree on chainId. BAD. Trusting configuration.")
-      configured-chain-id)))
-  (def connection {url client-version chain-id server-chain-id mantis?})
+    (with-catch (lambda _ (eth-log "The node doesn't support eth_chainId. Assuming 0 (no EIP-155).") 0)
+                (cut validate JsInt (eth_chainId url: url))))
+  (eth-log (if (equal? server-chain-id chain-id)
+             "The server and configuration agree on chainId. Good."
+             "The server and configuration disagree on chainId. BAD. Trusting configuration."))
+  (def connection {url client-version network-id server-network-id chain-id server-chain-id mantis?})
   (eth-log ["EthereumNetworkConnection" (list->hash-table (.alist connection))])
   (set! (ethereum-network-connection network) connection))

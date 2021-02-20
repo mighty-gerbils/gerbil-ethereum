@@ -104,7 +104,7 @@
 
 ;; Generic initialization code for stateless contracts
 ;; : Bytes <- Bytes
-;; TESTING STATUS: Tested in CI via batch-send, batch-call.
+;; TESTING STATUS: Tested in CI via batch-contract-init, trivial-logger-contract-init
 (def (stateless-contract-init contract-runtime)
   (assemble/bytes (&trivial-contract-init contract-runtime)))
 
@@ -237,10 +237,12 @@
    ;; compare to saved merkleized state, jump to saved label if it matches
    ;; BEWARE: we assume the variable *before* the frame is not initialized, and still 0.
    DUP4 #|0|# SLOAD EQ (- frame@ 30) MLOAD JUMPI ;; -- stack at destination: -- 2 1 0
+   (&define-abort-contract-call)))
 
-   ;; Abort. We explicitly PUSH1 0 for the first rather than DUPn,
-   ;; because we don't assume stack geometry from the caller when aborting.
-   [&jumpdest 'abort-contract-call] 0 DUP1 #|0|# REVERT))
+(def (&define-abort-contract-call)
+  ;; Abort. We explicitly PUSH1 0 for the first rather than DUPn,
+  ;; because we don't assume stack geometry from the caller when aborting.
+  (&begin [&jumpdest 'abort-contract-call] 0 DUP1 #|0|# REVERT))
 
 ;; TESTING STATUS: Wholly tested.
 (def (&memcpy/const-size n overwrite-after?: (overwrite-after? #f) dst-first?: (dst-first? #f))
@@ -463,7 +465,7 @@
    ;; -- frame-length TODO: at standard place in frame, info about who is or isn't timing out
    ;; and/or make it a standard part of the cp0 calling convention to catch such.
    (&read-published-datum 1) ISZERO 'tail-call-body JUMPI
-   frame@ SHA3 0 SSTORE
+   frame@ SHA3 0 SSTORE ;; TODO: ensure frame-width is on the stack before here
    'stop-contract-call
    [&jump1 'commit-contract-call])) ;; update the state, then commit and finally stop
 

@@ -7,7 +7,7 @@
   :clan/poo/object :clan/poo/debug :clan/poo/brace :clan/poo/io
   ./types ./ethereum ./known-addresses
   ./network-config ./json-rpc ./transaction ./nonce-tracker
-  ./assembly ./contract-runtime ./batch-send ./assets)
+  ./assembly ./evm-runtime ./simple-apps ./assets)
 
 (def (capitalize name)
   (def Name (string-downcase (stringify name)))
@@ -74,15 +74,16 @@
       from: (funder croesus)
       to: (addresses prefunded-addresses)
       min-balance: (min-balance one-ether-in-wei)
-      target-balance: (target-balance (* 2 min-balance)))
+      target-balance: (target-balance (* 2 min-balance))
+      batch-contract: (batch-contract #f))
   (def needful-transfers
     (with-list-builder (c)
       (for (a addresses)
         (unless (equal? a funder)
-          (let (b (get-address-missing-amount min-balance target-balance a))
-            (when (> b 0)
-              (c [a b])))))))
-  (batch-send funder needful-transfers log: write-json-ln))
+          (let (v (get-address-missing-amount min-balance target-balance a))
+            (when (> v 0)
+              (c (batched-transfer v a))))))))
+  (batch-txs funder needful-transfers log: write-json-ln batch-contract: batch-contract))
 
 ;; Send a tx, not robust, but useful for debugging
 (def (debug-send-tx
@@ -180,8 +181,8 @@
 
 (def (evm-test-failure inputs action block: (block 'latest))
   (def code-bytes (assemble/bytes (&evm-test-code inputs action [])))
-  (check-equal?
-   (try
-    (evm-eval croesus code-bytes block: block)
-    #f
-    (catch (_) #t)) #t))
+  (if (ethereum-mantis?) ;; See bug CASC-99 in IOHK JIRA
+    (check-equal? (evm-eval croesus code-bytes block: block) #u8())
+    (check-equal?
+     (with-catch true (lambda () (evm-eval croesus code-bytes block: block) #f))
+     #t)))
