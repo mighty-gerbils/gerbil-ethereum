@@ -467,6 +467,7 @@
     (&begin n SAR)
     (&begin (arithmetic-shift 1 n) SWAP1 SDIV))) ;; pre-EIP-145 version
 
+;; TESTING STATUS: wholly tested.
 (def (&if &cond &then &else)
   (def then-label (generate-label "&then"))
   (def endif-label (generate-label "&endif"))
@@ -475,6 +476,7 @@
           [&jumpdest then-label] &then
           [&jumpdest endif-label]))
 
+;; TESTING STATUS: wholly tested.
 (def (&switch comparison-value cases)
   (def reducer
     (λ (current-case next-case)

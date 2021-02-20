@@ -257,5 +257,9 @@
                 [[UInt256 . 32]]))
 
     (test-case "&marshal UInt8"
-      (evm-test [] (&begin brk DUP1 DUP1 (&marshal UInt256 7))
-                [[UInt8 . 32]]))))
+      (evm-test [] (&begin brk DUP1 DUP1 (&marshal UInt8 7))
+                [[UInt8 . 1]]))              
+                
+    (test-case "&marshal UInt8"
+      (evm-test [] (&begin brk DUP1 DUP1 (&marshal UInt16 7))
+                [[UInt16 . 2]]))))
