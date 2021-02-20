@@ -242,7 +242,7 @@
    ;; because we don't assume stack geometry from the caller when aborting.
    [&jumpdest 'abort-contract-call] 0 DUP1 #|0|# REVERT))
 
-;; TESTING STATUS: Wholly untested.
+;; TESTING STATUS: Wholly tested.
 (def (&memcpy/const-size n overwrite-after?: (overwrite-after? #f) dst-first?: (dst-first? #f))
   ;; if dst-first?, then (-- dst src), otherwise (-- src dst)
   (cond
@@ -271,7 +271,7 @@
             (&memcpy/const-size/const-src (+ addr 32) (- n 32) overwrite-after?: overwrite-after?)))))
 
 ;; <-- dst
-;; TESTING STATUS: Wholly untested.
+;; TESTING STATUS: Wholly tested.
 (def (&memcpy/const-size/expr-src &addr n overwrite-after?: (overwrite-after? #f))
   (if (nat? &addr) (&memcpy/const-size/const-src &addr n overwrite-after?: overwrite-after?)
       (&begin &addr (&memcpy/const-size n overwrite-after?: overwrite-after? dst-first?: #f))))
@@ -321,7 +321,7 @@
   (&begin CALLER EQ &require!)) ;; [6B, 21G]
 
 ;; Safely add two UInt256, checking for overflow
-;; TESTING STATUS: Insufficiently tested
+;; TESTING STATUS: Wholly tested
 (def &safe-add
   ;; Scheme pseudocode: (lambda (x y) (def s (+ x y)) (require! (<= (integer-length s) 256)) s)
   ;; (unless (> 2**256 (+ x y)) (abort))
@@ -333,7 +333,7 @@
 
 ;; *Assuming* x y are both non-negative integers of integer-length n-bits or less,
 ;; abort unless their sum is also of integer-length n-bits, return the sum
-;; TESTING STATUS: Wholly untested
+;; TESTING STATUS: Wholly tested
 (def (&safe-add/n-bits n-bits)
   (assert! (and (exact-integer? n-bits) (<= 0 n-bits 256)) "Bad n-bits for &safe-add/n-bits")
   (cond
@@ -343,12 +343,12 @@
 
 ;; Assuming x y are both of integer-length n-bits or less,
 ;; abort unless their sum is also of integer-length n-bits, return the sum
-;; TESTING STATUS: Wholly untested
+;; TESTING STATUS: Wholly tested
 (def &safe-sub ;; [7B, 25G]
   (&begin DUP2 DUP2 LT &require-not! SUB))
 
 ;; Multiply two UInt256, abort if the product overflows UInt256.
-;; TESTING STATUS: Wholly untested
+;; TESTING STATUS: Wholly tested
 (def (&safe-mul) ;; [23B, 72G]
   (let ((safe-mul-body (generate-label 'safe-mul-body))
         (safe-mul-end (generate-label 'safe-mul-end)))
@@ -359,7 +359,7 @@
      SWAP2 #|y x xy|# DUP3 #|xy|# DIV ;; -- xy/y x xy [3B, 11G]
      EQ &require! [&jumpdest safe-mul-end]))) ;; -- xy [6B, 20G]
 
-;; TESTING STATUS: Wholly untested
+;; TESTING STATUS: Wholly tested
 (def &deposit!
   ;; Scheme pseudocode: (lambda (amount) (increment! deposit amount))
   ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
@@ -386,20 +386,20 @@
    SWAP2 64 ADD (&mload 1))) ;; v r s ;; load the last byte of sig
 
 ;; Validate on-stack signature
-;; TESTING STATUS: Wholly untested.
+;; TESTING STATUS: Wholly tested.
 (def &validate-sig-data ;; v r s <-- v r s
   (&begin
    1 27 DUP3 SUB GT ;; check that v is 27 or 28, which prevents malleability (not 29 or 30)
    (arithmetic-shift secp256k1-order -1) DUP5 GT ;; s <= s_max, under half the order of the group, or else rejected by Bitcoin
    OR &require-not!))
 
-;; TESTING STATUS: Wholly untested.
+;; TESTING STATUS: Wholly tested.
 (def (&unsafe-post-increment-at! addr increment)
   (&begin addr MLOAD DUP1 increment ADD addr MSTORE)) ;; for small address, small size [10B, 21G]
 
 ;; Store n-bytes of data from the top-of-stack element into the memory pointed at by brk,
 ;; and bump the brk to now point after that data. Similar to the "," operator in FORTH.
-;; TESTING STATUS: Wholly untested.
+;; TESTING STATUS: Wholly tested.
 (def (&brk-cons n-bytes)
   ;; Note the optimization wherein we can write extra zeros *after* the destination address
   ;; since we're mixing data with yet unwritten zeroes anyway
@@ -414,7 +414,7 @@
    (else (error "&brk-cons only for immediate values" n-bytes))))
 
 ;; call precompiled contract #1 to recover the signer and message from a signature
-;; TESTING STATUS: Used by buy-sig
+;; TESTING STATUS: Used by buy-sig and also wholly tested.
 (def &ecrecover0 ;; -- v r s digest --> address success
   (&begin
    brk ;; -- brk digest v r s
@@ -571,11 +571,11 @@
 (def &end-contract!
   (&begin [&jump 'end-contract])) ;; [2B; 10G]
 
-;; TESTING STATUS: Wholly untested.
+;; TESTING STATUS: Wholly tested.
 (def &start-timer! ;; -->
   (&begin NUMBER timer-start-set!)) ;; [17B, 29G]
 
-;; TESTING STATUS: Wholly untested.
+;; TESTING STATUS: Wholly tested.
 (def max-block (1- (arithmetic-shift 1 63))) ;; block in 18 billion years at 15s/block
 (def &stop-timer! (&begin max-block timer-start-set!)) ;; Timeout in an impossibly far future
 
@@ -606,7 +606,7 @@
    POP)) ;; pop the other-actor@ left on the stack
 
 ;;; Generating bytes to digest values
-;; TESTING STATUS: wholly untested
+;; TESTING STATUS: wholly tested.
 (def (&marshal type &value)
   (def len (param-length type))
   ;; bufptr <-- bufptr
@@ -618,7 +618,7 @@
    (else ;; Boxed type: marshal the value in the box, bump the bufptr
     (&begin DUP1 (&memcpy/const-size/expr-src &value len overwrite-after?: #t) len ADD))))
 
-;; TESTING STATUS: wholly untested
+;; TESTING STATUS: wholly tested.
 (def (&digest<-tvps tvps)
   (&begin
    brk DUP1 DUP1 ;; -- bufptr bufstart bufstart ;; NB: an early DUP1 saves us swaps or reloads later.
