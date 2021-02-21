@@ -4,7 +4,7 @@
   :std/sugar :std/text/json
   :clan/json :clan/path-config
   :clan/poo/object :clan/poo/io :clan/poo/brace
-  ./types ./signing ./ethereum ./logger)
+  ./types ./ethereum ./logger)
 
 (define-type EthereumNetworkConfig
   (Record

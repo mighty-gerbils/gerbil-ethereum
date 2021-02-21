@@ -6,7 +6,7 @@
   :clan/cli :clan/decimal :clan/exit :clan/multicall :clan/path-config
   :clan/poo/object :clan/poo/brace :clan/poo/cli :clan/poo/debug
   :clan/persist/db
-  ./network-config ./types ./ethereum ./signing ./known-addresses ./json-rpc)
+  ./network-config ./types ./ethereum ./known-addresses ./json-rpc)
 
 (define-entry-point (list-ethereum-networks)
   "Show a list of available ethereum networks"

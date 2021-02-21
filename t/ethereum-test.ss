@@ -5,10 +5,13 @@
   :std/format :std/sugar :std/test
   :clan/exception :clan/with-id
   :clan/poo/io
-  ../hex ../types ../known-addresses ../signing ../testing)
+  :clan/crypto/keccak :clan/crypto/secp256k1
+  :clan/debug
+  ../hex ../types ../known-addresses ../ethereum ../testing)
 
 (def (show-representations name x (type #f))
   (printf "~a:\n  display: ~a\n  write: ~s\n  pr: ~r\n" name x x x)
+  (force-output)
   (defrule (X foo) (with-catch string<-exception (lambda () foo)))
   (when type (printf "  json: ~a\n  sexp: ~a\n"
                      (X (json-string<- type x)) (X (object->string (sexp<- type x))))))
@@ -18,11 +21,11 @@
   (bytes-set! bytes 4 (1- (bytes-ref bytes 4))) ;; arbitrarily decrement the fifth byte
   (<-bytes Signature bytes))
 
-(def signing-test
-  (test-suite "Test suite for ethereum/signing"
+(def ethereum-test
+  (test-suite "Test suite for ethereum/ethereum"
     (test-case "check test users"
       (defrule (check-user name addressj pubkeyj)
-        (with-id signing-test
+        (with-id ethereum-test
           ((keys #'name '-keys)
            (address #'name)
            (pubkey #'name '-pubkey)
@@ -40,6 +43,8 @@
           (show-representations signature: signature Signature)
           (check-equal? (json<- PublicKey pubkey) pubkeyj)
           (check-equal? (json<- Address address) addressj)
+          (check-equal? (json<- PublicKey (recover-signer-public-key signature (keccak256<-string data)))
+                        (json<- PublicKey pubkey))
           (check-equal? (signature-valid? String address signature data) #t)
           (check-equal? (signature-valid? String address (make-signature-wrong signature) data) #f)))
       (check-user croesus "0x25c0bb1A5203AF87869951AEf7cF3FEdD8E330fC" ;; "0x000d836201318ec6899a67540690382780743280"

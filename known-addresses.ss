@@ -7,7 +7,7 @@
   :clan/crypto/keccak
   :clan/poo/io :clan/poo/brace :clan/poo/object :clan/poo/debug
   :clan/crypto/secp256k1 :clan/crypto/secp256k1-ffi
-  ./hex ./logger ./types ./signing)
+  ./hex ./logger ./types ./ethereum)
 
 (defstruct keypair (address public-key secret-key) equal: #t)
 

@@ -5,9 +5,9 @@
   :std/format :std/misc/list :std/misc/repr :std/srfi/13 :std/sugar :std/test
   :clan/exception :clan/syntax :clan/with-id
   :clan/poo/object :clan/poo/brace :clan/poo/io
-  :clan/crypto/keccak
-  ../hex ../rlp ../types ../ethereum ../known-addresses ../signing ../transaction
-  ./signing-test)
+  :clan/crypto/keccak :clan/crypto/secp256k1
+  ../hex ../rlp ../types ../ethereum ../known-addresses ../transaction
+  ./ethereum-test)
 
 (def transaction-test
   (test-suite "Test suite for ethereum/transaction"

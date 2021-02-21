@@ -7,7 +7,7 @@
   :clan/net/json-rpc
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/persist/db :clan/persist/persist
-  ./types ./ethereum ./signing ./json-rpc)
+  ./types ./ethereum ./json-rpc)
 
 (define-type NonceOperation
   (Enum Peek Next Reset))

@@ -6,7 +6,7 @@
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/persist/db
   :clan/crypto/keccak
-  ./hex ./types ./known-addresses ./signing ./ethereum ./logger ./json-rpc ./transaction ./tx-tracker)
+  ./hex ./types ./known-addresses ./ethereum ./logger ./json-rpc ./transaction ./tx-tracker)
 
 (define-type ContractConfig
   (Record

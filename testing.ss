@@ -1,7 +1,7 @@
 (export #t)
 
 (import
-  :gerbil/gambit/threads
+  :gerbil/gambit/bytes :gerbil/gambit/threads
   :std/format :std/iter :std/misc/list :std/srfi/1 :std/srfi/13 :std/sugar :std/test
   :clan/base :clan/json :clan/syntax :clan/with-id
   :clan/poo/object :clan/poo/debug :clan/poo/brace :clan/poo/io
@@ -83,7 +83,7 @@
           (let (v (get-address-missing-amount min-balance target-balance a))
             (when (> v 0)
               (c (batched-transfer v a))))))))
-  (batch-txs funder needful-transfers log: write-json-ln batch-contract: batch-contract))
+  (batch-txs funder needful-transfers log: write-json-ln batch-contract: batch-contract gas: 400000))
 
 ;; Send a tx, not robust, but useful for debugging
 (def (debug-send-tx
@@ -186,3 +186,20 @@
     (check-equal?
      (with-catch true (lambda () (evm-eval croesus code-bytes block: block) #f))
      #t)))
+
+(def (extracted-logger-log log)
+  (def topics (.@ log topics))
+  ;;(DDT ell0: LogObject log Any topics)
+  [(0x<-address (.@ log address))
+   (map (.@ Bytes32 .json<-) topics)
+   (bytes->string (.@ log data))])
+(def (expected-logger-log logger caller message)
+  [(0x<-address logger)
+   [(json<- Bytes32 (bytes-append (make-bytes 12) (bytes<- Address caller)))]
+   message])
+
+(def (expect-logger-logs receipt . expectations)
+  ;;(DDT ell: TransactionReceipt receipt Any (.@ receipt logs) Any expectations)
+  (def extracted-logs (map extracted-logger-log (.@ receipt logs)))
+  (def expected-logs (map (cut apply expected-logger-log <>) expectations))
+  (check-equal? extracted-logs expected-logs))

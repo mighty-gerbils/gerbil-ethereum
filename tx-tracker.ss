@@ -8,7 +8,7 @@
   :clan/net/json-rpc
   :clan/poo/object :clan/poo/brace :clan/poo/io :clan/poo/trie
   :clan/persist/db :clan/persist/persist
-  ./hex ./types ./signing ./known-addresses ./ethereum ./json-rpc ./nonce-tracker ./transaction)
+  ./hex ./types ./known-addresses ./ethereum ./json-rpc ./nonce-tracker ./transaction)
 
 ;; TODO: Invoking a *persistent* continuation upon completion.
 ;;

@@ -7,8 +7,9 @@
   :clan/assert :clan/failure :clan/number :clan/option :clan/with-id
   :clan/net/json-rpc
   :clan/poo/object :clan/poo/io :clan/poo/brace
-  :clan/crypto/keccak :clan/persist/db
-  ./hex ./types ./rlp ./ethereum ./signing ./known-addresses
+  :clan/crypto/keccak :clan/crypto/secp256k1
+  :clan/persist/db
+  ./hex ./types ./rlp ./ethereum ./known-addresses
   ./logger ./network-config ./json-rpc ./nonce-tracker)
 
 ;; Signing transactions, based on spec in EIP-155

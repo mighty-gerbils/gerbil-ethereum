@@ -4,7 +4,8 @@
   :std/misc/number :std/sugar
   :clan/base :clan/number :clan/with-id
   :clan/poo/object (only-in :clan/poo/mop Type)
-  ./network-config ./assembly ./ethereum ./types ./signing)
+  :clan/crypto/secp256k1
+  ./network-config ./assembly ./ethereum ./types)
 
 ;; TODO:
 ;; * better assembler with segments, etc.?

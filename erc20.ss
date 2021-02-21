@@ -7,7 +7,7 @@
   :std/srfi/1 :std/sugar
   :clan/base :clan/with-id
   :clan/poo/object (only-in :clan/poo/mop) :clan/poo/io
-  ./logger ./hex ./types ./signing ./known-addresses ./ethereum ./abi
+  ./logger ./hex ./types ./ethereum ./known-addresses ./abi
   ./assembly ./transaction ./tx-tracker ./contract-config ./evm-runtime)
 
 ;;; OPTIONAL functions NOT implemented:

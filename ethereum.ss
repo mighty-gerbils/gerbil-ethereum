@@ -1,29 +1,25 @@
 (export #t)
 
 (import
+  :gerbil/gambit/bytes
   :std/sugar
-  :clan/maybe :clan/number :clan/decimal
+  :clan/base :clan/maybe :clan/number :clan/decimal
+  :clan/crypto/keccak :clan/crypto/secp256k1
   :clan/poo/object :clan/poo/io :clan/poo/brace
   (only-in :clan/poo/mop sexp<-)
   (only-in :clan/poo/type Sum define-sum-constructors)
-  ./types ./hex ./signing)
+  ./types ./hex ./rlp)
 
-;; TODO: implement and use a "newtype"
+;; Types used by Ethereum APIs
 (define-type Quantity UInt256)
 (define-type UInt UInt256)
 (define-type Digest Bytes32)
 (define-type Data Bytes)
-(register-simple-eth-type Address)
 
 ;; These limits are from EIP-106
 (define-type GasQuantity UInt63) ;; in practice, for the next years, will fit UInt32
 (define-type Block UInt63) ;; in practice, for the next century, will fit UInt32
 (define-type BufferSize UInt32) ;; in practice, for the next years, will fit UInt24
-
-;; TODO: mixin the prototype with a formula that caches the abi bytes4 selector.
-(define-type EthFunction
-  (.mix (Record contract: [Address] selector: [Bytes4])
-        {ethabi: "function"}))
 
 ;; : Nat
 (def one-ether-in-wei (expt 10 18)) ;; 1 ETH = 10^18 wei
@@ -54,6 +50,99 @@
 ;; : String <- Nat
 (def (decimal-string-gwei<-wei wei-amount)
   (string<-decimal (gwei<-wei wei-amount)))
+
+
+;;; Addresses
+
+(defstruct address (bytes) print: #f equal: #t)
+
+;; : 0xString <- Address
+(def 0x<-address (compose 0x<-address-bytes address-bytes))
+
+;; : Address <- 0xString
+(def address<-0x (compose make-address (.@ Bytes20 .validate) bytes<-0x))
+
+;; Enforce EIP-55
+;; : Address <- 0xString
+(def address<-0x/strict (compose make-address address-bytes<-0x))
+
+(define-type Address
+  {(:: @ [methods.marshal<-bytes Type.])
+   .Bytes: Bytes20
+   .element?: address?
+   .json<-: 0x<-address
+   .<-json: (compose make-address (.@ Bytes20 .<-json))
+   .string<-: 0x<-address
+   .<-string: address<-0x
+   .sexp<-: (lambda (x) `(address<-0x ,(0x<-address x)))
+   .<-bytes: (compose make-address (.@ Bytes20 .validate))
+   .bytes<-: address-bytes
+   .<-rlp: .<-bytes
+   .rlp<-: .bytes<-
+   .length-in-bytes: 20
+   .ethabi-name: "address"
+   .ethabi-display-type: (cut display .ethabi-name <>)
+   .ethabi-head-length: 32
+   .ethabi-padding: (- 32 .length-in-bytes)
+   .ethabi-tail-length: (lambda (_) 0)
+   .ethabi-encode-into:
+   (lambda (x bytes start head get-tail set-tail!)
+     (.call Bytes20 .ethabi-encode-into x bytes start head get-tail set-tail!))
+   .ethabi-decode-from:
+   (lambda (bytes start head get-tail set-tail!)
+     (.call Bytes20 .ethabi-decode-from bytes start head get-tail set-tail!))
+   })
+(register-simple-eth-type Address)
+
+;; Internal function to compute an address from bytes
+;; : Address <- Bytes
+(def (address<-data data)
+  (!> data
+      keccak256<-bytes
+      (cut subu8vector <> 12 32)
+      make-address))
+
+;; Address of a user given his public key
+;; : Address <- PublicKey
+(def (address<-public-key pubkey)
+  (address<-data (bytes<- PublicKey pubkey)))
+
+;; Current contract address from transaction
+;; : Address <- Address UInt256
+(def (address<-creator-nonce creator nonce)
+  (address<-data (rlpbytes<-rlp [(bytes<- Address creator) (rlp<-nat nonce)])))
+
+;; Address from CREATE2 given creator and nonce
+;; NB: when executing from a transaction, the creator is not the CALLER,
+;; but the ADDRESS computed from address<-creator-nonce with CALLER and nonce above.
+;; https://eips.ethereum.org/EIPS/eip-1014
+;; : Address <- Address UInt256
+(def (address<-create2 creator salt init-code)
+  (address<-data (bytes-append #u8(#xff) (bytes<- Address creator)
+                               (validate Bytes32 salt)
+                               (keccak256<-bytes init-code))))
+
+;; Signature <- 'a:Type SecKey 'a
+(def (make-signature type secret-key data)
+  (make-message-signature secret-key (keccak256<-bytes (bytes<- type data))))
+
+;; (OrFalse Address) <- Signature Digest
+(def (recover-signer-address signature message32)
+  (let (pubkey (recover-signer-public-key signature message32))
+    (and pubkey (address<-public-key pubkey))))
+
+;; Bool <- Address Signature Digest
+(def (message-signature-valid? address signature message32)
+  (equal? address (recover-signer-address signature message32)))
+
+;; Bool <- 'a:Type Address Signature 'a
+(def (signature-valid? type address signature data)
+  (message-signature-valid? address signature (keccak256<-bytes (bytes<- type data))))
+
+;; TODO: mixin the prototype with a formula that caches the abi bytes4 selector.
+(define-type EthFunction
+  (.mix (Record contract: [Address] selector: [Bytes4])
+        {ethabi: "function"}))
 
 (define-type Confirmation
   (Record

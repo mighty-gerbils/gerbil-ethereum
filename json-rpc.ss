@@ -32,7 +32,8 @@
   :clan/base :clan/concurrency :clan/json :clan/logger :clan/failure :clan/maybe :clan/option :clan/syntax
   :clan/net/json-rpc
   :clan/poo/object :clan/poo/brace :clan/poo/io
-  ./types ./signing ./ethereum ./network-config ./logger)
+  :clan/crypto/secp256k1
+  ./types ./ethereum ./network-config ./logger)
 
 ;; We use a mutex for access to the ethereum node, not to overload it and get timeouts.
 ;; TODO: Have a pool of a small number of connections to the node rather than just one.
@@ -478,10 +479,12 @@
 (define-ethereum-api personal sendTransaction
   Digest <- TransactionParameters String) ;; passphrase
 
+;;; TODO: translate the 0x Bytes into a Signature.
+;;; If so, some translation is required.
 ;;; The sign method calculates an Ethereum specific signature of:
 ;;; (keccak256<-bytes (ethereum-sign-message-wrapper message))
 (define-ethereum-api personal sign
-  Signature <- String Address String) ;; message address passphrase
+  Bytes <- String Address String) ;; message address passphrase
 ;;; Looking at the code in go-ethereum, the length that matters is the length in bytes.
 ;;; However, the JSON RPC API passes the string as JSON, which will be UTF-8 encoded,
 ;;; so it might be "interesting" to try to sign arbitrary bytes that are not valid JSON string.

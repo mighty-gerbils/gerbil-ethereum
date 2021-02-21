@@ -5,7 +5,7 @@
   :std/misc/bytes :std/misc/number :std/sugar
   :clan/base :clan/number :clan/syntax
   :clan/poo/object :clan/poo/io
-  ./types ./ethereum ./network-config ./signing)
+  ./types ./ethereum ./network-config)
 
 ;; In the future, segments can be nested, and
 ;; offset would be relative to a subsegment of a segment,
@@ -466,6 +466,13 @@
   (if (ethereum-eip145)
     (&begin n SAR)
     (&begin (arithmetic-shift 1 n) SWAP1 SDIV))) ;; pre-EIP-145 version
+
+;; TESTING STATUS: only partially tested, as part of batching
+(def (&unless &cond &then)
+  (def unless-label (generate-label "&endunless"))
+  (&begin &cond [&jumpi2 unless-label]
+          &then
+          [&jumpdest unless-label]))
 
 ;; TESTING STATUS: wholly tested.
 (def (&if &cond &then &else)

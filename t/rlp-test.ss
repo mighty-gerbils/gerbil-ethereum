@@ -4,7 +4,7 @@
         :gerbil/gambit/bytes
         :std/sugar :std/test
         :clan/base :clan/poo/object :clan/poo/io :clan/poo/brace
-        ../rlp ../hex ../types ../ethereum ../transaction ../signing)
+        ../rlp ../hex ../types ../ethereum ../transaction)
 
 (def (bs . vs)
   (apply u8vector-append

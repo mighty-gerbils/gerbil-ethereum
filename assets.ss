@@ -7,7 +7,7 @@
   :std/sugar :std/format :std/misc/string :std/srfi/13
   :clan/decimal
   :clan/poo/object
-  ./assembly ./types ./ethereum ./abi ./evm-runtime ./signing)
+  ./assembly ./types ./ethereum ./abi ./evm-runtime)
 
 (.def (TokenAmount @ [] .decimals .validate .symbol)
   .denominator: (expt 10 .decimals)

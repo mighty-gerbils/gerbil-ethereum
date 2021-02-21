@@ -129,7 +129,7 @@
 (defsyntax (defBytesNs stx)
   (def (foo n) [(datum->syntax (stx-car stx) (symbolify "Bytes" n)) n])
   (with-syntax* ((((rid ri)...) (map foo (iota 32 1)))
-                 (((uid ui)...) (map foo [60 64 65 256])) ;; Shh id / PubKey / Signature / Bloom filter
+                 (((uid ui)...) (map foo [60 64 256])) ;; Shh id / PubKey / Bloom filter
                  (((id i)...) #'((rid ri)... (uid ui)...)))
     #'(begin
         (defrule (d name n) (define-type (name @ BytesN.) n: n))
