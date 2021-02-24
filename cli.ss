@@ -33,12 +33,12 @@
 
 ;; TODO: allow the use of a URL instead of a name in the DB.
 ;; Then networkid and chainid are queried from the server.
-(def options/ethereum-network
+(def options/evm-network
   (make-options
-   [(option 'ethereum-network "-E" "--ethereum-network" default: #f
+   [(option 'evm-network "-E" "--evm-network" default: #f
             help: "name of ethereum network")]
    [(lambda-$ (ensure-ethereum-connection
-            (or ($ ethereum-network) (if ($ test) "pet" "rinkeby"))))]
+            (or ($ evm-network) (if ($ test) "pet" "rinkeby"))))]
    options/test))
 
 (def options/database
@@ -52,12 +52,12 @@
 (def options/from
   (make-options
    [(option 'from "-f" "--from" help: "sender (address or nickname)")] []
-   [options/database options/ethereum-network]))
+   [options/database options/evm-network]))
 
 (def options/to
   (make-options
    [(option 'to "-t" "--to" help: "recipient (address or nickname)")] []
-   [options/database options/ethereum-network]))
+   [options/database options/evm-network]))
 
 (define-entry-point (faucet . arguments)
   "Fund some accounts from the network faucet"
