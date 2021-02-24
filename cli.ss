@@ -59,34 +59,6 @@
    [(option 'to "-t" "--to" help: "recipient (address or nickname)")] []
    [options/database options/evm-network]))
 
-(define-entry-point (faucet . arguments)
-  "Fund some accounts from the network faucet"
-  (def args (process-options options/to arguments))
-  (defrule ($ x) (hash-get args 'x))
-  ;; TODO: find the faucet, use it.
-  (def network (.@ (ethereum-config) network))
-  (def faucets (.@ (ethereum-config) faucets))
-  (cond
-   ((equal? (.@ (ethereum-config) name) "Private Ethereum Testnet")
-    (let ()
-      (unless ($ to) (error "Missing recipient. Please use option --to"))
-      (def to (parse-address ($ to)))
-       ;; *after* the above, so we have croesus, but the user may have their own alice.
-      (import-testing-module)
-      (def value-in-ether 5)
-      (def value (wei<-ether value-in-ether))
-      (def token-symbol (.@ (ethereum-config) nativeCurrency symbol))
-      (def from (address<-nickname "t/croesus"))
-      (printf "\nSending ~a ~a from faucet ~a\n to ~a on network ~a:\n\n"
-              value-in-ether token-symbol (0x<-address from) (0x<-address to) network)
-      (cli-send-tx {from to value} confirmations: 0)
-      (printf "\nFinal balance: ~a ~a\n\n" (decimal-string-ether<-wei (eth_getBalance to)) token-symbol)))
-   ((not (null? faucets))
-    (printf "\nVisit the following URL to get ethers on network ~a:\n\n\t~a\n\n"
-            (car faucets) network))
-   (else
-    (printf "\nThere is no faucet for network ~a - Go earn tokens the hard way.\n\n" network))))
-
 (def options/send
   (make-options
    [(option 'value "-v" "--value" help: "value to send in ether")] []
