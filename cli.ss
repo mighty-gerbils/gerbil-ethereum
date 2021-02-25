@@ -55,7 +55,7 @@
             help: "path to local DApp state database")]
    [(lambda (opt)
      (ensure-db-connection (or (hash-removed opt 'database)
-                               (run-path (if (hash-get opt 'test) "testdb" "userdb")))))]
+                               (if (hash-get opt 'test) "testdb" "userdb"))))]
    [options/test]))
 
 (def options/from

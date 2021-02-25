@@ -2,6 +2,9 @@
 ;; Run your own local private copy of an Ethereum as a node on localhost, for testing purposes,
 ;; either Geth or Mantis.
 
+;; TODO: make it so that script is runnable from installation directories.
+;; This implies able to find any ancillary data files it uses.
+
 (import
   :gerbil/expander
   :gerbil/gambit/exceptions :gerbil/gambit/os :gerbil/gambit/ports :gerbil/gambit/threads
@@ -13,14 +16,17 @@
 
 (with-catch void (cut import-module ':mukn/ethereum/version #t #t))
 
+(set! application-name "gerbil-ethereum")
+
 ;; User-configurable variables
 (def eth-rpc-port 8545) ;; NOTE: Mantis by default uses 8546, while Geth uses 8545
 (def default-node "geth")
+(def croesus "0x25c0bb1A5203AF87869951AEf7cF3FEdD8E330fC")
 
 ;; If the home directory isn't otherwise set, we must be running from unconfigured source code,
 ;; and we'll use the top of this source code hierarchy as home.
 (def here (path-simplify-directory (this-source-file)))
-(home-directory-default! (cut path-parent here))
+(set-central-path-config! (subpath (path-parent here) "run/"))
 
 (def (eth-rpc-url) (format "http://localhost:~d" eth-rpc-port))
 
@@ -29,18 +35,23 @@
 
 ;; Wipe out the runtime directory, thus resetting the test blockchain to zero,
 ;; and recreate an empty directory.
-(define-entry-point (wipe-run-directory)
+(define-entry-point (wipe-state-directories)
   (help: "Wipe any run directory" getopt: [])
-  (unless (string-suffix? "/run" (run-directory))
+  (unless (and (string-contains (persistent-directory) "/gerbil-ethereum/")
+               (string-suffix? "db/" (persistent-directory)))
     ;; TODO: once there are production directories, insert test so that we don't wipe one.
-    (error "Not resetting fishy run-directory" (run-directory)))
-  (for-each
-    (lambda (sub)
-      (def path (run-path sub))
-      (assert! (string-contains path "/run/"))
-      (when (file-exists? path)
-        (ignore-errors (run-process/batch ["rm" "-rf" path]))))
-    ["geth" "mantis" "testdb" "t" "log"]))
+    (error "Not resetting fishy persistent-directory" (persistent-directory)))
+  (unless (and (string-contains (log-directory) "/gerbil-ethereum/")
+               (string-contains (log-directory) "/log/"))
+    ;; TODO: once there are production directories, insert test so that we don't wipe one.
+    (error "Not resetting fishy log-directory" (log-directory)))
+  (nest (for-each! ["geth" "mantis" "testdb" "t" "log"]) (lambda (sub))
+        (for-each! [log-path data-path]) (lambda (f))
+        (let (path (f sub))
+          (assert! (string-contains path "/gerbil-ethereum/")))
+        (when (file-exists? path))
+        (ignore-errors)
+        (run-process/batch ["rm" "-rf" path])))
 
 (define-entry-point (wait-for-ethereum (name "ethereum"))
   (help: "Wait for the ethereum server to be ready to handle requests"
@@ -92,15 +103,14 @@
 (def geth-dev-period 1)
 
 ;; Determine the runtime directories
-(def geth-run-directory (run-path "geth"))
-(def geth-data-directory (run-path "geth/data"))
-(def geth-logs-directory (run-path "geth/logs"))
+(def geth-data-directory (data-path "geth"))
+(def geth-logs-directory (log-path "geth"))
 
 (def geth-arguments
   ["--datadir" geth-data-directory
    "--identity" "GlowEthereumPrivateTestNet"
    "--verbosity" "4" ;; 3: info, 4: debug
-   "--etherbase" "0x25c0bb1A5203AF87869951AEf7cF3FEdD8E330fC"
+   "--etherbase" croesus
    "--nodiscover"
    "--maxpeers" "0"
    "--nousb"
@@ -128,14 +138,12 @@
   (help: "Start a go-ethereum server, wiping any previous run data" getopt: [])
   ;; Zeroth, erase any previous blockchain data and accompanying testdb, and create new directories
   (stop)
-  (wipe-run-directory)
-  (create-directory* geth-run-directory)
+  (wipe-state-directories)
   (create-directory* geth-data-directory)
   (create-directory* geth-logs-directory)
-  ;;;;(current-directory geth-run-directory)
   ;; First, register the private key for croesus, so he can sign POA endorsements
   (run-geth
-   "--unlock" "0x25c0bb1A5203AF87869951AEf7cF3FEdD8E330fC"
+   "--unlock" croesus
    "account" "import" "--password" "/dev/null" (subpath here "croesus.prv"))
   ;; Second, initialize the state of the blockchain
   (run-geth "init" (subpath here "genesis.json"))
@@ -150,7 +158,7 @@
     "--http.corsdomain" "https://remix.ethereum.org,http://remix.ethereum.org"
     ;;"--port" (number->string geth-port)
     "--vmdebug"
-    "--ipcpath" (subpath geth-run-directory "geth.ipc")])
+    "--ipcpath" (subpath geth-data-directory "geth.ipc")])
   ;; Finally, wait for the server to be ready to process requests
   (wait-for-ethereum "geth"))
 
@@ -174,7 +182,7 @@
 ;; docker exec -it $(run-mantis-test-net.ss mantis-container) bash
 (def mantis-docker-image "inputoutput/mantis:2020-evm") ;; NB: there are both -evm and -kevm variants
 (def mantis-yolo-conf "yolo-evm.conf") ;; our override file, also with -evm or -kevm
-(def mantis-run-directory (run-path "mantis")) ;; Determine the runtime directory
+;;(def mantis-data-directory (persistent-path "mantis")) ;; Determine the runtime directory
 ;; NB: When editing the configuration, compare to what's in production:
 ;; https://github.com/input-output-hk/mantis/blob/develop/src/main/resources/chains/etc-chain.conf
 ;; https://github.com/etclabscore/core-geth/blob/master/params/config_classic.go#L30
@@ -216,37 +224,37 @@
 
 (define-entry-point (run-mantis)
   (help: "Start a Mantis docker image in the background" getopt: [])
-  (create-directory* mantis-run-directory)
+  #;(create-directory* mantis-data-directory)
   ;;; NB: I'd like to use this, but Docker seems to have no such option :-( Big security risk!
   ;;(def opt (let (u (user-info (user-name))) (format ":uid=~d,gid=~d" (user-info-uid u) (user-info-gid u))))
   (open-process
    [path: "docker"
     arguments: ["run"
-                ;;;; We mount this directory so we can easily copy files to override configuration
+                ;; We mount this directory so we can easily copy files to override configuration
                 "-v" (format "~a:/here" here)
 
-                ;;;; Uncomment this line if you want to visibly persist the state on your local disk.
-                ;;;; Beware: docker will create those files *owned by root*
-                ;;"-v" (format "~a:/root/.mantis" mantis-run-directory)
-                ;;;; You could also try to mount some kind of persistent docker volume instead.
+                ;; Uncomment this line if you want to visibly persist the state on your local disk.
+                ;; Beware: docker will create those files *owned by root*
+                #;#;"-v" (format "~a:/root/.mantis" mantis-data-directory)
+                ;; You could also try to mount some kind of persistent docker volume instead.
 
-                ;;;; The ethash miner creates a reusable 1GB DAG file at startup.
-                ;;;; By keeping it between runs, we save 10-20 minutes of initialization time
-                ;;;; Beware: Docker will create it owned by root, but you should be able to chown it.
-                "-v" (format "~a:/root/.ethash" (run-path "ethash"))
+                ;; The ethash miner creates a reusable 1GB DAG file at startup.
+                ;; By keeping it between runs, we save 10-20 minutes of initialization time
+                ;; Beware: Docker will create it owned by root, but you should be able to chown it.
+                "-v" (format "~a:/root/.ethash" (cache-path "ethash"))
 
-                ;;;; Outside the image, We use eth-rpc-port. *inside*, we let /conf say it's 8546.
+                ;; Outside the image, We use eth-rpc-port. *inside*, we let /conf say it's 8546.
                 "-p" (format "~d:8546" eth-rpc-port)
 
-                ;;;; We could try to persist the state of the docker container, but
-                ;;;; we don't want to and that would require more management above.
-                ;;"--name" "mantis-testnet"
+                ;; We could try to persist the state of the docker container, but
+                ;; we don't want to and that would require more management above.
+                #;#;"--name" "mantis-testnet"
 
                 ;;;; If we wanted an interactive terminal, we'd use that.
-                ;;"-it"
+                #;"-it"
 
                 ;;;; If we needed to pass parameters from host to image, we could use this:
-                ;;"-e" (format "GENESIS=~a" (string<-json genesis)) ;; not needed anymore
+                #;#;"-e" (format "GENESIS=~a" (string<-json genesis)) ;; not needed anymore
 
                 ;;;; This is the image name. End of options, after that start of command to run.
                 mantis-docker-image
@@ -259,16 +267,16 @@
                   "cd / && "
 
                   ;;;; This shouldn't be needed in the current image
-                  ;;"echo \"$GENESIS\" > /conf/genesis.json && "
+                  #;"echo \"$GENESIS\" > /conf/genesis.json && "
 
                   ;;;; Make a backup of the configuration files we're going to override
                   "cp /conf/yolo.conf /here/" mantis-yolo-conf ".orig && "
                   ;;;; This file enables tracing of EVM on the 2020-evm image
-                  ;;"cp /conf/logback.xml /here/logback.xml.orig && "
+                  #;"cp /conf/logback.xml /here/logback.xml.orig && "
 
                   ;;;; Override the IOG-provided configuration files
                   "cat /here/" mantis-yolo-conf " > /conf/yolo.conf && "
-                  ;;"cat /here/logback.xml > /conf/logback.xml && "
+                  #;"cat /here/logback.xml > /conf/logback.xml && "
 
                   ;;;; Final command
                   "exec mantis")
@@ -281,7 +289,7 @@
 (define-entry-point (start-mantis)
   (help: "Start a fresh Mantis docker image, wiping any previous run data" getopt: [])
   (stop)
-  (wipe-run-directory)
+  (wipe-state-directories)
   (run-mantis)
   (wait-for-ethereum "mantis"))
 
@@ -293,7 +301,7 @@
   (help: "copy the mantis log to run/mantis/mantis.log"
    getopt: [(optional-argument 'tx help: "transaction to look for in the log")])
   (def container-log (format "~a:/root/.mantis/logs/mantis.log" (car (mantis-containers))))
-  (def host-log (run-path "log/mantis.log"))
+  (def host-log (log-path "mantis.log"))
   (run-process/batch ["docker" "cp" container-log host-log])
   (when tx
     (let (thex (string-trim-prefix "0x" tx))
@@ -307,7 +315,7 @@
   (help: "Run mallet against the Mantis docker image" getopt: [])
   ;; Download mallet at: https://github.com/input-output-hk/mallet
   ;; Works best with node 10.x.x
-  (run-process/batch ["mallet" (eth-rpc-url) (string-append "--datadir=" mantis-run-directory)]))
+  (run-process/batch ["mallet" (eth-rpc-url) (string-append "--datadir=" mantis-data-directory)]))
 
 (set-default-entry-point! "start")
 (define-multicall-main)

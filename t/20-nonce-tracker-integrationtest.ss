@@ -8,7 +8,7 @@
 
 ;; Use the test database
 (displayln "Connecting to the test database...")
-(ensure-db-connection (run-path "testdb"))
+(ensure-db-connection "testdb")
 
 ;; TODO: validate that the testdb indeed corresponds to this test net?
 ;; - At minimum, check that the last confirmed nonces for croesus, etc.,
