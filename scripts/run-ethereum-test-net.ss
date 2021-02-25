@@ -3,12 +3,15 @@
 ;; either Geth or Mantis.
 
 (import
+  :gerbil/expander
   :gerbil/gambit/exceptions :gerbil/gambit/os :gerbil/gambit/ports :gerbil/gambit/threads
   :std/format :std/getopt :std/misc/list :std/misc/ports :std/misc/process :std/misc/string
   :std/pregexp :std/srfi/1 :std/srfi/13 :std/sugar
   :clan/base :clan/files :clan/json :clan/maybe :clan/multicall
   :clan/path :clan/path-config :clan/shell :clan/source
   :clan/net/json-rpc)
+
+(with-catch void (cut import-module ':mukn/ethereum/version #t #t))
 
 ;; User-configurable variables
 (def eth-rpc-port 8545) ;; NOTE: Mantis by default uses 8546, while Geth uses 8545
@@ -27,7 +30,7 @@
 ;; Wipe out the runtime directory, thus resetting the test blockchain to zero,
 ;; and recreate an empty directory.
 (define-entry-point (wipe-run-directory)
-  "Wipe any run directory"
+  (help: "Wipe any run directory" getopt: [])
   (unless (string-suffix? "/run" (run-directory))
     ;; TODO: once there are production directories, insert test so that we don't wipe one.
     (error "Not resetting fishy run-directory" (run-directory)))
@@ -40,7 +43,8 @@
     ["geth" "mantis" "testdb" "t" "log"]))
 
 (define-entry-point (wait-for-ethereum (name "ethereum"))
-  "Wait for the ethereum server to be ready to handle requests"
+  (help: "Wait for the ethereum server to be ready to handle requests"
+   getopt: [(optional-argument 'name help: "nickname of the network to wait for")])
   (let loop ()
     (cond
      ((with-catch false
@@ -52,28 +56,27 @@
       (thread-sleep! 1)
       (loop)))))
 
-(define-entry-point (start (name default-node))
-  (format "Start a fresh ethereum server (default: ~a)" default-node)
-  (match (string-downcase name)
+(define-entry-point (start (type default-node))
+  (help: "Start a fresh ethereum server"
+   getopt: [(optional-argument 'type help: "type of server, 'geth' or 'mantis'" default: default-node)])
+  (match (string-downcase type)
     ("geth" (start-geth))
     ("mantis" (start-mantis))
-    (_ (error "Unrecognized ethereum server name" name))))
+    (_ (error "Unrecognized ethereum server type" type))))
 
 (define-entry-point (stop)
-  "Stop and wipe any current ethereum server"
+  (help: "Stop and wipe any current ethereum server" getopt: [])
   (stop-geth)
   (stop-mantis))
 
 ;; There are additional restrictions on a name that we don't care to check here
 ;; https://docs.docker.com/engine/reference/commandline/tag/
 (define-entry-point (parse-docker-ps-line line)
-  "Parse a docker ps line"
+  (help: "Parse a docker ps line"
+   getopt: [(argument 'line help: "line to parse")])
   (match (pregexp-match "^([0-9a-f]+) +([-A-Za-z0-9_.-/:]+) +.* ([-A-Za-z0-9_./:]+)$" line)
     ([_ container-id image-name container-name] [container-id image-name container-name])
     (_ #f)))
-
-(set-default-entry-point! "start")
-(def main call-entry-point)
 
 ;;;; Support for Geth
 
@@ -122,7 +125,7 @@
     show-console: #f]))
 
 (define-entry-point (start-geth)
-  "Start a go-ethereum server, wiping any previous run data"
+  (help: "Start a go-ethereum server, wiping any previous run data" getopt: [])
   ;; Zeroth, erase any previous blockchain data and accompanying testdb, and create new directories
   (stop)
   (wipe-run-directory)
@@ -152,12 +155,12 @@
   (wait-for-ethereum "geth"))
 
 (define-entry-point (stop-geth)
-  "Stop any currently running geth server"
+  (help: "Stop any currently running geth server" getopt: [])
   (ignore-errors (run-process/batch
                   ["killall" (cond-expand (linux ["-q"]) (else []))... "geth"])))
 
 (define-entry-point (geth)
-  "alias for start-geth"
+  (help: "alias for start-geth" getopt: [])
   (start-geth))
 
 ;;;; Support for Mantis
@@ -177,7 +180,7 @@
 ;; https://github.com/etclabscore/core-geth/blob/master/params/config_classic.go#L30
 
 (define-entry-point (mantis-containers)
-  "List current Mantis docker containers"
+  (help: "List current Mantis docker containers" getopt: [])
   (append-map
    (lambda (l) (match (parse-docker-ps-line l)
             ([container-id image-name _]
@@ -189,12 +192,12 @@
                      coprocess: read-all-as-lines))))
 
 (define-entry-point (mantis-container)
-  "Print name of first Mantis docker container, if any"
+  (help: "Print name of first Mantis docker container, if any" getopt: [])
   (def mcs (mantis-containers))
   (unless (null? mcs) (displayln (car mcs))))
 
 (define-entry-point (stop-mantis)
-  "Stop any currently running Mantis docker container"
+  (help: "Stop any currently running Mantis docker container" getopt: [])
   (ignore-errors
     (def containers (mantis-containers))
     (unless (null? containers)
@@ -212,7 +215,7 @@
 ;;    h))
 
 (define-entry-point (run-mantis)
-  "Start a Mantis docker image in the background"
+  (help: "Start a Mantis docker image in the background" getopt: [])
   (create-directory* mantis-run-directory)
   ;;; NB: I'd like to use this, but Docker seems to have no such option :-( Big security risk!
   ;;(def opt (let (u (user-info (user-name))) (format ":uid=~d,gid=~d" (user-info-uid u) (user-info-gid u))))
@@ -276,18 +279,19 @@
     show-console: #f]))
 
 (define-entry-point (start-mantis)
-  "Start a fresh Mantis docker image, wiping any previous run data"
+  (help: "Start a fresh Mantis docker image, wiping any previous run data" getopt: [])
   (stop)
   (wipe-run-directory)
   (run-mantis)
   (wait-for-ethereum "mantis"))
 
 (define-entry-point (mantis)
-  "alias for start-mantis"
+  (help: "alias for start-mantis" getopt: [])
   (start-mantis))
 
 (define-entry-point (get-mantis-log (tx #f))
-  "copy the mantis log to run/mantis/mantis.log"
+  (help: "copy the mantis log to run/mantis/mantis.log"
+   getopt: [(optional-argument 'tx help: "transaction to look for in the log")])
   (def container-log (format "~a:/root/.mantis/logs/mantis.log" (car (mantis-containers))))
   (def host-log (run-path "log/mantis.log"))
   (run-process/batch ["docker" "cp" container-log host-log])
@@ -298,9 +302,12 @@
       (ignore-errors (run-process/batch ["grep" thex host-log]))
       (printf "less -p ~a ~a\n" thex host-log))))
 
-;; TODO: get mallet to work?
-#;(define-entry-point (mallet)
-  "Run mallet against the Mantis docker image"
+#; ;; TODO: get mallet to work?
+(define-entry-point (mallet)
+  (help: "Run mallet against the Mantis docker image" getopt: [])
   ;; Download mallet at: https://github.com/input-output-hk/mallet
   ;; Works best with node 10.x.x
   (run-process/batch ["mallet" (eth-rpc-url) (string-append "--datadir=" mantis-run-directory)]))
+
+(set-default-entry-point! "start")
+(define-multicall-main)

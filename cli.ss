@@ -2,17 +2,24 @@
 
 (import
   :gerbil/expander
-  :std/format :std/getopt :std/iter :std/misc/hash :std/sort :std/sugar
-  :clan/cli :clan/decimal :clan/exit :clan/multicall :clan/path-config
+  :std/format :std/getopt :std/iter :std/misc/hash
+  :std/sort :std/srfi/13 :std/sugar
+  :clan/cli :clan/decimal :clan/exit :clan/hash :clan/list :clan/multicall :clan/path-config
   :clan/poo/object :clan/poo/brace :clan/poo/cli :clan/poo/debug
   :clan/persist/db
   ./network-config ./types ./ethereum ./known-addresses ./json-rpc)
 
-(define-entry-point (list-ethereum-networks)
-  "Show a list of available ethereum networks"
-  (for-each
-    (lambda (name) (displayln name)) ;; TODO: display more, more useful information, aligned.
-    (sort (hash-keys ethereum-networks) string<?)))
+(def (co-pad-strings strings)
+  (def maxlen (extremum<-list < (map string-length strings) 0))
+  (map (cut string-pad-right <> maxlen) strings))
+
+(define-entry-point (list-evm-networks)
+  (help: "Show a list of available EVM networks" getopt: [])
+  (def keys (sort (hash-keys ethereum-networks) string<?))
+  (def names (map (lambda (key) (.@ (hash-get ethereum-networks key) name)) keys))
+  (def urls (map (lambda (key) (car (.@ (hash-get ethereum-networks key) rpc))) keys))
+  (for-each (cut displayln <> "  " <> "  " <>)
+            (co-pad-strings keys) (co-pad-strings names) urls))
 
 (def (show-address-by-nickname h)
   (for/collect (([n . a] (hash->list/sort h string<?))) [n (0x<-address a)]))
@@ -36,9 +43,9 @@
 (def options/evm-network
   (make-options
    [(option 'evm-network "-E" "--evm-network" default: #f
-            help: "name of ethereum network")]
+            help: "name of EVM network")]
    [(lambda-$ (ensure-ethereum-connection
-            (or ($ evm-network) (if ($ test) "pet" "rinkeby"))))]
+            (or ($ ethereum-network) (if ($ test) "pet" "ced"))))]
    options/test))
 
 (def options/database
@@ -64,20 +71,19 @@
    [(option 'value "-v" "--value" help: "value to send in ether")] []
    [options/from options/to]))
 
-(define-entry-point (transfer . arguments)
-  "Send tokens from one account to the other"
-  (backtrace-on-abort? #f)
-  (def args (process-options options/send arguments))
-  (defrule ($ x) (hash-get args 'x))
-  (unless ($ from) (error "Missing sender. Please use option --from"))
-  (unless ($ to) (error "Missing recipient. Please use option --to"))
-  (unless ($ value) (error "Missing value. Please use option --value"))
-  (def from (parse-address ($ from)))
-  (def to (parse-address ($ to)))
-  (def decimals (.@ (ethereum-config) nativeCurrency decimals))
-  (def token-symbol (.@ (ethereum-config) nativeCurrency symbol))
-  (def value (* (decimal<-string ($ value)) (expt 10 decimals))) ;; have a function for that?
+(def (parse-currency-value string currency)
+  (* (decimal<-string string) (expt 10 (.@ currency decimals))))
+
+(define-entry-point (transfer from: (from #f) to: (to #f) value: (value #f))
+  (help: "Send tokens from one account to the other"
+   getopt: (make-options [] [(cut hash-restrict-keys! <> '(from to value))] options/send))
+  (def currency (.@ (ethereum-config) nativeCurrency))
+  (def token-symbol (.@ currency symbol))
   (def network (.@ (ethereum-config) network))
+  (set! from (parse-address (or from (error "Missing sender. Please use option --from"))))
+  (set! to (parse-address (or to (error "Missing recipient. Please use option --to"))))
+  (set! value (parse-currency-value
+               (or value (error "Missing value. Please use option --value")) currency))
   (printf "\nSending ~a ~a from ~a to ~a on network ~a:\n"
           value token-symbol (0x<-address from) (0x<-address to) network)
   (printf "\nBalance before\n for ~a: ~a ~a,\n for ~a: ~a ~a\n"
