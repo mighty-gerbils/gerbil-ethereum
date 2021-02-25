@@ -3,7 +3,7 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/random
   :std/format :std/iter :std/misc/list :std/sort :std/srfi/13 :std/sugar :std/text/hex
-  :clan/base :clan/json :clan/list :clan/number
+  :clan/base :clan/json :clan/list :clan/number :clan/ports
   :clan/crypto/keccak
   :clan/poo/io :clan/poo/brace :clan/poo/object :clan/poo/debug
   :clan/crypto/secp256k1 :clan/crypto/secp256k1-ffi
@@ -19,11 +19,12 @@
    .json<-: (lambda (kp) (json<- Address (keypair-address kp)))
    .<-json: (lambda (j) (keypair<-address (<-json Address j)))})
 
-(def (keypair-reducible? kp)
+(def (keypair-consistent? kp)
   (and (equal? (keypair-address kp)
                (address<-public-key (keypair-public-key kp)))
        (equal? (bytes<- PublicKey (keypair-public-key kp))
-               (bytes<- PublicKey (secp256k1-pubkey<-seckey (secp256k1-seckey-data (keypair-secret-key kp)))))))
+               (bytes<- PublicKey (secp256k1-pubkey<-seckey
+                                   (secp256k1-seckey-data (keypair-secret-key kp)))))))
 
 ;; USE WITH CARE: this function exposes information that is meant to remain private.
 ;; Do NOT use lightly anywhere in production but in the most trusted wallet-management layer.
@@ -72,7 +73,8 @@
 
 (def trivial-scoring [(lambda (_) 0) 0])
 
-(def (generate-keypair scoring: (scoring trivial-scoring))
+(def (generate-keypair scoring: (scoring trivial-scoring)
+                       print-candidates: (print-candidates #f))
   (nest
     (let/cc return)
     (with ([score-function enough-score] scoring))
@@ -86,8 +88,11 @@
            (address-bytes (subu8vector h 12 32))
            (s (score-function address-bytes)))
       (set! seed (modulo (+ seed (nat<-bytes h)) secp256k1-order)))
-    (when (< best-score-so-far s))
+    (when (<= best-score-so-far s))
     (let (kp (keypair (make-address address-bytes) pubkey seckey))
+      (when print-candidates
+        (with-output (out print-candidates)
+          (write-json-ln (export-keypair/json kp) out)))
       (set! best-score-so-far s))
     (when (>= s enough-score))
     (return kp)))
