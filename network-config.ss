@@ -21,6 +21,7 @@
    infoURL: [String]
    ;; These are mine own additions
    description: [String] ;; a description of the network
+   targetBlockTime: [JsInt default: 13] ;; target time duration between blocks
    timeoutInBlocks: [JsInt] ;; a safe timeout, in blocks
    timeoutString: [String] ;; a string description of how long the timeout lasts
    confirmationsWantedInBlocks: [JsInt] ;; how many confirmations needed for a transaction?
@@ -136,6 +137,7 @@
   nativeCurrency: {name: "Ether" symbol: 'ETH decimals: 18}
   rpc: ["https://mainnet.infura.io/v3/${INFURA_API_KEY}"
         "https://api.mycryptoapi.com/eth"]
+  targetBlockTime: 13
   infoURL: "https://ethereum.org")
 
 (def-eth-net (ropsten @ [shared-test-network etherscanable])
@@ -203,5 +205,6 @@
   description: "Local PoA testnet"
   shortName: "pet" chain: "ETH" network: "petnet" networkId: 17 chainId: 1337
   nativeCurrency: {name: "Private Ether Test" symbol: 'PET decimals: 18}
+  targetBlockTime: 1
   rpc: ["http://localhost:8545"]
   explorerUrl: "https://localhost/pet/pet/")

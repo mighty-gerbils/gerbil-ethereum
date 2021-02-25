@@ -36,7 +36,7 @@
 (def options/test
   (make-options
    [(flag 'test "--test" help: "enable testing including test identities")]
-   [(lambda-$ (when ($ test) (import-testing-module)))]))
+   [(lambda (opt) (when (hash-get opt 'test) (import-testing-module)))]))
 
 ;; TODO: allow the use of a URL instead of a name in the DB.
 ;; Then networkid and chainid are queried from the server.
@@ -44,17 +44,19 @@
   (make-options
    [(option 'evm-network "-E" "--evm-network" default: #f
             help: "name of EVM network")]
-   [(lambda-$ (ensure-ethereum-connection
-            (or ($ ethereum-network) (if ($ test) "pet" "ced"))))]
+   [(lambda (opt) (ensure-ethereum-connection
+                   (or (hash-removed opt 'evm-network)
+                       (if (hash-get opt 'test) "pet" "ced"))))]
    options/test))
 
 (def options/database
   (make-options
    [(option 'database "-D" "--database" default: #f
             help: "path to local DApp state database")]
-   [(lambda-$
-     (ensure-db-connection (or ($ database)
-                               (run-path (if ($ test) "testdb" "userdb")))))]))
+   [(lambda (opt)
+     (ensure-db-connection (or (hash-removed opt 'database)
+                               (run-path (if (hash-get opt 'test) "testdb" "userdb")))))]
+   [options/test]))
 
 (def options/from
   (make-options
@@ -68,7 +70,7 @@
 
 (def options/send
   (make-options
-   [(option 'value "-v" "--value" help: "value to send in ether")] []
+   [(option 'value "-v" "--value" help: "decimal value to send in tokens")] []
    [options/from options/to]))
 
 (def (parse-currency-value string currency)

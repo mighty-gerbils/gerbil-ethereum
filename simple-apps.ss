@@ -65,10 +65,12 @@
 ;;  - Byte 0, followed by 20-byte address, followed by 11-byte value, for transfering
 ;;    up to 309M ethers at once (more than the foreseeable ETH supply for years).
 ;;  - Byte 1, followed by 20-byte address, followed by 11-byte value, followed by 2-byte length,
-;;    followed by message of given length, to calling a contract with same value limit and message.
-;;  - Byte 2, followed by 11-byte value, followed by 2-byte length,
-;;    followed by code of given length, to create a contract with CREATE2.
-;;  - Byte 3, followed by 11-byte value, followed by 2-byte length, followed by 32-byte salt,
+;;    followed by message of given length, to CALL a contract with same value limit and message.
+;;  - Byte 2, followed by 20-byte address, followed by 2-byte length,
+;;    followed by code of given length, to DELEGATECALL a contract.
+;;  - Byte 3, followed by 11-byte value, followed by 2-byte length,
+;;    followed by code of given length, to create a contract with CREATE.
+;;  - Byte 4, followed by 11-byte value, followed by 2-byte length, followed by 32-byte salt,
 ;;    followed by code of given length, to create a contract with CREATE2.
 ;;
 ;;  There is no 4-byte header to identify a "function" to call; there's only one "function".
@@ -128,8 +130,12 @@
     [&jumpdest 'loop-body] ;; -- cursor size $CONSTANTS
     DUP1 CALLDATALOAD
     ;; Push a vector mapping virtual instruction numbers to EVM instruction counters
-    PUSH4 [&fixup 32 '(+ &transfer (* &call 256) (* &create 65536) (* &create2 16777216))]
-    DUP2 (&shr 245) 24 AND SHR 255 AND JUMP ;; extract the address of the virtual instruction
+    PUSH10 [&fixup 80 `(+ (* ,(expt 2  0) &transfer)
+                          (* ,(expt 2 16) &call)
+                          (* ,(expt 2 32) &delegatecall)
+                          (* ,(expt 2 48) &create)
+                          (* ,(expt 2 64) &create2))]
+    DUP2 (&shr 244) 48 AND SHR 65535 AND JUMP ;; extract the address of the virtual instruction
     ;; -- topword cursor size $CONSTANTS
 
     [&jumpdest '&call] ;; -- topword cursor size $CONSTANTS
@@ -141,7 +147,22 @@
     DUP3 #|msgwidth|# DUP3 #|msgstart|# DUP8 #|0|# CALLDATACOPY ;; copy message
     ;; -- topword msgstart msgwidth size $CONSTANTS
     DUP6 #|0|# DUP4 #|msgwidth|# ;; -- msgwidth 0 topword cursor0 cursor1 size $CONSTANTS
-    [&jump1 '&call0]
+    [&jump1 '&call0] ;; jump to code shared with &transfer
+
+    [&jumpdest '&delegatecall] ;; -- topword cursor size $CONSTANTS
+    DUP1 #|topword|# (&shl 168) (&shr 240) ;; -- msgwidth
+    ;; -- msgwidth topword cursor size $CONSTANTS
+    SWAP2 #|cursor<->msgwidth|# 23 ADD #|msgstart = cursor + 23|#
+    ;; -- msgstart topword msgwidth size $CONSTANTS
+    SWAP1 ;; -- topword msgstart msgwidth size $CONSTANTS
+    DUP3 #|msgwidth|# DUP3 #|msgstart|# DUP8 #|0|# CALLDATACOPY ;; copy message
+    ;; -- topword msgstart msgwidth size $CONSTANTS
+    DUP6 #|0|# DUP4 #|msgwidth|# ;; -- msgwidth 0 topword cursor0 cursor1 size $CONSTANTS
+    ;; where: newcursor == cursor0 + cursor1, 0=retstart=retwidth=argstart
+    ;; -- argwidth 0 topword cursor0 cursor1 size $CONSTANTS
+    DUP2 #|0|# DUP1 #|0|# SWAP4 #|topword<->0|# (&shl 8) (&shr 96) GAS
+    ;; -- gas address 0 argwidth 0 0 cursor0 cursor1 size $CONSTANTS
+    DELEGATECALL [&jumpi1 'loop] [&jump1 'abort-contract-call]
 
     [&jumpdest '&create] ;; -- topword cursor size $CONSTANTS
     DUP1 #|topword|# (&shl 96) (&shr 240) #|msgwidth|# ;; -- msgwidth
@@ -199,8 +220,12 @@
 (defstruct batched-transaction (value) transparent: #t)
 (defstruct (batched-transfer batched-transaction) (to) transparent: #t)
 (defstruct (batched-call batched-transaction) (to data) transparent: #t)
+(defstruct (batched-delegate-call batched-transaction) (to data) transparent: #t)
 (defstruct (batched-create batched-transaction) (initcode) transparent: #t)
 (defstruct (batched-create2 batched-transaction) (initcode salt) transparent: #t)
+;; NOTE: for the delegate-call, the value spent as part of the call is NOT
+;; explicitly passed as part of the on-chain call, yet must still be accounted
+;; for by the off-chain code that computes the amounts to be transfered.
 
 ;; JSON description for a batched-transaction
 ;; : Json <- BatchedTransaction
@@ -209,6 +234,8 @@
     ((batched-transfer value to)
      [(decimal-string-ether<-wei value) (0x<-address to) (nickname<-address to)])
     ((batched-call value to data)
+     [(decimal-string-ether<-wei value) (0x<-address to) (nickname<-address to) (0x<-bytes data)])
+    ((batched-delegate-call value to data)
      [(decimal-string-ether<-wei value) (0x<-address to) (nickname<-address to) (0x<-bytes data)])
     ((batched-create value initcode)
      [(decimal-string-ether<-wei value) (0x<-bytes initcode)])
@@ -227,11 +254,13 @@
      (write-byte 0 port) (m.address to) (m.value value))
     ((batched-call value to data)
      (write-byte 1 port) (m.address to) (m.value value) (m.bytes-length data) (m.bytes data))
+    ((batched-delegate-call value to data)
+     (write-byte 2 port) (m.address to) (m.bytes-length data) (m.bytes data))
     ((batched-create value initcode)
-     (write-byte 2 port) (m.value value)
+     (write-byte 3 port) (m.value value)
      (m.bytes-length initcode) (m.bytes initcode))
     ((batched-create2 value initcode salt)
-     (write-byte 3 port) (m.value value) (m.bytes-length initcode)
+     (write-byte 4 port) (m.value value) (m.bytes-length initcode)
      (m.bytes (validate Bytes32 salt)) (m.bytes initcode))))
 
 ;; Marshal a list of batched tx for use with a batch contract

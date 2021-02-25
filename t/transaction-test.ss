@@ -12,12 +12,12 @@
 (def transaction-test
   (test-suite "Test suite for ethereum/transaction"
     (test-case "transaction signature"
-;;(with-logged-exceptions ()
-      ;; TODO: complete the test of this example from EIP 155
+      ;; This test vector comes from EIP 155
       ;; https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md
-      (def sender-keys
+      (def sender-keypair
         (keypair<-seckey-0x "0x4646464646464646464646464646464646464646464646464646464646464646"))
-      (def from (keypair-address sender-keys))
+      (register-keypair "fortysix" sender-keypair)
+      (def from (keypair-address sender-keypair))
       (def nonce 9)
       (def gasPrice (wei<-gwei 20))
       (def gas 21000)
@@ -32,7 +32,7 @@
       (def tx-data-digest (keccak256<-bytes tx-data-bytes))
       (check-equal? (0x<-bytes tx-data-digest)
                     "0xdaf5a779ae972f972197303d7b574746c7ef83eadac0f2791ad23db92e4c8e53")
-      (def signature (make-message-signature (keypair-secret-key sender-keys) tx-data-digest))
+      (def signature (make-message-signature (keypair-secret-key sender-keypair) tx-data-digest))
       (defvalues (v r s) (vrs<-signature signature))
       (def v2 (eip155-v v chainid))
       (check-equal? [v2 r s]
@@ -41,4 +41,3 @@
       (check-equal? (0x<-bytes signed-tx-data-bytes) "0xf86c098504a817c800825208943535353535353535353535353535353535353535880de0b6b3a76400008025a028ef61340bd939bc2195fe537567866003e1a15d3c71ff63e1590620aa636276a067cbe9d8997f761aecb703304b3800ccf555c9f3dc64214b297fb1966a3b6d83")
       (check-equal? (0x<-bytes (bytes<-signed-tx (sign-transaction tx-params 1)))
                     (0x<-bytes signed-tx-data-bytes)))))
-;;)

@@ -103,4 +103,43 @@
       (check-equal? (eth_getCode universal-batcher) (batch-contract-runtime #f))
       (check-equal? (eth_getCode alice-batcher) (batch-contract-runtime alice))
       (check-equal? (- alice-balance-after alice-balance-before) (* 1 amount))
-      (check-equal? (- bob-balance-after bob-balance-before) (* 1 amount)))))
+      (check-equal? (- bob-balance-after bob-balance-before) (* 1 amount)))
+
+    #; ;; TODO: test this
+    (test-case "batching with unowned contract"
+      (def alice-balance-before (eth_getBalance alice))
+      (def bob-balance-before (eth_getBalance bob))
+      (def amount (wei<-ether 1))
+      (def salt (bytes<- UInt256 (randomUInt256)))
+      (def nonce (begin (reset-nonce croesus) (peek-nonce croesus)))
+      (def txaddress (address<-creator-nonce croesus nonce))
+      (def batcher-init (batch-contract-init #f))
+      (def batcher (address<-creator-nonce txaddress 0))
+      (def logger (address<-creator-nonce batcher 1))
+      (def alice-batcher-init (batch-contract-init alice))
+      (def alice-batcher (address<-create2 batcher salt alice-batcher-init))
+
+      (def txs1
+        [(batched-transfer (* 2 amount) alice-batcher) ;; tx 0
+         (batched-create 0 (trivial-logger-init)) ;; tx 1
+         (batched-call 0 logger (string->bytes "Hello from subtx")) ;; tx 2: call contract create in tx 1 !!
+         (batched-delegate-call 0 logger (string->bytes "Hello from tx")) ;; tx 3
+         (batched-create2 0 alice-batcher-init salt) ;; tx 4
+         (batched-transfer (* 2 amount) bob)])
+      (def txs0
+        [(batched-create amount (batch-contract-runtime #f))
+         (batched-call (* 3 amount) batcher (bytes<-batched-transactions txs1))])
+
+      (def receipt (batch-txs croesus txs0 gas: 4000000))
+
+      (def alice-balance-after (eth_getBalance alice))
+      (def bob-balance-after (eth_getBalance bob))
+
+      (expect-logger-logs receipt
+                          [logger batcher "Hello from subtx"]
+                          [batcher txaddress "Hello from tx"])
+      (check-equal? (eth_getCode batcher) (batch-contract-runtime #f))
+      (check-equal? (eth_getCode logger) (trivial-logger-runtime #f))
+      (check-equal? (eth_getCode alice-batcher) (batch-contract-runtime alice))
+      (check-equal? (- alice-balance-after alice-balance-before) (* 2 amount))
+      (check-equal? (- bob-balance-after bob-balance-before) (* 2 amount)))))
