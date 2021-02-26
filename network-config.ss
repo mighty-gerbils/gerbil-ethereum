@@ -130,7 +130,7 @@
   explorerUrl:
   (apply string-append ["https://" (if (equal? network "mainnet") [] [network "."])... "etherscan.io/"]))
 
-(def-eth-net (ethereum @ [production-network etherscanable])
+(def-eth-net (ethereum @ [production-network])
   name: "Ethereum Mainnet"
   description: "The real thing, PoW mainnet"
   shortName: "eth" chain: "ETH" network: "mainnet" chainId: 1 networkId: 1
@@ -139,6 +139,16 @@
         "https://api.mycryptoapi.com/eth"]
   targetBlockTime: 13
   infoURL: "https://ethereum.org")
+
+(def-eth-net (etc @ [production-network etherscanable])
+  name: "Ethereum Classic Mainnet"
+  description: "The original fork"
+  shortName: "etc" chain: "ETC" network: "etcmainnet" chainId: 61 networkId: 1
+  nativeCurrency: {name: "Ethereum Classic Ether" symbol: 'ETC decimals: 18}
+  rpc: ["https://ethereumclassic.network" "https://www.ethercluster.com/etc"]
+  targetBlockTime: 13
+  infoURL: "https://ethereumclassic.org"
+  explorerUrl: "https://etcblockexplorer.com/")
 
 (def-eth-net (ropsten @ [shared-test-network etherscanable])
   name: "Ethereum Testnet Ropsten"
@@ -173,7 +183,7 @@
   description: "Goerli, the public PoA (authority round) testnet, OpenEthereum and Nethermind only"
   shortName: "ogor" chain: "ETH" network: "goerli" chainId: 420 networkId: 420
   nativeCurrency: {name: "Görli Ether" symbol: 'GOR decimals: 18}
-  rpc: ["https://goerli.infura.io/v3/${INFURA_API_KEY}" "wss://goerli.infura.io/ws/v3/${INFURA_API_KEY}" "ws://goerli.poa.network:8546"]
+  rpc: ["https://www.ethercluster.com/goerli" "https://goerli.infura.io/v3/${INFURA_API_KEY}" "wss://goerli.infura.io/ws/v3/${INFURA_API_KEY}" "ws://goerli.poa.network:8546"]
   faucets: ["https://goerli-faucet.slock.it/" "https://faucet.goerli.mudit.blog/"]
   infoURL: "https://goerli.net/")
 
@@ -182,7 +192,7 @@
   description: "ETC PoA testnet"
   shortName: "kot" chain: "ETC" network: "kotti" networkId: 6 chainId: 6
   nativeCurrency: {name: "Kotti Ether" symbol: 'KOT decimals: 18}
-  rpc: []
+  rpc: ["https://www.ethercluster.com/kotti"]
   faucets: [] ;; TODO: find the faucet
   infoURL: "https://explorer.jade.builders/?network=kotti"
   explorerUrl: "https://blockscout.com/etc/kotti/")

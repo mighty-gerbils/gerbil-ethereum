@@ -54,6 +54,7 @@
 
 ;;; Addresses
 
+;; TODO: Should we define a :wr method to print the address data, or keep it opaque for PII privacy?
 (defstruct address (bytes) print: #f equal: #t)
 
 ;; : 0xString <- Address
@@ -86,10 +87,10 @@
    .ethabi-padding: (- 32 .length-in-bytes)
    .ethabi-tail-length: (lambda (_) 0)
    .ethabi-encode-into:
-   (lambda (x bytes start head get-tail set-tail!)
+   (lambda (x bytes start head get-tail set-tail!) ;; FIXME: add Wrapper, use UInt160, test
      (.call Bytes20 .ethabi-encode-into x bytes start head get-tail set-tail!))
    .ethabi-decode-from:
-   (lambda (bytes start head get-tail set-tail!)
+   (lambda (bytes start head get-tail set-tail!) ;; FIXME: add Wrapper, use UInt160, test
      (.call Bytes20 .ethabi-decode-from bytes start head get-tail set-tail!))
    })
 (register-simple-eth-type Address)

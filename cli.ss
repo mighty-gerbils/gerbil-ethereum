@@ -10,14 +10,15 @@
   ./network-config ./types ./ethereum ./known-addresses ./json-rpc)
 
 (def (co-pad-strings strings)
-  (def maxlen (extremum<-list < (map string-length strings) 0))
+  (def maxlen (extremum<-list > (map string-length strings) 0))
   (map (cut string-pad-right <> maxlen) strings))
 
 (define-entry-point (list-evm-networks)
   (help: "Show a list of available EVM networks" getopt: [])
   (def keys (sort (hash-keys ethereum-networks) string<?))
   (def names (map (lambda (key) (.@ (hash-get ethereum-networks key) name)) keys))
-  (def urls (map (lambda (key) (car (.@ (hash-get ethereum-networks key) rpc))) keys))
+  (def urls (map (lambda (key) (with-catch (lambda (_) "") (cut car (.@ (hash-get ethereum-networks key) rpc))))
+                 keys))
   (for-each (cut displayln <> "  " <> "  " <>)
             (co-pad-strings keys) (co-pad-strings names) urls))
 
@@ -75,27 +76,3 @@
 
 (def (parse-currency-value string currency)
   (* (decimal<-string string) (expt 10 (.@ currency decimals))))
-
-(define-entry-point (transfer from: (from #f) to: (to #f) value: (value #f))
-  (help: "Send tokens from one account to the other"
-   getopt: (make-options [] [(cut hash-restrict-keys! <> '(from to value))] options/send))
-  (def currency (.@ (ethereum-config) nativeCurrency))
-  (def token-symbol (.@ currency symbol))
-  (def network (.@ (ethereum-config) network))
-  (set! from (parse-address (or from (error "Missing sender. Please use option --from"))))
-  (set! to (parse-address (or to (error "Missing recipient. Please use option --to"))))
-  (set! value (parse-currency-value
-               (or value (error "Missing value. Please use option --value")) currency))
-  (printf "\nSending ~a ~a from ~a to ~a on network ~a:\n"
-          value token-symbol (0x<-address from) (0x<-address to) network)
-  (printf "\nBalance before\n for ~a: ~a ~a,\n for ~a: ~a ~a\n"
-          ;; TODO: use a function to correctly print with the right number of decimals,
-          ;; with the correct token-symbol, depending on the current network and/or asset
-          (0x<-address from) (decimal-string-ether<-wei (eth_getBalance from)) token-symbol
-          (0x<-address to) (decimal-string-ether<-wei (eth_getBalance to)) token-symbol)
-  (import-testing-module) ;; for debug-send-tx
-  (cli-send-tx {from to value} confirmations: 0)
-  (printf "\nBalance after\n for ~a: ~a ~a,\n for ~a: ~a ~a\n"
-          ;; TODO: use a function to correctly print with the right number of decimals
-          (0x<-address from) (decimal-string-ether<-wei (eth_getBalance from)) token-symbol
-          (0x<-address to) (decimal-string-ether<-wei (eth_getBalance to)) token-symbol))
