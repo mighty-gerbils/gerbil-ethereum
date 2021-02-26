@@ -87,11 +87,15 @@
    .ethabi-padding: (- 32 .length-in-bytes)
    .ethabi-tail-length: (lambda (_) 0)
    .ethabi-encode-into:
-   (lambda (x bytes start head get-tail set-tail!) ;; FIXME: add Wrapper, use UInt160, test
-     (.call Bytes20 .ethabi-encode-into x bytes start head get-tail set-tail!))
+   (lambda (x bytes start head get-tail set-tail!)
+      (def start (+  .ethabi-padding head))
+      (subu8vector-move! (address-bytes x) 0 .length-in-bytes bytes start))
    .ethabi-decode-from:
-   (lambda (bytes start head get-tail set-tail!) ;; FIXME: add Wrapper, use UInt160, test
-     (.call Bytes20 .ethabi-decode-from bytes start head get-tail set-tail!))
+   (lambda (bytes start head get-tail set-tail!)
+      (def  start (+ head .ethabi-padding))
+      (def end (+ start .length-in-bytes))
+      (ensure-zeroes bytes head .ethabi-padding)
+      (make-address (subu8vector bytes start end)))
    })
 (register-simple-eth-type Address)
 

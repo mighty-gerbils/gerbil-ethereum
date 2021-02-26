@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity ^0.7.4;
+
+/**
+ * url: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/IERC20.sol
+ * commit: 974c534
+ * path: contracts/token/ERC20/IERC20.sol
+ * tag: v4.0.0-beta.0
+ *
+ */
 
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.

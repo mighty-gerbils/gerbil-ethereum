@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity ^0.7.4;
+
+/**
+ * url: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/utils/Context.sol
+ * branch: master
+ * commit: f7c8252
+ * path: contracts/utils/Context.sol
+ * tag: v4.0.0-beta.0
+ *
+ */
 
 /*
  * @dev Provides information about the current execution context, including the

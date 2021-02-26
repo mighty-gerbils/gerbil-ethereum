@@ -1,7 +1,16 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.7.4;
 
 import "./ERC20.sol";
 import "./Context.sol";
+
+/**
+ * url: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/ERC20Burnable.sol
+ * commit: 24a0bc2
+ * path: contracts/token/ERC20/extensions/ERC20Burnable.sol
+ * tag: v4.0.0-beta.0
+ *
+ */
 
 /**
  * @dev Extension of {ERC20} that allows token holders to destroy both their own
