@@ -37,18 +37,14 @@
 ;; and recreate an empty directory.
 (define-entry-point (wipe-state-directories)
   (help: "Wipe any run directory" getopt: [])
-  (unless (and (string-contains (persistent-directory) "/gerbil-ethereum/")
-               (string-suffix? "db/" (persistent-directory)))
-    ;; TODO: once there are production directories, insert test so that we don't wipe one.
-    (error "Not resetting fishy persistent-directory" (persistent-directory)))
-  (unless (and (string-contains (log-directory) "/gerbil-ethereum/")
-               (string-contains (log-directory) "/log/"))
-    ;; TODO: once there are production directories, insert test so that we don't wipe one.
-    (error "Not resetting fishy log-directory" (log-directory)))
   (nest (for-each! ["geth" "mantis" "testdb" "t" "log"]) (lambda (sub))
-        (for-each! [log-path data-path]) (lambda (f))
+        (for-each! [log-path data-path cache-path]) (lambda (f))
         (let (path (f sub))
-          (assert! (string-contains path "/gerbil-ethereum/")))
+          (unless (or (string-contains path "/db/")
+                      (string-contains path "/log/")
+                      (string-contains path "/cache/")
+                      (string-contains path "/data/"))
+            (error "Not resetting fishy state directory" path)))
         (when (file-exists? path))
         (ignore-errors)
         (run-process/batch ["rm" "-rf" path])))
@@ -298,10 +294,10 @@
   (start-mantis))
 
 (define-entry-point (get-mantis-log (tx #f))
-  (help: "copy the mantis log to run/mantis/mantis.log"
+  (help: "copy the mantis log to mantis/mantis.log"
    getopt: [(optional-argument 'tx help: "transaction to look for in the log")])
   (def container-log (format "~a:/root/.mantis/logs/mantis.log" (car (mantis-containers))))
-  (def host-log (log-path "mantis.log"))
+  (def host-log (log-path "mantis/mantis.log"))
   (run-process/batch ["docker" "cp" container-log host-log])
   (when tx
     (let (thex (string-trim-prefix "0x" tx))
