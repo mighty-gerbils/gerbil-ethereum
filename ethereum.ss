@@ -67,6 +67,8 @@
 ;; : Address <- 0xString
 (def address<-0x/strict (compose make-address address-bytes<-0x))
 
+;; https://docs.soliditylang.org/en/develop/abi-spec.html
+;; address: equivalent to uint160, except for the assumed interpretation and language typing. 
 (define-type Address
   {(:: @ [methods.marshal<-bytes Type.])
    .Bytes: Bytes20
@@ -88,14 +90,12 @@
    .ethabi-tail-length: (lambda (_) 0)
    .ethabi-encode-into:
    (lambda (x bytes start head get-tail set-tail!)
-      (def start (+  .ethabi-padding head))
-      (subu8vector-move! (address-bytes x) 0 .length-in-bytes bytes start))
+      (subu8vector-move! (address-bytes x) 0 .length-in-bytes bytes (+ head .ethabi-padding)))
    .ethabi-decode-from:
    (lambda (bytes start head get-tail set-tail!)
-      (def  start (+ head .ethabi-padding))
-      (def end (+ start .length-in-bytes))
-      (ensure-zeroes bytes head .ethabi-padding)
-      (make-address (subu8vector bytes start end)))
+      (def end (+ head .ethabi-padding))
+      (ensure-zeroes bytes head end)
+      (make-address (subu8vector bytes end .length-in-bytes)))
    })
 (register-simple-eth-type Address)
 

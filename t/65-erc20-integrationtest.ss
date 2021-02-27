@@ -31,118 +31,78 @@
 
 (def contract #f)
 
-(def (ensure-contract)
+(def (ensure-contract name symbol initial-supply owner)
   (unless contract
-    (let (receipt (post-transaction (create-contract croesus (ethabi-encode [String String UInt256 Address]  ["Bin" "Yu" 1000000000 (address<-0x "0x25c0bb1A5203AF87869951AEf7cF3FEdD8E330fC")] (test-contract-bytes) ))))
+    (let (receipt (post-transaction (create-contract croesus (ethabi-encode [String String UInt256 Address]  [name symbol initial-supply owner] (test-contract-bytes) ))))
       (set! contract (.@ receipt contractAddress)))))
-
-
 
 (def 65-erc20-integrationtest
   (test-suite "integration test for ethereum/erc20"
-    (ensure-contract)
+    (def name "Bin")
+    (def symbol "Yu")
+    (def initial-supply 1000000000)
+    (ensure-contract name symbol initial-supply croesus)
     (test-case "Call ERC20 contract function totalsupply"
       (def pretx (call-function croesus contract totalSupply-selector))
       (def receipt (post-transaction pretx))
       (def block-number (.@ receipt blockNumber))
       (def data (eth_call pretx (1- block-number)))
       (check-equal-bytes? data (ethabi-encode [UInt256] [1000000000])))
-       
 
-
-      (test-case "Call ERC20 contract function transfer"
-        (def input-data
-          (ethabi-encode  [Address UInt256] [(address<-0x "0xf8Cc569fDAa507ddb81C979138187CfcaD39a1fE") 100] transfer-selector))
-        (def pretx (call-function croesus contract input-data))
-        (def receipt (post-transaction pretx))
-        (def block-number (.@ receipt blockNumber))
-        (def data (eth_call pretx (1- block-number)))
-        (check-equal-bytes? data (ethabi-encode [UInt256] [1]))
-      )
+    (test-case "Call ERC20 contract function transfer"
+      (def input-data
+        (ethabi-encode  [Address UInt256] [bob 100] transfer-selector))
+      (def pretx (call-function croesus contract input-data))
+      (def receipt (post-transaction pretx))
+      (def block-number (.@ receipt blockNumber))
+      (def data (eth_call pretx (1- block-number)))
+      (check-equal-bytes? data (ethabi-encode [UInt256] [1])))
       
-      (test-case "Call ERC20 contract function balanceOf"
-        (def input-data
-          (ethabi-encode  [Address] [(address<-0x "0xf8Cc569fDAa507ddb81C979138187CfcaD39a1fE")] balanceOf-selector))
-        (def pretx (call-function croesus contract input-data))
-        (def receipt (post-transaction pretx))
-        (def block-number (.@ receipt blockNumber))
-        (def data (eth_call pretx (1- block-number)))
-        (check-equal-bytes? data (ethabi-encode [UInt256] [100]))
-      )
+    (test-case "Call ERC20 contract function balanceOf"
+      (def input-data
+        (ethabi-encode  [Address] [bob] balanceOf-selector))
+      (def pretx (call-function croesus contract input-data))
+      (def receipt (post-transaction pretx))
+      (def block-number (.@ receipt blockNumber))
+      (def data (eth_call pretx (1- block-number)))
+      (check-equal-bytes? data (ethabi-encode [UInt256] [100])))
 
-      (test-case "Call ERC20 contract function approve"
-        (def input-data
-          (ethabi-encode  [Address UInt256] [(address<-0x "0xf8Cc569fDAa507ddb81C979138187CfcaD39a1fE") 100000] approve-selector))
-        (def pretx (call-function croesus contract input-data))
-        (def receipt (post-transaction pretx))
-        (def block-number (.@ receipt blockNumber))
-        (def data (eth_call pretx (1- block-number)))
-        (check-equal-bytes? data (ethabi-encode [UInt256] [1]))
+    (test-case "Call ERC20 contract function approve"
+      (def input-data
+        (ethabi-encode  [Address UInt256] [bob 1000] approve-selector))
+      (def pretx (call-function croesus contract input-data))
+      (def receipt (post-transaction pretx))
+      (def block-number (.@ receipt blockNumber))
+      (def data (eth_call pretx (1- block-number)))
+      (check-equal-bytes? data (ethabi-encode [UInt256] [1])))
 
-      )
+    (test-case "Call ERC20 contract function allowance"
+      (def input-data
+        (ethabi-encode  [Address Address] [croesus bob] allowance-selector ))
+      (def pretx (call-function croesus contract input-data))
+      (def receipt (post-transaction pretx))
+      (def block-number (.@ receipt blockNumber))
+      (def data (eth_call pretx (1- block-number)))
+      (check-equal-bytes? data (ethabi-encode [UInt256] [1000])))
 
-      (test-case "Call ERC20 contract function allowance"
-        (def input-data
-          (ethabi-encode  [Address Address] [(address<-0x "0x25c0bb1A5203AF87869951AEf7cF3FEdD8E330fC")(address<-0x "0xf8Cc569fDAa507ddb81C979138187CfcaD39a1fE")] allowance-selector ))
-        (def pretx (call-function croesus contract input-data))
-        (def receipt (post-transaction pretx))
-        (def block-number (.@ receipt blockNumber))
-        (def data (eth_call pretx (1- block-number)))
-        (check-equal-bytes? data (ethabi-encode [UInt256] [100000]))
+    (test-case "Call ERC20 contract function transferFrom"
+      (def input-data0
+        (ethabi-encode  [Address UInt256] [croesus 1000] approve-selector))
+      (def pretx0 (call-function croesus contract input-data0))
+      (post-transaction pretx0)
 
-      )
-#|
-      (test-case "Call ERC20 contract function transferFrom"
-        (def input-data
-          (ethabi-encode  [Address Address UInt256] [(address<-0x "0x25c0bb1A5203AF87869951AEf7cF3FEdD8E330fC")(address<-0x "0xf8Cc569fDAa507ddb81C979138187CfcaD39a1fE") 98] transferFrom-selector ))
-        (def pretx (call-function croesus contract input-data))
-        (def receipt (post-transaction pretx))
-         (DDT 90-erc20-0: 
-         TransactionReceipt receipt
+      (def input-data
+        (ethabi-encode  [Address Address UInt256] [croesus alice 900] transferFrom-selector ))
+      (def pretx (call-function croesus contract input-data))
+      (def receipt (post-transaction pretx))
+      (def block-number (.@ receipt blockNumber))
+      (def data (eth_call pretx (1- block-number)))
+      (check-equal-bytes? data (ethabi-encode [UInt256] [1]))
 
-         )
-        (def block-number (.@ receipt blockNumber))
-        (def data (eth_call pretx (1- block-number)))
-       ;; (DBG data: data)
-        ;;(DBG eco: (ethabi-encode [UInt256] [1]))
-        (check-equal-bytes? data (ethabi-encode [UInt256] [1]))
-        (def input-data1
-          (ethabi-encode  [Address] [(address<-0x "0xf8Cc569fDAa507ddb81C979138187CfcaD39a1fE")] balanceOf-selector))
-        (def pretx1 (call-function croesus contract input-data1))
-        (def receipt1 (post-transaction pretx1))
-        (def block-number1 (.@ receipt blockNumber))
-        (def data1 (eth_call pretx1 (1- block-number1)))
-        (check-equal-bytes? data1 (ethabi-encode [UInt256] [98])))
-    
-      (test-case "Call ERC20 contract function Transfer-event"
-        (def input-data
-          (ethabi-encode  [Address Address UInt256] [(address<-0x "0x25c0bb1A5203AF87869951AEf7cF3FEdD8E330fC")(address<-0x "0xf8Cc569fDAa507ddb81C979138187CfcaD39a1fE") 100] Transfer-event ))
-        (def pretx (call-function croesus contract input-data))
-        (def receipt (post-transaction pretx))
-         (DDT 90-erc20-0: 
-         TransactionReceipt receipt
-
-         )
-        (def block-number (.@ receipt blockNumber))
-        (def data (eth_call pretx (1- block-number)))
-       ;; (DBG data: data)
-        ;;(DBG eco: (ethabi-encode [UInt256] [1]))
-        (check-equal-bytes? data (ethabi-encode [UInt256] [100])))
- 
-      (test-case "Call ERC20 contract function Approval-event"
-        (def input-data
-          (ethabi-encode  [Address Address UInt256] [(address<-0x "0xf8Cc569fDAa507ddb81C979138187CfcaD39a1fE") (address<-0x "0x25c0bb1A5203AF87869951AEf7cF3FEdD8E330fC") 100] Approval-event ))
-        (def pretx (call-function croesus contract input-data))
-        (def receipt (post-transaction pretx))
-         (DDT 90-erc20-0: 
-         TransactionReceipt receipt
-
-         )
-        (def block-number (.@ receipt blockNumber))
-        (def data (eth_call pretx (1- block-number)))
-       ;; (DBG data: data)
-        ;;(DBG eco: (ethabi-encode [UInt256] [1]))
-        (check-equal-bytes? data (ethabi-encode [UInt256] [100])))
-    |# 
-
-      ))
+      (def input-data1
+        (ethabi-encode  [Address] [alice] balanceOf-selector))
+      (def pretx1 (call-function croesus contract input-data1))
+      (def receipt1 (post-transaction pretx1))
+      (def block-number1 (.@ receipt1 blockNumber))
+      (def data1 (eth_call pretx1 (1- block-number1)))
+      (check-equal-bytes? data1 (ethabi-encode [UInt256] [900])))))
