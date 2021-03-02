@@ -16,7 +16,7 @@
 
 (with-catch void (cut import-module ':mukn/ethereum/version #t #t))
 
-(set! application-name "gerbil-ethereum")
+(set! application-name (lambda () "gerbil-ethereum"))
 
 ;; User-configurable variables
 (def eth-rpc-port 8545) ;; NOTE: Mantis by default uses 8546, while Geth uses 8545
@@ -26,7 +26,7 @@
 ;; If the home directory isn't otherwise set, we must be running from unconfigured source code,
 ;; and we'll use the top of this source code hierarchy as home.
 (def here (path-simplify-directory (this-source-file)))
-(set-central-path-config! (subpath (path-parent here) "run/"))
+#;(set-path-config-root! (subpath (path-parent here) "run/"))
 
 (def (eth-rpc-url) (format "http://localhost:~d" eth-rpc-port))
 
@@ -43,7 +43,9 @@
           (unless (or (string-contains path "/db/")
                       (string-contains path "/log/")
                       (string-contains path "/cache/")
-                      (string-contains path "/data/"))
+                      (string-contains path "/.cache/")
+                      (string-contains path "/data/")
+                      (string-contains path "/.local/share/"))
             (error "Not resetting fishy state directory" path)))
         (when (file-exists? path))
         (ignore-errors)
@@ -313,5 +315,5 @@
   ;; Works best with node 10.x.x
   (run-process/batch ["mallet" (eth-rpc-url) (string-append "--datadir=" mantis-data-directory)]))
 
-(set-default-entry-point! "start")
+(set-default-entry-point! 'start)
 (define-multicall-main)
