@@ -7,7 +7,7 @@
   :std/srfi/1 :std/sugar
   :clan/base :clan/with-id
   :clan/poo/object (only-in :clan/poo/mop) :clan/poo/io
-  ./logger ./hex ./types ./ethereum ./known-addresses ./abi
+  ./logger ./hex ./types ./ethereum ./known-addresses ./abi ./json-rpc
   ./assembly ./transaction ./tx-tracker ./contract-config ./evm-runtime)
 
 ;;; OPTIONAL functions NOT implemented:
@@ -39,8 +39,8 @@
   (extract-bit-field 3 11 (<-bytes UInt32 selector)))
 (def (erc20-selector-vector)
   (assert! (equal?
-            (map erc20-selector-index [totalSupply-selector balanceOf-selector transfer-selector transferFrom-selector approve-selector allowance-selector abort-selector])
-            '(1 0 3 6 4 5 7)))
+            (map erc20-selector-index [totalSupply-selector balanceOf-selector transfer-selector transferFrom-selector approve-selector allowance-selector])
+            '(1 0 3 6 4 5)))
   `(+ ,@(map (lambda (sym selector) ['* sym (arithmetic-shift 1 (* 8 (erc20-selector-index selector)))])
              '(totalSupply balanceOf transfer transferFrom approve allowance abort-contract-call)
              [totalSupply-selector balanceOf-selector transfer-selector transferFrom-selector approve-selector allowance-selector])))
@@ -56,7 +56,7 @@
     ;; is worth it if we actually use that 0 at least twice in the source code.
     GETPC #|0|# 64 36 32 4 ;; -- 4 32 36 64 0 == $CONSTANTS
     DUP5 #|0|# CALLDATALOAD (&shr 224) ;; get selector
-    PUSH7 [&fixup (* 8 8) (erc20-selector-vector)] ;; selector vector
+    PUSH7 [&fixup (* 6 8) (erc20-selector-vector)] ;; selector vector
     DUP2 #|selector|# (&shr 8) 56 AND SHR 255 AND JUMP ;; jump to selected function
     ;; jump to entry point with -- selector $CONSTANTS
     (&define-abort-contract-call)
@@ -93,7 +93,7 @@
     ;; -- $CONSTANTS
     DUP1 #|4|# CALLDATALOAD DUP4 #|36|# CALLDATALOAD '&updateAllowance DUP6 #|68|# CALLDATALOAD
     ;; -- value &updateAllowance to from $CONSTANTS
-    DUP4 #|from|# DUP10 #|0|# MSTORE DUP3 #|to|# DUP7 #|32|# MSTORE DUP8 #|64|# DUP10 #|0|# SHA3
+    DUP4 #|from|# DUP10 #|0|# MSTORE CALLER #|to|# DUP7 #|32|# MSTORE DUP8 #|64|# DUP10 #|0|# SHA3
     ;; -- @allowance value &updateAllowance to from $CONSTANTS
     SWAP3 #|to<->@allowance|#
     ;; -- to value &updateAllowance @allowance from $CONSTANTS
@@ -155,3 +155,38 @@
         claims
         '=> (json<- ContractConfig config)])
   config)
+
+
+;;; Functions to interact with an ERC20 contract as a client
+
+(def (erc20-total-supply contract (block 'latest) requester: (requester null-address))
+  (<-bytes UInt256 (eth_call (call-function requester contract totalSupply-selector) block)))
+
+(def (erc20-balance contract account requester: (requester null-address))
+  (!> (ethabi-encode [Address] [account] balanceOf-selector)
+      (cut call-function requester contract <>)
+      eth_call
+      (cut <-bytes UInt256 <>)))
+
+(def (erc20-allowance contract sender recipient requester: (requester null-address))
+  (!> (ethabi-encode [Address Address] [sender recipient] allowance-selector)
+      (cut call-function requester contract <>)
+      eth_call
+      (cut <-bytes UInt256 <>)))
+
+(def (erc20-transfer contract sender recipient amount)
+  (!> (ethabi-encode [Address UInt256] [recipient amount] transfer-selector)
+      (cut call-function sender contract <>)
+      post-transaction)) ;; TODO: check that it logged a Transfer (but it may have logged more than that!)
+
+;; TODO: the function that ensures we confirm 0 before we set an approval to >0
+;; NEVER APPROVE MORE THAN 0 UNLESS YOU CONFIRM IT TO 0 FIRST!
+(def (erc20-approve contract sender recipient amount)
+  (!> (ethabi-encode [Address UInt256] [recipient amount] approve-selector)
+      (cut call-function sender contract <>)
+      post-transaction)) ;; TODO: check that it logged an Approval (but it may have logged more than that!)
+
+(def (erc20-transfer-from contract sender recipient amount requester: requester)
+  (!> (ethabi-encode [Address Address UInt256] [sender recipient amount] transferFrom-selector)
+      (cut call-function requester contract <>)
+      post-transaction)) ;; TODO: check that it logged a Transfer (but it may have logged more than that!)

@@ -1,11 +1,12 @@
 (export #t)
 
 (import
-  :gerbil/gambit/os
+  :gerbil/gambit/bytes :gerbil/gambit/os
   :std/misc/list :std/misc/ports :std/misc/process :std/srfi/1 :std/test :std/text/hex
-  :clan/debug :clan/poo/object :clan/path :clan/path-config
-  ../json-rpc ../transaction ../nonce-tracker ../testing ../simple-apps 
-  :clan/debug :clan/persist/db :clan/path-config :clan/poo/debug
+  :clan/base :clan/debug :clan/filesystem :clan/path :clan/path-config
+  :clan/poo/object :clan/poo/debug
+  :clan/persist/db
+  ../json-rpc ../transaction ../nonce-tracker ../testing ../simple-apps ../assembly ../evm-runtime
   ../abi  ../erc20 ../ethereum ../tx-tracker
   ../hex ../types ../signing ../network-config
   ./10-json-rpc-integrationtest  ./20-nonce-tracker-integrationtest
@@ -13,103 +14,65 @@
 
 
 ;; TODO: either install the damn file with the build, or be able to locate it via nix or gxpkg
-(def test-contract-source (source-path "t/erc20/ERC20PresetFixedSupply.sol"))
-(def test-contract-bin (cache-path "t/ethereum/ERC20PresetFixedSupply.bin"))
+(def test-erc20-contract-source (source-path "t/erc20/ERC20PresetFixedSupply.sol"))
+(def test-erc20-contract-bin (cache-path "t/ethereum/ERC20PresetFixedSupply.bin"))
 
-(def (modification-time file)
-  (let/cc return
-    (def info (with-catch false (cut file-info file #t)))
-    (time->seconds (file-info-last-modification-time info))))
-
-(def (test-contract-bytes)
-  (unless (and (file-exists? test-contract-bin)
-               (<= (or (modification-time test-contract-source) +inf.0)
-                   (or (modification-time test-contract-bin) -inf.0)))
-    (compile-solidity test-contract-source (path-parent test-contract-bin)))
-  (hex-decode (read-file-string test-contract-bin)))
+(def (test-erc20-contract-bytes)
+  (unless (and (file-exists? test-erc20-contract-bin)
+               (<= (or (modification-time test-erc20-contract-source) +inf.0)
+                   (or (modification-time test-erc20-contract-bin) -inf.0)))
+    (compile-solidity test-erc20-contract-source (path-parent test-erc20-contract-bin)))
+  (hex-decode (read-file-string test-erc20-contract-bin)))
 
 (def (deploy-contract owner types arguments contract-bytes)
-  (let (receipt (post-transaction (create-contract owner (ethabi-encode types arguments contract-bytes))))
-    (.@ receipt contractAddress)))
+  (!> (ethabi-encode types arguments contract-bytes)
+      (cut create-contract owner <>)
+      post-transaction
+      (cut .@ <> contractAddress)))
 
-(def (get-balance contract user:(user croesus) addr) 
-  (def input-data (ethabi-encode [Address] [addr] balanceOf-selector))
-  (ethabi-decode [UInt256] (eth_call (call-function user contract input-data))))
+(def (erc20-balances contract accounts)
+  (map (cut erc20-balance contract <>) accounts))
 
-(def (get-balances contract addrs) 
-  (map (cut get-balance contract <>) addrs))
-
-(def (check-balancesOf-addresses inputs outputs) 
-  (def balances (map (cut get-balance (car inputs) <>) (cdr inputs)))
-  (check-equal? balances outputs))
-
-(def (get-query contract selector-fn user inputs)
- (let ((values types arguments) inputs)
-    (def input-data (ethabi-encode types arguments selector-fn))
-    (eth_call (call-function user contract input-data))))
-
-(def (check-query contract selector-fn user inputs outputs)
-  (check-equal? (car (cdr outputs)) (ethabi-decode (car outputs) (get-query contract selector-fn user inputs))))
-
-(def (check-transaction contract selector-fn user inputs outputs)
-  (def input-data
-    (ethabi-encode (car inputs) (cdr inputs)  selector-fn))
-  (def pretx (call-function user contract input-data))
-  (def receipt (post-transaction pretx))
-  (def block-number (.@ receipt blockNumber))
-  (def data (eth_call pretx (1- block-number)))
-  (check-equal-bytes? data (ethabi-encode (car outputs) (cdr outputs))))
+(def (check-balancesOf-addresses contract inputs outputs)
+  (check-equal? (erc20-balances contract inputs) outputs))
 
 (def 65-erc20-integrationtest
   (test-suite "integration test for ethereum/erc20"
     (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
-    (def name "Alice")
-    (def symbol "ALI")
+    (ensure-addresses-prefunded)
     (def initial-supply 1000000000)
-    (def balance (eth_getBalance croesus 'latest))
-    (DBG money:
-      balance)
-    ;;(ensure-addresses-prefunded)
-    (DBG args: initial-supply)
-   ;; (def contract-bytes (test-contract-bytes))
-    (DBG args: name)
-    (def arguments [name symbol initial-supply croesus])
-    (def types [String String UInt256 Address]) ;; Still can't use other address except croesus
-    ;;(def contract (deploy-contract croesus types arguments contract-bytes))
-    (ensure-contract name symbol initial-supply croesus)
-    (DBG args: arguments)
+    (DBG pre-erc20: (eth_getBalance croesus) initial-supply)
+    (def contract (deploy-contract croesus
+                                   [String String UInt256 Address]
+                                   ["Alice" "ALI" initial-supply alice]
+                                   (test-erc20-contract-bytes)))
+    (DDT erc20: Address contract)
+    #;(def reqbytes (ethabi-encode [Address] [alice] balanceOf-selector))
+    #;(evm-eval croesus
+              (assemble/bytes
+               (&begin 32 0 (bytes-length reqbytes) 'foo DUP2 DUP2 0 CODECOPY
+                       0 contract GAS CALL &require!
+                       0 MLOAD 1000000000 EQ &require! STOP
+                       [&label 'foo] [&bytes reqbytes] (&define-abort-contract-call)))
+              block: 'onchain)
+    (check-equal? (erc20-balance contract alice requester: croesus) initial-supply)
 
     (test-case "Call ERC20 contract function totalsupply"
-      (def data (eth_call (call-function croesus contract totalSupply-selector)))
-      (check-equal-bytes? data (ethabi-encode [UInt256] [1000000000])))
+      (check-equal? (erc20-total-supply contract) initial-supply))
 
-    (test-case "Call ERC20 check balances  of trent, alice, and bob before transfer operation"
-      (check-balancesOf-addresses [contract [alice trent bob]] [1000000000 0 0]))
+    (test-case "Call ERC20 contract function transfer vs balance"
+      (check-balancesOf-addresses contract [alice bob trent] [1000000000 0 0])
+      (erc20-transfer contract alice bob 100000)
+      (check-balancesOf-addresses contract [alice bob trent] [999900000 100000 0]))
 
-    (test-case "Call ERC20 contract function transfer"
-      (def inputs [[Address UInt256] [bob 100000]])
-      (def outputs [[UInt256] [1]])
-      (check-transaction contract transfer-selector alice inputs outputs))
-
-    (test-case "Call ERC20 check balances  of trent, alice, and bob after transfer operation"
-      (check-balancesOf-addresses [contract [alice trent bob]] [1000000000 0 100000]))
-
-    (test-case "Call ERC20 contract function approve"
-      (def inputs [[Address UInt256] [trent 1000]])
-      (def outputs [[UInt256] [1]])
-      (check-transaction contract transfer-selector bob inputs outputs))
-
-    (test-case "Call ERC20 contract function allowance"
-      (check-query contract allowance-selector bob (values [Address Address] [bob trent]) [[UInt256] [1000]]))
+    (test-case "Call ERC20 contract function approve vs allowance"
+      (check-equal? (erc20-allowance contract bob trent requester: bob) 0)
+      (erc20-approve contract bob trent 1000)
+      (check-equal? (erc20-allowance contract bob trent requester: bob) 1000)
+      (check-balancesOf-addresses contract [alice bob trent] [999900000 100000 0]))
 
     (test-case "Call ERC20 contract function transferFrom"
-      (def inputs0 [[Address UInt256] [trent 1000]])
-      (def outputs0 [[UInt256] [1]])
-      (check-transaction contract approve-selector bob inputs0 outputs0)
-
-      (def inputs1 [[Address Address UInt256] [alice bob 1000]])
-      (def outputs1 [[UInt256] [1]])
-      (check-transaction contract transferFrom-selector bob inputs1 outputs1)
-
-      (check-balancesOf-addresses [contract [alice trent bob]] [1000000000 1000 9000]))
-  ))
+      (erc20-transfer-from contract bob trent 1000 requester: trent)
+      (check-equal? (erc20-allowance contract bob trent requester: croesus) 0)
+      (check-balancesOf-addresses contract [alice bob trent] [999900000 99000 1000]))
+    ))

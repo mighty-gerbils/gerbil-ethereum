@@ -67,6 +67,10 @@
 ;; : Address <- 0xString
 (def address<-0x/strict (compose make-address address-bytes<-0x))
 
+;; Null address
+;; : Address
+(def null-address (make-address (make-bytes 20)))
+
 
 (define-type Address
   {(:: @ [methods.marshal<-bytes Type.])
