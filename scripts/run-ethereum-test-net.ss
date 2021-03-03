@@ -39,15 +39,13 @@
   (help: "Wipe any run directory" getopt: [])
   (nest (for-each! ["geth" "mantis" "testdb" "t" "log"]) (lambda (sub))
         (for-each! [log-path data-path cache-path]) (lambda (f))
-        (let (path (f sub))
-          (unless (or (string-contains path "/db/")
-                      (string-contains path "/log/")
-                      (string-contains path "/cache/")
-                      (string-contains path "/.cache/")
-                      (string-contains path "/data/")
-                      (string-contains path "/.local/share/"))
-            (error "Not resetting fishy state directory" path)))
+        (let (path (f sub)))
         (when (file-exists? path))
+        (begin
+          (unless (any (cut string-contains path <>)
+                       '("/db/" "/log/" "/cache/" "/.cache/" "/data/"
+                         "/.local/share/" "/Library/" "/LocalAppData/"))
+            (error "Not resetting fishy state directory" path)))
         (ignore-errors)
         (run-process/batch ["rm" "-rf" path])))
 
