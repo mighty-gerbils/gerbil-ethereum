@@ -13,9 +13,7 @@
   .denominator: (expt 10 .decimals)
   ;; TODO: should we be including the name of the token in the string? after the number?
   .string<-: (lambda (x) (format "~a ~a"
-                            (string<-decimal
-                             (/ x .denominator)
-                             leading-decimal-mark-allowed?: #t)
+                            (string<-decimal (/ x .denominator))
                             .symbol))
   .<-string: (lambda (s)
                (assert! (string-suffix? (format " ~a" .symbol) s))
