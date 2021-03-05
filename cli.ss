@@ -9,6 +9,9 @@
   :clan/persist/db
   ./network-config ./types ./ethereum ./known-addresses ./json-rpc)
 
+;; Let's share the configuration and data directories with the rest of the Glow ecosystem
+(set! application-name (lambda () "glow"))
+
 (def (co-pad-strings strings)
   (def maxlen (extremum<-list > (map string-length strings) 0))
   (map (cut string-pad-right <> maxlen) strings))

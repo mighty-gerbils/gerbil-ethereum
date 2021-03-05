@@ -16,7 +16,8 @@
 
 (with-catch void (cut import-module ':mukn/ethereum/version #t #t))
 
-(set! application-name (lambda () "gerbil-ethereum"))
+;; Let's share the configuration and data directories with the rest of the Glow ecosystem
+(set! application-name (lambda () "glow"))
 
 ;; User-configurable variables
 (def eth-rpc-port 8545) ;; NOTE: Mantis by default uses 8546, while Geth uses 8545
