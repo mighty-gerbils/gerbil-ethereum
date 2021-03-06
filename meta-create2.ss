@@ -613,13 +613,14 @@
            "b1322061c26293fdaaceacfd1b5473f5b22ae021cffa2da2d81f66eedf96360f74b7b1aa0deca9c8adea8b75b1f28a5a15c4173e63ab030d1cbc0110af693c481c")))
 
 ;; Ensure that the create2-wrapper contract exists on the current blockchain.
-(def (ensure-presigned-create2-wrapper (funder croesus))
+(def (ensure-presigned-create2-wrapper (funder croesus) gasPrice: (gasPrice (void)))
   (def-slots (from to data nonce value gas sigs) presigned-create2-wrapper)
   (assert! (equal? [to data nonce value] [(void) (create2-wrapper-init) 0 0]))
   (def creator from)
   (def address (address<-creator-nonce creator nonce))
   (def block (eth_blockNumber))
-  (def gasPrice (eth_gasPrice))
+  (unless (nat? gasPrice)
+    (set! gasPrice (max 1 (eth_gasPrice))))
   (match (eth_getTransactionCount address block)
     (0 (let (tx (tx<-presigned presigned-create2-wrapper gasPrice: gasPrice))
          (def balance (eth_getBalance creator block))
