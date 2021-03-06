@@ -2,13 +2,11 @@
 
 (import
   :gerbil/gambit/bytes :gerbil/gambit/os
-  :std/misc/list :std/misc/ports :std/misc/process :std/srfi/1 :std/test :std/text/hex
-  :clan/base :clan/debug :clan/filesystem :clan/path :clan/path-config
+  :std/misc/list :std/misc/ports :std/test :std/text/hex
+  :clan/base :clan/debug :clan/filesystem :clan/path :clan/path-config :clan/poo/io
   :clan/poo/object :clan/poo/debug
-  :clan/persist/db
-  ../json-rpc ../transaction ../nonce-tracker ../testing ../simple-apps ../assembly ../evm-runtime
-  ../abi  ../erc20 ../ethereum ../tx-tracker
-  ../hex ../types ../signing ../network-config
+  ../json-rpc ../transaction ../nonce-tracker ../testing  ../assembly
+  ../abi  ../erc20 ../ethereum ../tx-tracker ../types ../signing  ../evm-runtime
   ./10-json-rpc-integrationtest  ./20-nonce-tracker-integrationtest
   ./30-transaction-integrationtest ./60-abi-integrationtest)
 
@@ -19,6 +17,7 @@
 (def (test-erc20-contract-bytes)
   (hex-decode (read-file-string test-erc20-contract-bin)))
 
+;; Deploys a contract to private test net
 (def (deploy-contract owner types arguments contract-bytes)
   (!> (ethabi-encode types arguments contract-bytes)
       (cut create-contract owner <>)
@@ -33,17 +32,14 @@
 
 (def 65-erc20-integrationtest
   (test-suite "integration test for ethereum/erc20"
-    (def x 1)
     (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
     (ensure-addresses-prefunded)
     (def initial-supply 1000000000)
-    (DBG pre-erc20: (eth_getBalance croesus) initial-supply)
     (def contract (deploy-contract croesus
                                    [String String UInt256 Address]
                                    ["Alice" "ALI" initial-supply alice]
                                    (test-erc20-contract-bytes)))
-    (DDT erc20: Address contract)
-    #;(def reqbytes (ethabi-encode [Address] [alice] balanceOf-selector))
+
     #;(evm-eval croesus
               (assemble/bytes
                (&begin 32 0 (bytes-length reqbytes) 'foo DUP2 DUP2 0 CODECOPY
@@ -52,7 +48,7 @@
                        [&label 'foo] [&bytes reqbytes] (&define-abort-contract-call)))
               block: 'onchain)
     (check-equal? (erc20-balance contract alice requester: croesus) initial-supply)
-
+  
     (test-case "Call ERC20 contract function totalsupply"
       (check-equal? (erc20-total-supply contract) initial-supply))
 
@@ -71,4 +67,9 @@
       (erc20-transfer-from contract bob trent 1000 requester: trent)
       (check-equal? (erc20-allowance contract bob trent requester: croesus) 0)
       (check-balancesOf-addresses contract [alice bob trent] [999900000 99000 1000]))
+
+    (test-case "Call ERC20 contract function approve vs reset approve"
+      (check-equal? (erc20-allowance contract bob trent requester: bob) 0)
+      (erc20-approve contract bob trent 999)
+      (check-equal? (erc20-allowance contract bob trent requester: bob) 999))
     ))

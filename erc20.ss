@@ -13,7 +13,7 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes
-  :std/srfi/1 :std/sugar
+  :std/srfi/1 :std/sugar :std/iter
   :clan/base :clan/with-id
   :clan/poo/object (only-in :clan/poo/mop) :clan/poo/io
   ./logger ./hex ./types ./ethereum ./known-addresses ./abi ./json-rpc
@@ -41,7 +41,7 @@
 (def Transfer-event ;;event Transfer(address indexed _from, address indexed _to, uint256 _value)
   (digest<-function-signature ["Transfer" Address Address UInt256]))
 (def Approval-event ;;event Approval(address indexed _owner, address indexed _spender, uint256 _value)
-  (digest<-function-signature ["Allowance" Address Address UInt256]))
+  (digest<-function-signature ["Approval" Address Address UInt256]))
 
 ;; shortest bit field that discriminates all selectors
 (def (erc20-selector-index selector)
@@ -165,6 +165,27 @@
         '=> (json<- ContractConfig config)])
   config)
 
+;; Functions that process and match logs
+
+(def (erc20-extracted-logger-log log)
+  [(.@ log address) (.@ log topics) (.@ log data)])
+
+(def (erc20-expected-logger-log event-signature contract sender recipient amount)
+  [contract
+    [event-signature
+      (ethabi-encode [Address] [sender])
+      (ethabi-encode [Address] [recipient])] 
+    (ethabi-encode [UInt256] [amount])])
+
+(def (erc20-assert-log! receipt expectation)
+  (def extracted-logs (map erc20-extracted-logger-log (.@ receipt logs)))
+  (def expected (apply erc20-expected-logger-log expectation))
+  (assert! (member expected extracted-logs)))
+
+;;This function sets the allowance by first checking whether the current allowance is 0, and if not, sets it to 0 before to change it to something else
+(def (reset-allowance-if-not-zero contract spender recipient requester)
+  (unless (zero? (erc20-allowance contract spender recipient requester: requester))
+          (erc20-approve-tx contract spender recipient 0)))
 
 ;;; Functions to interact with an ERC20 contract as a client
 
@@ -186,16 +207,23 @@
 (def (erc20-transfer contract sender recipient amount)
   (!> (ethabi-encode [Address UInt256] [recipient amount] transfer-selector)
       (cut call-function sender contract <>)
-      post-transaction)) ;; TODO: check that it logged a Transfer (but it may have logged more than that!)
+      post-transaction
+      (cut erc20-assert-log! <> [Transfer-event contract sender recipient amount])))
 
-;; TODO: the function that ensures we confirm 0 before we set an approval to >0
-;; NEVER APPROVE MORE THAN 0 UNLESS YOU CONFIRM IT TO 0 FIRST!
-(def (erc20-approve contract sender recipient amount)
+(def (erc20-approve-tx contract sender recipient amount)
   (!> (ethabi-encode [Address UInt256] [recipient amount] approve-selector)
       (cut call-function sender contract <>)
-      post-transaction)) ;; TODO: check that it logged an Approval (but it may have logged more than that!)
+      post-transaction
+      (cut erc20-assert-log! <> [Approval-event contract sender recipient amount])))
+
+;;It only approves if the target is not 0
+(def (erc20-approve contract sender recipient amount)
+  (reset-allowance-if-not-zero contract sender recipient sender)
+  (unless (zero? amount)
+          (erc20-approve-tx contract sender recipient amount)))
 
 (def (erc20-transfer-from contract sender recipient amount requester: (requester recipient))
   (!> (ethabi-encode [Address Address UInt256] [sender recipient amount] transferFrom-selector)
       (cut call-function requester contract <>)
-      post-transaction)) ;; TODO: check that it logged a Transfer (but it may have logged more than that!)
+      post-transaction
+      (cut erc20-assert-log! <> [Transfer-event contract sender recipient amount])))
