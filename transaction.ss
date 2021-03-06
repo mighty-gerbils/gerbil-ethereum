@@ -178,6 +178,9 @@
                    (error "Couldn't find registered keypair" (json<- Address from))))
   (defvalues (v r s) (vrs<-tx (keypair-secret-key keypair)
                               nonce gasPrice gas to value data chainid))
+  (make-signed-transaction from nonce gasPrice gas to value data v r s))
+
+(def (make-signed-transaction from nonce gasPrice gas to value data v r s)
   (def raw (signed-tx-bytes<- nonce gasPrice gas to value data v r s))
   (def hash (keccak256<-bytes raw))
   {from nonce gasPrice gas to value data v r s hash})

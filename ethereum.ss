@@ -1,8 +1,8 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes
-  :std/sugar
+  :gerbil/gambit/bytes :gerbil/gambit/hash
+  :std/format :std/sugar
   :clan/base :clan/maybe :clan/number :clan/decimal
   :clan/crypto/keccak :clan/crypto/secp256k1
   :clan/poo/object :clan/poo/io :clan/poo/brace
@@ -71,6 +71,14 @@
 ;; : Address
 (def null-address (make-address (make-bytes 20)))
 
+(defmethod (@@method :wr address)
+  (lambda (self we)
+    (unless (eq? (write-style we) 'mark)
+      (let ()
+        (##wr-str we (format "#~d" (object->serial-number self)))
+        (##wr-str we " ")
+        (##wr-str we "#;")
+        (##wr we `(address<-0x ,(0x<-address self)))))))
 
 (define-type Address
   {(:: @ [methods.marshal<-bytes Type.])
