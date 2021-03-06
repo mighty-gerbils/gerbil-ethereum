@@ -1,3 +1,27 @@
+;;;; A presigned CREATE2-wrapper contract with the very same address on all EVM blockchains
+;;;; where accounts start with nonce 0.
+;;
+;; I generated a random address starting with 8e7a (for "meta"), and
+;; had it pre-sign transactions to create a trivial CREATE2-wrapper contract with nonce 0,
+;; for all possible values of the gasPrice on a logarithmic scale with step sqrt(2),
+;; so that whatever the present or future level of the gasPrice, you can always
+;; fund the creator account and have it post the CREATE2-wrapper contract with a fixed address,
+;; with at most 42% of lossage in gas costs (for 56616 gas, less than for 3 transfer transactions).
+;; Then, I deleted that address.
+;;
+;; You don't have to trust me on it: you can and must verify that the contract either exists
+;; with the correct content, or that creator address was never used on your blockchain.
+;; If those conditions aren't satisfied, then either:
+;; (1) the blockchain has a starting nonce other than 0,
+;; (2) someone broke the encryption (then all blockchains are broken), or
+;; (3) I lied to you.
+;; The most I can steal by lying is the gas to create the contract (minus the tx fee), and
+;; then again only if I'm sophisticated enough to race your transactions between
+;; the one that funds the creator address and the one that creates the contract.
+;; That would be a piss poor reward for losing my reputation forever.
+;; But, again, please don't take my word: make sure the contract was created correctly
+;; on a given blockchain before you rely on it existing. - fare
+
 (export #t)
 
 (import
@@ -8,7 +32,9 @@
   :clan/crypto/secp256k1
   ./logger ./hex ./types ./ethereum ./known-addresses ./json-rpc ./transaction ./simple-apps ./testing)
 
-(def (integer-floor-sqrt2expt n) ;; powers of sqrt(2), rounded up to the nearest integer
+;; Return the nth power of sqrt(2), rounded down to the nearest integer
+;; : Nat <- Nat
+(def (integer-floor-sqrt2expt n)
   (assert! (nat? n))
   (if (odd? n) (integer-sqrt (arithmetic-shift 1 n))
       (arithmetic-shift 1 (arithmetic-shift n -1))))
@@ -17,8 +43,9 @@
 ;; integer-floor-log2: the largest l such that (<= (expt 2 l) n) = (floor (log n) 2)
 ;;(def (integer-floor-log2 n) (1- (integer-length n)))
 
-;; return the largest l such that (<= (integer-sqrt2expt l) n)
+;; Return the largest l such that (<= (integer-sqrt2expt l) n)
 ;; (every (lambda (i) (<= (integer-floor-sqrt2expt (integer-floor-logsqrt2 i)) i (1- (integer-floor-sqrt2expt (1+ (integer-floor-logsqrt2 i)))))) (iota 500 1))
+;; : Nat <- Nat+
 (def (integer-floor-logsqrt2 n)
   (assert! (and (nat? n) (plus? n)))
   (def j (* 2 (1- (integer-length n))))
@@ -29,6 +56,7 @@
 ;; For n>=2, return the smallest l such that (<= n (integer-sqrt2expt l))
 ;; For n in 0 or 1, return n
 #;(every (lambda (i) (<= (1+ (integer-floor-sqrt2expt (1- (integer-ceiling-logsqrt2 i)))) i (integer-floor-sqrt2expt (integer-ceiling-logsqrt2 i)))) (iota 500 2))
+;; : Nat <- Nat
 (def (integer-ceiling-logsqrt2 n)
   (assert! (nat? n))
   (if (< n 2) n (1+ (integer-floor-logsqrt2 (1- n)))))
@@ -55,6 +83,7 @@
   (defvalues (v r s) (vrs<-signature (<-bytes Signature (vector-ref sigs i))))
   (make-signed-transaction from nonce gasPrice gas to value data v r s))
 
+;; I used this function once to create the presigned transactions below.
 (def (presign-create2-wrapper)
   (def creator-name "meta-create2")
   (register-keypair creator-name (generate-keypair scoring: (scoring<-prefix "8e7a")))
@@ -63,6 +92,7 @@
       (force-object (presign-transaction {from: creator data: (create2-wrapper-init)}))
     (unregister-keypair creator-name)))
 
+;; Presigned transactions for the create2-wrapper contract.
 (.def presigned-create2-wrapper
   from: (address<-0x "0x8e7A6B6e194E18225EeAeA13b3fF06293DFEd0CD")
   to: (void) value: 0 nonce: 0 gas: 56616
@@ -582,6 +612,7 @@
            "e9c9125d7cf67264269f14006ad04c7f951c41a2b57a37d67df1449e35f90d97669a3550655889771d4368f6d3106f708280d9a96340d526bf7ed8447e95183e1c"
            "b1322061c26293fdaaceacfd1b5473f5b22ae021cffa2da2d81f66eedf96360f74b7b1aa0deca9c8adea8b75b1f28a5a15c4173e63ab030d1cbc0110af693c481c")))
 
+;; Ensure that the create2-wrapper contract exists on the current blockchain.
 (def (ensure-presigned-create2-wrapper (funder croesus))
   (def-slots (from to data nonce value gas sigs) presigned-create2-wrapper)
   (assert! (equal? [to data nonce value] [(void) (create2-wrapper-init) 0 0]))
