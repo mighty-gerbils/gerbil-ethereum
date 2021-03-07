@@ -299,19 +299,6 @@
   (help: "alias for start-mantis" getopt: [])
   (start-mantis))
 
-(define-entry-point (get-mantis-log (tx #f))
-  (help: "copy the mantis log to mantis/mantis.log"
-   getopt: [(optional-argument 'tx help: "transaction to look for in the log")])
-  (def container-log (format "~a:/root/.mantis/logs/mantis.log" (car (mantis-containers))))
-  (def host-log (log-path "mantis/mantis.log"))
-  (run-process/batch ["docker" "cp" container-log host-log])
-  (when tx
-    (let (thex (string-trim-prefix "0x" tx))
-      ;; No pass-through interactive execution from gambit :-(
-      #;(run-process ["less" "-p" thex host-log] stdin-redirection: #t stdout-redirection: #t stderr-redirection: #t show-console: #t)
-      (ignore-errors (run-process/batch ["grep" thex host-log]))
-      (printf "less -p ~a ~a\n" thex host-log))))
-
 #; ;; TODO: get mallet to work?
 (define-entry-point (mallet)
   (help: "Run mallet against the Mantis docker image" getopt: [])
@@ -319,5 +306,6 @@
   ;; Works best with node 10.x.x
   (run-process/batch ["mallet" (eth-rpc-url) (string-append "--datadir=" mantis-data-directory)]))
 
+(current-program "run-ethereum-test-net")
 (set-default-entry-point! 'start)
 (define-multicall-main)
