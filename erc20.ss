@@ -30,9 +30,9 @@
 (def abort-selector #u8(255 255 255 255))
 
 (def Transfer-event ;;event Transfer(address indexed _from, address indexed _to, uint256 _value)
-  (selector<-function-signature ["Transfer" Address Address UInt256]))
+  (digest<-function-signature ["Transfer" Address Address UInt256]))
 (def Approval-event ;;event Approval(address indexed _owner, address indexed _spender, uint256 _value)
-  (selector<-function-signature ["Allowance" Address Address UInt256]))
+  (digest<-function-signature ["Allowance" Address Address UInt256]))
 
 ;; shortest bit field that discriminates all selectors
 (def (erc20-selector-index selector)
