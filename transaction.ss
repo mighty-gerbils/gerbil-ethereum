@@ -4,7 +4,7 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes
   :std/error :std/iter :std/misc/list :std/misc/number :std/sugar :std/text/hex
-  :clan/assert :clan/failure :clan/number :clan/option :clan/with-id
+  :clan/assert :clan/base :clan/failure :clan/number :clan/option :clan/with-id
   :clan/net/json-rpc
   :clan/poo/object :clan/poo/io :clan/poo/brace
   :clan/crypto/keccak :clan/crypto/secp256k1
@@ -49,8 +49,9 @@
       (def chainid (chainid<-v v))
       (def signature (signature<-vrs y-parity+27 r s))
       (def signed-tx-bytes (signed-tx-bytes<- nonce gasPrice gas to value data chainid 0 0))
+      (def shash (keccak256<-bytes signed-tx-bytes))
+      (def from (recover-signer-address signature shash))
       (def hash (keccak256<-bytes bytes))
-      (def from (recover-signer-address signature hash))
       (and from {from nonce gasPrice gas to value data v r s hash}))))
 
 ;; This function computes the v value to put in the signed transaction data,
@@ -70,11 +71,11 @@
   (defvalues (v r s) (vrs<-signature signature))
   (values (eip155-v v chainid) r s))
 
-(defstruct (TransactionRejected exception) (receipt)) ;; (Or TransactionReceipt String)
-(defstruct (StillPending exception) ())
-(defstruct (ReplacementTransactionUnderpriced exception) ())
-(defstruct (IntrinsicGasTooLow exception) ())
-(defstruct (NonceTooLow exception) ())
+(defstruct (TransactionRejected Exception) (receipt)) ;; (Or TransactionReceipt String)
+(defstruct (StillPending Exception) ())
+(defstruct (ReplacementTransactionUnderpriced Exception) ())
+(defstruct (IntrinsicGasTooLow Exception) ())
+(defstruct (NonceTooLow Exception) ())
 
 ;; TODO: Send Notification to end-user via UI!
 ;; : Bottom <- Address
@@ -184,6 +185,16 @@
   (def raw (signed-tx-bytes<- nonce gasPrice gas to value data v r s))
   (def hash (keccak256<-bytes raw))
   {from nonce gasPrice gas to value data v r s hash})
+
+(def (verify-signed-tx! tx)
+  (def-slots (from nonce gasPrice gas to value data v r s hash) tx)
+  (def raw (signed-tx-bytes<- nonce gasPrice gas to value data v r s))
+  (let (d (decode-signed-tx-bytes raw))
+    (unless (equal? [from nonce gasPrice gas to value data v r s hash]
+                    (with-slots (from nonce gasPrice gas to value data v r s hash) d
+                                [from nonce gasPrice gas to value data v r s hash]))
+      (error "Signed tx does not check out" tx d)))
+  tx)
 
 ;; : Bytes <- Transaction Quantity
 (def (bytes<-signed-tx tx)

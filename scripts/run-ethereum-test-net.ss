@@ -179,6 +179,7 @@
 ;; docker exec -it $(run-mantis-test-net.ss mantis-container) bash
 (def mantis-docker-image "inputoutput/mantis:2020-evm") ;; NB: there are both -evm and -kevm variants
 (def mantis-yolo-conf "yolo-evm.conf") ;; our override file, also with -evm or -kevm
+(def mantis-log-directory (log-path "mantis")) ;; Determine the log directory for mantis
 ;;(def mantis-data-directory (persistent-path "mantis")) ;; Determine the runtime directory
 ;; NB: When editing the configuration, compare to what's in production:
 ;; https://github.com/input-output-hk/mantis/blob/develop/src/main/resources/chains/etc-chain.conf
@@ -222,6 +223,7 @@
 (define-entry-point (run-mantis)
   (help: "Start a Mantis docker image in the background" getopt: [])
   #;(create-directory* mantis-data-directory)
+  (create-directory* mantis-log-directory)
   ;;; NB: I'd like to use this, but Docker seems to have no such option :-( Big security risk!
   ;;(def opt (let (u (user-info (user-name))) (format ":uid=~d,gid=~d" (user-info-uid u) (user-info-gid u))))
   (open-process
@@ -239,6 +241,9 @@
                 ;; By keeping it between runs, we save 10-20 minutes of initialization time
                 ;; Beware: Docker will create it owned by root, but you should be able to chown it.
                 "-v" (format "~a:/root/.ethash" (cache-path "ethash"))
+
+                ;; Redirect the logs
+                "-v" (format "~a:/root/.mantis/logs" (log-path "mantis"))
 
                 ;; Outside the image, We use eth-rpc-port. *inside*, we let /conf say it's 8546.
                 "-p" (format "~d:8546" eth-rpc-port)

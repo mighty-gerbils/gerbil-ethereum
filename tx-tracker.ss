@@ -239,7 +239,7 @@
                 (.call UserTransactionsTracker remove-transaction user txsn)
                 (completion-post! result final))))))
         ['TransactionTracker (sexp<- Address user) txsn])))
-    {(result) (manager)})
+    {result manager})
 
   ;; Activate the transaction tracker (1) for the given key, (2) in the context of the given TX.
   ;; This method must be called when all previous transactions by the same user are finalized;
@@ -331,7 +331,10 @@
 ;; TODO: do it transactionally. Reserve a ticket number first?
 ;; : TransactionTracker.Key TransactionTracker <- Address PreTransaction
 (def (issue-pre-transaction pre)
-  (.call UserTransactionsTracker add-transaction (.@ pre from) (TransactionStatus-TxWanted pre)))
+  (.call UserTransactionsTracker add-transaction (.@ pre from)
+         (if (element? SignedTransactionInfo pre)
+           (TransactionStatus-TxSigned pre)
+           (TransactionStatus-TxWanted pre))))
 
 ;; : Transaction SignedTransaction TransactionReceipt <- FinalTransactionStatus
 (def (check-transaction-confirmed final-transaction-status)

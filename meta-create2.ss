@@ -30,7 +30,8 @@
   :clan/number
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/crypto/secp256k1
-  ./logger ./hex ./types ./ethereum ./known-addresses ./json-rpc ./transaction ./simple-apps ./testing)
+  ./logger ./hex ./types ./ethereum ./known-addresses ./json-rpc
+  ./transaction ./tx-tracker ./simple-apps ./testing)
 
 ;; Return the nth power of sqrt(2), rounded down to the nearest integer
 ;; : Nat <- Nat
@@ -78,12 +79,13 @@
 
 (def (tx<-presigned presigned gasPrice: (gasPrice (eth_gasPrice)))
   (def i (integer-ceiling-logsqrt2 gasPrice))
-  (set! gasPrice (integer-floor-sqrt2expt i))
+  (set! gasPrice (if (zero? i) 0 (integer-floor-sqrt2expt i)))
   (def-slots (from to data value nonce gas sigs) presigned)
   (defvalues (v r s) (vrs<-signature (<-bytes Signature (vector-ref sigs i))))
-  (make-signed-transaction from nonce gasPrice gas to value data v r s))
+  (verify-signed-tx! (make-signed-transaction from nonce gasPrice gas to value data v r s)))
 
 ;; I used this function once to create the presigned transactions below.
+;; No one needs to use it ever again.
 (def (presign-create2-wrapper)
   (def creator-name "meta-create2")
   (register-keypair creator-name (generate-keypair scoring: (scoring<-prefix "8e7a")))
@@ -91,6 +93,15 @@
   (begin0
       (force-object (presign-transaction {from: creator data: (create2-wrapper-init)}))
     (unregister-keypair creator-name)))
+
+(def (verify-presigned presigned (i #f))
+  (if i
+    (tx<-presigned presigned gasPrice: (if (< i 2) i (integer-floor-sqrt2expt i)))
+    (for ((i (in-iota 512))) (verify-presigned presigned i))))
+
+(def (raw<-presigned presigned)
+  (for/collect (i (in-iota 512))
+    (hex-encode (bytes<-signed-tx (tx<-presigned presigned gasPrice: (if (< i 2) i (integer-floor-sqrt2expt i)))))))
 
 ;; Presigned transactions for the create2-wrapper contract.
 (.def presigned-create2-wrapper
@@ -613,7 +624,7 @@
            "b1322061c26293fdaaceacfd1b5473f5b22ae021cffa2da2d81f66eedf96360f74b7b1aa0deca9c8adea8b75b1f28a5a15c4173e63ab030d1cbc0110af693c481c")))
 
 ;; Ensure that the create2-wrapper contract exists on the current blockchain.
-(def (ensure-presigned-create2-wrapper (funder croesus) gasPrice: (gasPrice (void)))
+(def (ensure-presigned-create2-wrapper (funder croesus) gasPrice: (gasPrice (void)) log: (log eth-log))
   (def-slots (from to data nonce value gas sigs) presigned-create2-wrapper)
   (assert! (equal? [to data nonce value] [(void) (create2-wrapper-init) 0 0]))
   (def creator from)
@@ -624,12 +635,14 @@
   (match (eth_getTransactionCount address block)
     (0 (let (tx (tx<-presigned presigned-create2-wrapper gasPrice: gasPrice))
          (def balance (eth_getBalance creator block))
-         (def missing (- (* gas gasPrice) balance))
+         (def missing (- (* gas (.@ tx gasPrice)) balance))
          (when (plus? missing)
-           (debug-send-tx {from: funder to: creator value: missing}))
+           (post-transaction {from: funder to: creator value: missing}))
          (eth-log ["create-create2-wrapper" (json<- SignedTransactionInfo tx)])
-         (eth_sendRawTransaction (bytes<-signed-tx tx))))
+         (post-transaction tx)))
     (1 (unless (equal? (eth_getCode address block) (create2-wrapper-runtime))
          (error "Bad contract created for create2 wrapper" address (eth_getCode address block))))
     (nonce (error "Creator address was used more than once(?) or initial nonce > 0" address nonce)))
   address) ;; 0x2508bA0AFa2708C51B0D2a433f315d400f6E59C6
+
+(def create2-wrapper (address<-0x "0x2508bA0AFa2708C51B0D2a433f315d400f6E59C6"))

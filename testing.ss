@@ -89,8 +89,9 @@
   (def from (.@ tx from))
   (reset-nonce from)
   (def signed (sign-transaction tx))
+  (def tx0 {to: ? (void) data: ? (void) value: ? 0 nonce: ? (void) gas: ? (void) gasPrice: ? (void)})
   (DDT debug-send-tx-0:
-       PreTransaction tx
+       PreTransaction (.mix tx tx0)
        SignedTransactionInfo signed)
   (def receipt
     (let/cc return

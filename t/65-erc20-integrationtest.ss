@@ -38,6 +38,7 @@
 
 (def 65-erc20-integrationtest
   (test-suite "integration test for ethereum/erc20"
+    (def x 1)
     (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
     (ensure-addresses-prefunded)
     (def initial-supply 1000000000)

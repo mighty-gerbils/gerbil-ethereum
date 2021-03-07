@@ -9,7 +9,7 @@
   :clan/persist/db
   :clan/debug :clan/poo/debug
   ../types ../ethereum ../known-addresses ../json-rpc ../nonce-tracker
-  ../transaction ../tx-tracker ../simple-apps ../testing ../assets ../evm-runtime
+  ../transaction ../tx-tracker ../simple-apps ../testing ../assets ../evm-runtime ../meta-create2
   ./10-json-rpc-integrationtest ./30-transaction-integrationtest)
 
 (def (round-up-amount amount increment)
@@ -46,10 +46,9 @@
       (def receipt (post-transaction (call-function croesus trivial-logger (string->bytes "hello, world"))))
       (expect-logger-logs receipt [trivial-logger croesus "hello, world"]))
 
-    (test-case "create2-wrapper works"
+    (test-case "Presigned create2-wrapper works"
       (def salt (bytes<- UInt256 (randomUInt256)))
-      (def create2-wrapper
-        (.@ (ensure-create2-wrapper croesus log: write-json-ln) contract-address))
+      (def create2-wrapper (ensure-presigned-create2-wrapper croesus gasPrice: 100))
       (check-equal? (eth_getCode create2-wrapper) (create2-wrapper-runtime))
       (def logger2 (address<-create2 create2-wrapper salt (trivial-logger-init)))
       (DDT 50-create2-wrapper-0:
@@ -70,9 +69,7 @@
       (def amount (wei<-ether 1))
       (def salt (bytes<- UInt256 (randomUInt256)))
 
-      (def creator
-        (.@ (ensure-create2-wrapper croesus log: write-json-ln) contract-address))
-      (check-equal? (eth_getCode creator) (create2-wrapper-runtime))
+      (def creator (ensure-presigned-create2-wrapper croesus gasPrice: 100))
 
       (def universal-batcher-init (batch-contract-init #f))
       (def universal-batcher (address<-create2 creator salt universal-batcher-init))

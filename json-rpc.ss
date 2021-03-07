@@ -288,7 +288,7 @@
   TransactionInformation <- BlockParameter Quantity)
 
 ;; Returns the number of transaction at address (and transaction)
-(define-ethereum-api eth getTransactionCount
+(define-ethereum-api eth (getTransactionCount address (block 'latest))
   Quantity <- Address BlockParameter)
 
 ;; Returns the number of transactions in a block found by its hash code
