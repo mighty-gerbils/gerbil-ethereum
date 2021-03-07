@@ -51,7 +51,7 @@
    [(lambda (opt) (ensure-ethereum-connection
                    (or (hash-removed opt 'evm-network)
                        (if (hash-get opt 'test) "pet" "ced"))))]
-   options/test))
+   [options/test options/help]))
 
 (def options/database
   (make-options
@@ -60,7 +60,7 @@
    [(lambda (opt)
      (ensure-db-connection (or (hash-removed opt 'database)
                                (if (hash-get opt 'test) "testdb" "userdb"))))]
-   [options/test]))
+   [options/test options/help]))
 
 (def options/from
   (make-options
