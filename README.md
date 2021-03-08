@@ -29,12 +29,14 @@ Notable modules include but are not limited to the below:
   Either way, you can achieve more efficient and safer code
   than by using extremely badly designed languages such as Solidity.
 
-* `batch-send.ss` includes a tiny batch transfer contract written in EVM assembly,
-  that allows you to send tokens to many different addresses in a single transaction.
-  This is important in that it allows a single confirmation for multiple transfers,
-  cutting into the runtime latency and build-time complexity to properly track
-  many simultaneous transactions and nurse them to completion in an adversarial network.
-  In the near future, we may also offer a similar contract to batch multiple contract calls.
+* `simple-apps.ss` includes several simple applications written directly in EVM assembly
+  to optimize for size and cost, including batching of several transactions into a single one,
+  a general-purpose proxy contract that can relay the actions of an individual or group,
+  a general logging contract for logging and development purposes, and
+  a CREATE2 wrapper through which you can use techniques akin to Bitcoin MAST on EVM networks.
+
+* `meta-create2.ss` includes pre-signed transactions so every EVM network can have the very same address
+  for a universal CREATE2 wrapper, making Bitcoin-style MAST a reality across all EVM networks.
 
 * `json-rpc.ss` offers you a typechecked FFI to all the usual Ethereum JSON RPC APIs.
 
@@ -57,6 +59,8 @@ as we build software on top of it.
   we can leverage both ad-hoc and parametric polymorphism to factor our code into
   small pieces of incremental functionality that nicely build on each other,
   rather than large monolithic pieces of code that constantly repeat each other.
+  Thus, for instance, in the case of merkle tries, in one fifth the code size,
+  we could fit twice the functionality provided by equivalent code in Go, with added optimizations.
   In the end, that means not only much less code to write, but
   even more importantly for cryptocurrency software, much less code to *audit*.
 
@@ -66,7 +70,8 @@ as we build software on top of it.
   hundreds or thousands of libraries from as many unidentified developers.
   That's millions of lines of code that no one has the hope to ever audit,
   what more in a combination that moves too fast for an audit to remain valid very long.
-  Indeed, cryptocurrency wallets have been attacked not just through existing bugs in such libraries,
+  This is not hypothetical: in the past few years, several cryptocurrency wallets
+  have actually been attacked not just through existing bugs in such libraries,
   but also through *supply chain attacks* wherein bad actors took over
   some remote indirect dependency of a wallet so as to gain access to its users' assets.
   By contrast, Gerbil may have fewer libraries, but it includes everything required to interact
@@ -80,11 +85,12 @@ as we build software on top of it.
   for building decentralized applications that are safe by construction.
   Our current code base does not yet offer builtin protection against all the attacks
   that we are thinking of preventing, yet the programming model it offers is already
-  significantly more robust than that offered by platforms such as web3.js.
+  significantly more robust than that offered by platforms such as web3.js
+  whose authors seem blissfully oblivious of these attacks.
   For instance, we take persist-before-messaging discipline seriously,
   with persistent activities, proper transactionality, and in the future distributed replication.
   We also build and test our code with [deterministic build tools](https://www.nixos.org/nix/)
-  that ensure that if it works for us, it will work for everyone.
+  that ensure that if it works for us, it will work exactly the same for everyone.
 
 * *Potential Portability*: the Gerbil is built on top of Gambit, that has backends
   to any platform that matters, and could be made to target any future platform that would.
