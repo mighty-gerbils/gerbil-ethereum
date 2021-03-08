@@ -186,7 +186,7 @@
       (cut call-function sender contract <>)
       post-transaction)) ;; TODO: check that it logged an Approval (but it may have logged more than that!)
 
-(def (erc20-transfer-from contract sender recipient amount requester: requester)
+(def (erc20-transfer-from contract sender recipient amount requester: (requester recipient))
   (!> (ethabi-encode [Address Address UInt256] [sender recipient amount] transferFrom-selector)
       (cut call-function requester contract <>)
       post-transaction)) ;; TODO: check that it logged a Transfer (but it may have logged more than that!)
