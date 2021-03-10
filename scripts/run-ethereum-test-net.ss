@@ -107,7 +107,7 @@
   ["--datadir" geth-data-directory
    "--identity" "GlowEthereumPrivateTestNet"
    "--verbosity" "4" ;; 3: info, 4: debug
-   "--etherbase" croesus
+   "--miner.etherbase" croesus
    "--nodiscover"
    "--maxpeers" "0"
    "--nousb"
@@ -122,8 +122,10 @@
   (format "(echo ~a ; ~a) < /dev/null >> ~a/geth.log 2>&1"
           cmd cmd geth-logs-directory))
 (def (run-geth . args)
+  (displayln "Running: " (apply geth-command args))
   (run-process/batch ["sh" "-c" (apply geth-command args)]))
 (def (bg-geth args)
+  (displayln "Running in background: " (apply geth-command args))
   (open-process
    [path: "sh" arguments: ["-c" (apply geth-command args)]
     stdin-redirection: #f
@@ -153,6 +155,7 @@
     "--http" "--http.api" "admin,db,debug,eth,light,net,personal,web3"
     "--http.port" (number->string eth-rpc-port)
     "--http.corsdomain" "https://remix.ethereum.org,http://remix.ethereum.org"
+    "--rpc.allow-unprotected-txs=true" ;; allow the meta-create2 presigned signature
     ;;"--port" (number->string geth-port)
     "--vmdebug"
     "--ipcpath" (subpath geth-data-directory "geth.ipc")])
