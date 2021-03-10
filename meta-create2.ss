@@ -632,7 +632,7 @@
   (def block (eth_blockNumber))
   (unless (nat? gasPrice)
     (set! gasPrice (max 1 (eth_gasPrice))))
-  (match (eth_getTransactionCount address block)
+  (match (eth_getTransactionCount creator block)
     (0 (let (tx (tx<-presigned presigned-create2-wrapper gasPrice: gasPrice))
          (def balance (eth_getBalance creator block))
          (def missing (- (* gas (.@ tx gasPrice)) balance))
