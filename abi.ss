@@ -11,7 +11,7 @@
 
 (import
   :gerbil/gambit/bytes
-  :std/misc/number :std/misc/repr :std/srfi/1 :std/sugar
+  :std/misc/number :std/misc/process :std/misc/repr :std/srfi/1 :std/sugar
   :clan/io :clan/poo/object :clan/poo/mop
   :clan/crypto/keccak)
 
@@ -143,3 +143,14 @@
 ;; Encode a function call to pass it to an Ethereum contract
 (def (bytes<-ethereum-function-call signature arguments)
   (ethabi-encode (cdr signature) arguments (selector<-function-signature signature)))
+
+;; Compile a source file, outputing binary and abi json description to given destination directory
+(def (compile-solidity source-file destination-directory)
+  (def source-directory (path-directory source-file))
+  (def source-basename (path-strip-directory source-file))
+  (create-directory* destination-directory)
+  (run-process/batch
+   ["solc" "--overwrite" "--optimize" "--bin" "--abi"
+    "-o" destination-directory source-basename]
+   directory: source-directory)
+  (void))

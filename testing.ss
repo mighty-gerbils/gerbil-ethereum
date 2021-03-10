@@ -3,9 +3,9 @@
 (import
   :gerbil/gambit/bytes :gerbil/gambit/threads
   :std/format :std/iter :std/misc/list :std/srfi/1 :std/srfi/13 :std/sugar :std/test
-  :clan/base :clan/json :clan/syntax :clan/with-id
+  :clan/base :clan/json :clan/multicall :clan/path-config :clan/syntax :clan/with-id
   :clan/poo/object :clan/poo/debug :clan/poo/brace :clan/poo/io
-  ./types ./ethereum ./known-addresses
+  ./types ./ethereum ./known-addresses ./abi
   ./network-config ./json-rpc ./transaction ./nonce-tracker
   ./assembly ./evm-runtime ./simple-apps ./assets)
 
@@ -202,3 +202,13 @@
   (def extracted-logs (map extracted-logger-log (.@ receipt logs)))
   (def expected-logs (map (cut apply expected-logger-log <>) expectations))
   (check-equal? extracted-logs expected-logs))
+
+(def (precompile-contract source)
+  (compile-solidity (source-path "t/solidity" source) (source-path "t/precompiled/")))
+
+(define-entry-point (precompile-contracts)
+  (help: "precompile solidity contracts used during testing"
+   getopt: [])
+  (precompile-contract "HelloWorld.sol")
+  (precompile-contract "erc20/ERC20PresetFixedSupply.sol"))
+

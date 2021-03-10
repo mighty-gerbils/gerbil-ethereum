@@ -2,31 +2,16 @@
 
 (import
   :gerbil/gambit/os
-  :std/misc/list :std/misc/ports :std/misc/process :std/srfi/1 :std/sugar :std/test :std/text/hex
+  :std/misc/list :std/misc/ports :std/srfi/1 :std/sugar :std/test :std/text/hex
   :clan/debug :clan/filesystem :clan/list :clan/path :clan/path-config
   :clan/poo/object
   ../hex ../types ../signing ../network-config
   ../json-rpc ../nonce-tracker ../transaction ../abi ../tx-tracker ../testing
   ./30-transaction-integrationtest)
 
-(def (compile-solidity src dstdir)
-  (def srcdir (path-directory src))
-  (def srcfile (path-strip-directory src))
-  (create-directory* dstdir)
-  (run-process/batch ["solc" "--optimize" "--bin" "--abi" "-o" dstdir "--overwrite" srcfile]
-    directory: srcdir)
-  (void))
-
-;; TODO: either install the damn file with the build, or be able to locate it via nix or gxpkg
-;; TODO: install them as static-file: build targets, then search the gerbil-{,load}path for it at runtime?
-(def test-hello-contract-source (source-path "t/test_contract.sol"))
-(def test-hello-contract-bin (cache-path "t/HelloWorld.bin"))
+(def test-hello-contract-bin (source-path "t/precompiled/HelloWorld.bin"))
 
 (def (test-hello-contract-bytes)
-  (unless (and (file-exists? test-hello-contract-bin)
-               (<= (or (modification-time test-hello-contract-source) +inf.0)
-                   (or (modification-time test-hello-contract-bin) -inf.0)))
-    (compile-solidity test-hello-contract-source (path-parent test-hello-contract-bin)))
   (hex-decode (read-file-string test-hello-contract-bin)))
 
 (def hello-contract #f)
@@ -64,6 +49,7 @@
         (unless (ethereum-mantis?)
           ;; Mantis never accepts the transaction, and even logs a message why it won't,
           ;; but its JSON RPC API doesn't give us any way to tell it's failed.
+          (DBG create-hello-contract-too-little-gas:)
           (check-exception (post-transaction (create-contract croesus (test-hello-contract-bytes) gas: 21000))
                            (match <> ((TransactionStatus-TxFailed (vector _ exn))
                                       (if (ethereum-mantis?)
@@ -75,6 +61,7 @@
                                   (_ #f)))
           ;; Mantis never accepts the transaction, and doesn't even log a message why it won't,
           ;; but its JSON RPC API doesn't give us any way to tell it's failed.
+          (DBG create-hello-contract:)
           (check-exception (post-transaction (create-contract croesus (test-hello-contract-bytes) gas: 100000))
                            (match <> ((TransactionStatus-TxFailed (vector _ (? TransactionRejected?))) #t)
                                   (_ #f)))))

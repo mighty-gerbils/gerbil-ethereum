@@ -14,14 +14,9 @@
 
 
 ;; TODO: either install the damn file with the build, or be able to locate it via nix or gxpkg
-(def test-erc20-contract-source (source-path "t/erc20/ERC20PresetFixedSupply.sol"))
-(def test-erc20-contract-bin (cache-path "t/ethereum/ERC20PresetFixedSupply.bin"))
+(def test-erc20-contract-bin (source-path "t/precompiled/ERC20PresetFixedSupply.bin"))
 
 (def (test-erc20-contract-bytes)
-  (unless (and (file-exists? test-erc20-contract-bin)
-               (<= (or (modification-time test-erc20-contract-source) +inf.0)
-                   (or (modification-time test-erc20-contract-bin) -inf.0)))
-    (compile-solidity test-erc20-contract-source (path-parent test-erc20-contract-bin)))
   (hex-decode (read-file-string test-erc20-contract-bin)))
 
 (def (deploy-contract owner types arguments contract-bytes)
