@@ -1,5 +1,14 @@
 ;;; Support for using and implementing an ERC20
 ;; https://eips.ethereum.org/EIPS/eip-20
+
+;; See also:
+;; ERC-223 Token Standard
+;; ERC-777 Token Standard
+;; ERC-165 Standard Interface Detection
+;; ERC-721 Non-Fungible Token Standard
+;; EIP-820 Pseudo-introspection Registry Contract (superseded by EIP-1820)
+;; ERC-1155 Multi Token Standard
+;; EIP-1820 Pseudo-introspection Registry Contract (supersedes EIP-820)
 (export #t)
 
 (import

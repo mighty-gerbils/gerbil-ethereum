@@ -185,12 +185,12 @@
 (define-type PreTransaction
   (Record
    from: [(Maybe Address) default: (void)] ;; absent or void means not decoded yet
-   to: [(Maybe Address) default: (void)] ;; as per Operation
-   data: [(Maybe Bytes) default: (void)] ;; as per Operation, absent or void means #u8()
-   value: [(Maybe Quantity) default: (void)] ;; in wei, absent or void means 0
-   gas: [(Maybe Quantity) default: (void)] ;; in gas, absent or void means auto estimate
-   gasPrice: [(Maybe Quantity) default: (void)] ;; in wei/gas, absent or void means get from the environment
-   nonce: [(Maybe Quantity) default: (void)])) ;; absent or void means get from tracker
+   to: [(Maybe Address) optional: #t default: (void)] ;; as per Operation
+   data: [(Maybe Bytes) optional: #t default: (void)] ;; as per Operation, absent or void means #u8()
+   value: [(Maybe Quantity) optional: #t default: (void)] ;; in wei, absent or void means 0
+   gas: [(Maybe Quantity) optional: #t default: (void)] ;; in gas, absent or void means auto estimate
+   gasPrice: [(Maybe Quantity) optional: #t default: (void)] ;; in wei/gas, absent or void means get from the environment
+   nonce: [(Maybe Quantity) optional: #t default: (void)])) ;; absent or void means get from tracker
 
 ;; Transaction (to be) signed and posted to the chain Ethereum
 (define-type Transaction

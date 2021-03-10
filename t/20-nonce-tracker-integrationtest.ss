@@ -4,7 +4,8 @@
   :std/sugar :std/test
   :clan/list :clan/path-config
   :clan/persist/db
-  ../ethereum ../json-rpc ../transaction ../nonce-tracker ../testing)
+  ../ethereum ../json-rpc ../transaction ../nonce-tracker ../testing
+  ./10-json-rpc-integrationtest)
 
 ;; Use the test database
 (displayln "Connecting to the test database...")
