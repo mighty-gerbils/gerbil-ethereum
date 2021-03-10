@@ -71,11 +71,11 @@
   (defvalues (v r s) (vrs<-signature signature))
   (values (eip155-v v chainid) r s))
 
-(defstruct (TransactionRejected Exception) (receipt)) ;; (Or TransactionReceipt String)
-(defstruct (StillPending Exception) ())
-(defstruct (ReplacementTransactionUnderpriced Exception) ())
-(defstruct (IntrinsicGasTooLow Exception) ())
-(defstruct (NonceTooLow Exception) ())
+(defstruct (TransactionRejected Exception) (receipt) transparent: #t) ;; (Or TransactionReceipt String)
+(defstruct (StillPending Exception) () transparent: #t)
+(defstruct (ReplacementTransactionUnderpriced Exception) () transparent: #t)
+(defstruct (IntrinsicGasTooLow Exception) () transparent: #t)
+(defstruct (NonceTooLow Exception) () transparent: #t)
 
 ;; TODO: Send Notification to end-user via UI!
 ;; : Bottom <- Address

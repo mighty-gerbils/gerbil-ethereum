@@ -8,6 +8,7 @@
   :clan/net/json-rpc
   :clan/poo/object :clan/poo/brace :clan/poo/io :clan/poo/trie
   :clan/persist/db :clan/persist/persist
+  :clan/debug :clan/poo/debug
   ./hex ./types ./known-addresses ./ethereum ./json-rpc ./nonce-tracker ./transaction)
 
 ;; TODO: Invoking a *persistent* continuation upon completion.
@@ -133,9 +134,13 @@
 
 (define-type ExceptionOrString
   {(:: @ [methods.bytes<-marshal Type.])
-   .element?: (lambda (e) (or (exception? e) (string? e)))
-   .sexp<-: normalize-exn
-   .marshal: (lambda (e port) (marshal String (normalize-exn e) port))
+   .element?: (lambda (e) (or (exception? e) (Exception? e) (string? e)))
+   .string<-: string<-exception
+   .sexp<-: .string<-
+   .<-string: identity
+   .<-json: .string<-
+   .json<-: .string<-
+   .marshal: (lambda (e port) (marshal String (.string<- e) port))
    .unmarshal: (lambda (port) (unmarshal String port))})
 
 (define-type TransactionStatus
@@ -145,10 +150,6 @@
    TxConfirmed: (Tuple PreTransaction SignedTransactionInfo TransactionReceipt)
    TxFailed: (Tuple (delay-type TransactionStatus) ExceptionOrString)))
 (define-sum-constructors TransactionStatus TxWanted TxSigned TxConfirmed TxFailed)
-
-(def (normalize-exn e)
-  (if (string? e) e
-      (with-output-to-string (lambda () (display-exception e)))))
 
 (def transaction-status-ongoing?
   (match <>
@@ -202,6 +203,7 @@
            (def (update status)
              (with-committed-tx (tx) (save! status tx)))
            (let loop ((status status))
+             (validate TransactionStatus status [[TT.loop: [@] key]])
              (def (continue status) (update status) (loop status))
              (def (invalidate transaction-status e)
                (reset-nonce user)
@@ -238,7 +240,7 @@
                 ;; TODO: should we return the tx with the status in the completion-post! ???
                 (.call UserTransactionsTracker remove-transaction user txsn)
                 (completion-post! result final))))))
-        ['TransactionTracker (sexp<- Address user) txsn])))
+        [sexp (sexp<- Address user) txsn])))
     {result manager})
 
   ;; Activate the transaction tracker (1) for the given key, (2) in the context of the given TX.
@@ -277,7 +279,7 @@
   ;; Resume the earliest transaction.
   ;; If more are pending, it will automatically cascade onto the next ones when done,
   ;; by recursively calling resume-transactions.
-  ;; : Unit <- Address State TX
+  ;; : Unit <- Address State
   resume-transactions:
   (lambda (user state)
     (without-tx
@@ -285,7 +287,7 @@
                        (.call NatSet .min-elt/opt (.@ state ongoing-transactions)))))
 
   ;; Remove a transaction, as a cleanup to call at the end of it when it's stable.
-  ;; : Unit <- Address Nat TX
+  ;; : Unit <- Address Nat
   remove-transaction:
   (lambda (user txsn)
     (action user
@@ -307,16 +309,18 @@
         (action user (lambda (get-state _set-state! tx) (resume-transactions user (get-state)))))))
 
   ;; Add a transaction.
-  ;; : TransactionTracker.Key TransactionTracker <- UserTransactionsTracker OngoingTransactionStatus TX
+  ;; : TransactionTracker.Key TransactionTracker <- UserTransactionsTracker TransactionStatus
   add-transaction:
   (lambda (user transaction-status)
+    (validate TransactionStatus transaction-status [[add-transaction: Address user]])
     (action
      user
      (fun (add-transaction get-state set-state! tx)
        (def state (get-state))
        (def txsn (.@ state transaction-counter))
-       (def key {(user) (txsn)})
-       (def tracker (.call TransactionTracker make key (lambda _ transaction-status) tx))
+       (def key {user txsn})
+       (def (init . _) transaction-status)
+       (def tracker (.call TransactionTracker make key init tx))
        (when (.call NatSet .empty? (.@ state ongoing-transactions))
          (.call TransactionTracker activate key))
        (def new-state
@@ -331,10 +335,10 @@
 ;; TODO: do it transactionally. Reserve a ticket number first?
 ;; : TransactionTracker.Key TransactionTracker <- Address PreTransaction
 (def (issue-pre-transaction pre)
-  (.call UserTransactionsTracker add-transaction (.@ pre from)
-         (if (element? SignedTransactionInfo pre)
-           (TransactionStatus-TxSigned pre)
-           (TransactionStatus-TxWanted pre))))
+  (def status (if (element? SignedTransactionInfo pre)
+                (TransactionStatus-TxSigned (vector pre pre))
+                (TransactionStatus-TxWanted pre)))
+  (.call UserTransactionsTracker add-transaction (.@ pre from) status))
 
 ;; : Transaction SignedTransaction TransactionReceipt <- FinalTransactionStatus
 (def (check-transaction-confirmed final-transaction-status)
