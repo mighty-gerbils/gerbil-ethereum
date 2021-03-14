@@ -5,7 +5,7 @@
 (export #t)
 (import
   :std/sugar :std/format :std/misc/string :std/srfi/13
-  :clan/decimal
+  :clan/basic-parsers :clan/decimal :clan/string
   :clan/poo/object
   ./assembly ./types ./ethereum ./abi ./evm-runtime)
 
@@ -66,7 +66,7 @@
   ;; to extract the sum of the old and new authorizations.
   ;; OR, first transfer to another account, and have *that* account approve the transfer.
   ;; This all makes fast ERC20 payments "interesting".
-  ;; https://docs.google.com/document/d/1YLPtQxZu1UAvO9cZ1O2RPXBbT0mooh4DYKjA_jp-RLM/edit#heading=h.6uz9seehjf3n
+  ;; https://docs.google.com/document/d/1YLPtQxZu1UAvO9cZ1O2RPXBbT0mooh4DYKjA_jp-RLM/
   ;; function allowance(address _owner, address _spender) public view returns (uint256 remaining)
   ;; Events:
   ;; event Transfer(address indexed _from, address indexed _to, uint256 _value)
@@ -96,3 +96,20 @@
      amount (&mstoreat (+ tmp@ 36))
      32 tmp@ 68 DUP2 0 .contract-address GAS CALL
      (&mloadat tmp@) AND require!))) ;; check that both the was successful and its boolean result true
+
+(def (expect-asset-amount port)
+  (def asset ((expect-one-or-more-of char-ascii-alphabetic?) port))
+  (expect-and-skip-any-whitespace port)
+  (def amount (expect-decimal port))
+  (cons asset amount))
+
+(def (asset-amount<-string string trim-spaces?: (trim-spaces? #t))
+  (parse-string (if trim-spaces? (string-trim-spaces string) string) expect-asset-amount
+                "asset-amount"))
+
+(def (display-asset-amount asset-amount port)
+  (with ([asset . amount] asset-amount)
+    (display asset port) (write-char #\space port) (write-decimal amount port)))
+
+(def (string<-asset-amount asset-amount)
+  (call-with-output-string (cut display-asset-amount asset-amount <>)))
