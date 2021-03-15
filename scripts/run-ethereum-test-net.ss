@@ -105,7 +105,7 @@
 
 (def geth-arguments
   ["--datadir" geth-data-directory
-   "--identity" "GlowEthereumPrivateTestNet"
+   "--identity" "GlowPrivateEthereumTestNet"
    "--verbosity" "4" ;; 3: info, 4: debug
    "--miner.etherbase" croesus
    "--nodiscover"
