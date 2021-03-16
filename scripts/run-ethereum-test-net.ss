@@ -133,6 +133,21 @@
     stderr-redirection: #f
     show-console: #f]))
 
+(def (get-geth-version)
+  (def version (cadr (run-process ["geth" "version"] 
+                                  stdin-redirection: #t stdout-redirection: #t stderr-redirection: #t
+                                  coprocess: read-all-as-lines)))
+  (string-trim-prefix "Version: " version))
+
+(def (extra-geth-options)
+  (def major 1)
+  (def minor 10)
+  (def splitted (string-split (get-geth-version) #\.))
+  (if (or (< (string->number (car splitted)) major) 
+          (< (string->number (cadr  splitted)) minor))
+      ""
+      "--rpc.allow-unprotected-txs=true"))
+
 (define-entry-point (start-geth)
   (help: "Start a go-ethereum server, wiping any previous run data" getopt: [])
   ;; Zeroth, erase any previous blockchain data and accompanying testdb, and create new directories
@@ -155,7 +170,8 @@
     "--http" "--http.api" "admin,db,debug,eth,light,net,personal,web3"
     "--http.port" (number->string eth-rpc-port)
     "--http.corsdomain" "https://remix.ethereum.org,http://remix.ethereum.org"
-    "--rpc.allow-unprotected-txs=true" ;; allow the meta-create2 presigned signature
+    (extra-geth-options)
+    ;;"--rpc.allow-unprotected-txs=true" ;; allow the meta-create2 presigned signature
     ;;"--port" (number->string geth-port)
     "--vmdebug"
     "--ipcpath" (subpath geth-data-directory "geth.ipc")])
