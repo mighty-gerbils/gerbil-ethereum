@@ -4,17 +4,13 @@
   :gerbil/expander
   :std/format :std/getopt :std/iter :std/misc/hash
   :std/sort :std/srfi/13 :std/sugar
-  :clan/cli :clan/decimal :clan/exit :clan/hash :clan/list :clan/multicall :clan/path-config
+  :clan/cli :clan/decimal :clan/exit :clan/hash :clan/multicall :clan/path-config :clan/string
   :clan/poo/object :clan/poo/brace :clan/poo/cli :clan/poo/debug
   :clan/persist/db
   ./network-config ./types ./ethereum ./known-addresses ./json-rpc)
 
 ;; Let's share the configuration and data directories with the rest of the Glow ecosystem
 (set! application-name (lambda () "glow"))
-
-(def (co-pad-strings strings)
-  (def maxlen (extremum<-list > (map string-length strings) 0))
-  (map (cut string-pad-right <> maxlen) strings))
 
 (define-entry-point (list-evm-networks)
   (help: "Show a list of available EVM networks" getopt: [])
