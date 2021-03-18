@@ -8,7 +8,7 @@
   :clan/poo/object :clan/poo/io :clan/poo/debug :clan/poo/brace
   :clan/crypto/secp256k1
   :clan/persist/content-addressing
-  ../types ../ethereum ../signing ../known-addresses ../assembly ../evm-runtime
+  ../types ../ethereum ../known-addresses ../assembly ../evm-runtime
   ../network-config ../json-rpc ../testing
   ./30-transaction-integrationtest)
 

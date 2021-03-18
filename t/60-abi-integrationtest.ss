@@ -5,7 +5,7 @@
   :std/misc/list :std/misc/ports :std/srfi/1 :std/sugar :std/test :std/text/hex
   :clan/debug :clan/filesystem :clan/list :clan/path :clan/path-config
   :clan/poo/object
-  ../hex ../types ../signing ../network-config
+  ../hex ../types ../network-config
   ../json-rpc ../nonce-tracker ../transaction ../abi ../tx-tracker ../testing
   ./30-transaction-integrationtest)
 

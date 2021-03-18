@@ -6,7 +6,7 @@
   :clan/base :clan/debug :clan/filesystem :clan/path :clan/path-config :clan/poo/io
   :clan/poo/object :clan/poo/debug
   ../json-rpc ../transaction ../nonce-tracker ../testing  ../assembly
-  ../abi  ../erc20 ../ethereum ../tx-tracker ../types ../signing  ../evm-runtime
+  ../abi  ../erc20 ../ethereum ../tx-tracker ../types ../evm-runtime ../meta-create2
   ./10-json-rpc-integrationtest  ./20-nonce-tracker-integrationtest
   ./30-transaction-integrationtest ./60-abi-integrationtest)
 
@@ -48,7 +48,7 @@
                        [&label 'foo] [&bytes reqbytes] (&define-abort-contract-call)))
               block: 'onchain)
     (check-equal? (erc20-balance contract alice requester: croesus) initial-supply)
-  
+
     (test-case "Call ERC20 contract function totalsupply"
       (check-equal? (erc20-total-supply contract) initial-supply))
 
