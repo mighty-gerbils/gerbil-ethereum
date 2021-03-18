@@ -17,13 +17,6 @@
 (def (test-erc20-contract-bytes)
   (hex-decode (read-file-string test-erc20-contract-bin)))
 
-;; Deploys a contract to private test net
-(def (deploy-contract owner types arguments contract-bytes)
-  (!> (ethabi-encode types arguments contract-bytes)
-      (cut create-contract owner <>)
-      post-transaction
-      (cut .@ <> contractAddress)))
-
 (def (erc20-balances contract accounts)
   (map (cut erc20-balance contract <>) accounts))
 
@@ -35,10 +28,10 @@
     (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
     (ensure-addresses-prefunded)
     (def initial-supply 1000000000)
-    (def contract (deploy-contract croesus
-                                   [String String UInt256 Address]
-                                   ["Alice" "ALI" initial-supply alice]
-                                   (test-erc20-contract-bytes)))
+    (def contract (abi-create croesus
+                              (test-erc20-contract-bytes)
+                              [String String UInt256 Address]
+                              ["Alice" "ALI" initial-supply alice]))
 
     #;(evm-eval croesus
               (assemble/bytes

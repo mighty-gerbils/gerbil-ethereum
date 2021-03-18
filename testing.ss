@@ -84,6 +84,7 @@
   (batch-txs funder needful-transfers log: write-json-ln batch-contract: batch-contract gas: 400000))
 
 ;; Send a tx, not robust, but useful for debugging
+;; : SignedTransactionInfo TransactionReceipt <- PreTransaction confirmations:?Nat
 (def (debug-send-tx
       tx confirmations: (confirmations (ethereum-confirmations-wanted-in-blocks)))
   (def from (.@ tx from))
@@ -212,3 +213,11 @@
   (precompile-contract "HelloWorld.sol")
   (precompile-contract "erc20/ERC20PresetFixedSupply.sol"))
 
+;; Create a contract using the Ethereum ABI for arguments
+(def (abi-create owner contract-bytes (types []) (arguments []) value: (value 0))
+  (defvalues (signed receipt)
+    (!> (ethabi-encode types arguments contract-bytes)
+        (cut create-contract owner <> value: value)
+        debug-send-tx))
+  (DDT create: TransactionReceipt receipt)
+  (.@ receipt contractAddress))

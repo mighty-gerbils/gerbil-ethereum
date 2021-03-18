@@ -25,12 +25,12 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/misc
+  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/misc
   :std/iter :std/text/hex :std/sugar
-  :clan/number
+  :clan/base :clan/number
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/crypto/secp256k1
-  ./logger ./hex ./types ./ethereum ./known-addresses ./json-rpc
+  ./logger ./hex ./types ./ethereum ./known-addresses ./json-rpc ./abi
   ./transaction ./tx-tracker ./simple-apps ./testing)
 
 ;; Return the nth power of sqrt(2), rounded down to the nearest integer
@@ -646,3 +646,13 @@
   address) ;; 0x2508bA0AFa2708C51B0D2a433f315d400f6E59C6
 
 (def create2-wrapper (address<-0x "0x2508bA0AFa2708C51B0D2a433f315d400f6E59C6"))
+
+;; Deploys a contract to private test net
+(def (abi-create2 creator salt contract-bytes (types []) (arguments []) value: (value 0))
+  (ensure-presigned-create2-wrapper)
+  (def init-code (ethabi-encode types arguments contract-bytes))
+  (def address (address<-create2 create2-wrapper salt init-code))
+  (!> (bytes-append salt init-code)
+      (cut call-function creator create2-wrapper <> value: value)
+      post-transaction)
+  address)
