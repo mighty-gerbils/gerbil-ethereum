@@ -19,10 +19,13 @@
   ./logger ./hex ./types ./ethereum ./known-addresses ./abi ./json-rpc
   ./assembly ./transaction ./tx-tracker ./contract-config ./evm-runtime)
 
-;;; OPTIONAL functions NOT implemented:
-;;function name() public view returns (string)
-;;function symbol() public view returns (string)
-;;function decimals() public view returns (uint8)
+
+(def symbol-selector ;;function symbol() public view returns (string)
+  (selector<-function-signature ["symbol"]))
+(def name-selector ;;function name() public view returns (string)
+  (selector<-function-signature ["name"]))
+(def decimals-selector ;;function decimals() public view returns (uint8)
+  (selector<-function-signature ["decimals"]))
 
 (def totalSupply-selector ;;function totalSupply() public view returns (uint256)
   (selector<-function-signature ["totalSupply"]))
@@ -167,9 +170,11 @@
 
 ;; Functions that process and match logs
 
+;; : [Listof Any] <- Log
 (def (erc20-extracted-logger-log log)
   [(.@ log address) (.@ log topics) (.@ log data)])
 
+;; : [Listof Any] <- Bytes4 Address Address Address UInt256
 (def (erc20-expected-logger-log event-signature contract sender recipient amount)
   [contract
     [event-signature
@@ -177,11 +182,13 @@
       (ethabi-encode [Address] [recipient])] 
     (ethabi-encode [UInt256] [amount])])
 
+;; : Void <- TransactionReceipt [Listof Any]
 (def (erc20-assert-log! receipt expectation)
   (def extracted-logs (map erc20-extracted-logger-log (.@ receipt logs)))
   (def expected (apply erc20-expected-logger-log expectation))
   (assert! (member expected extracted-logs)))
 
+;; : Void <- Address Address Address Address
 ;;This function sets the allowance by first checking whether the current allowance is 0, and if not, sets it to 0 before to change it to something else
 (def (reset-allowance-if-not-zero contract spender recipient requester)
   (unless (zero? (erc20-allowance contract spender recipient requester: requester))
@@ -189,41 +196,55 @@
 
 ;;; Functions to interact with an ERC20 contract as a client
 
+;; : UInt256 <- Address UInt256 requester: Address
 (def (erc20-total-supply contract (block 'latest) requester: (requester null-address))
   (<-bytes UInt256 (eth_call (call-function requester contract totalSupply-selector) block)))
 
+;; : UInt256 <- Address Address Address requester: ? Address
 (def (erc20-balance contract account requester: (requester null-address))
   (!> (ethabi-encode [Address] [account] balanceOf-selector)
       (cut call-function requester contract <>)
       eth_call
       (cut <-bytes UInt256 <>)))
 
+;; : UInt256 <- Address Address Address requester: ? Address
 (def (erc20-allowance contract sender recipient requester: (requester null-address))
   (!> (ethabi-encode [Address Address] [sender recipient] allowance-selector)
       (cut call-function requester contract <>)
       eth_call
       (cut <-bytes UInt256 <>)))
 
+;; : Void <- Address Address Address UInt256
 (def (erc20-transfer contract sender recipient amount)
   (!> (ethabi-encode [Address UInt256] [recipient amount] transfer-selector)
       (cut call-function sender contract <>)
       post-transaction
       (cut erc20-assert-log! <> [Transfer-event contract sender recipient amount])))
 
+;; : Void <- Address Address Address UInt256
 (def (erc20-approve-tx contract sender recipient amount)
   (!> (ethabi-encode [Address UInt256] [recipient amount] approve-selector)
       (cut call-function sender contract <>)
       post-transaction
       (cut erc20-assert-log! <> [Approval-event contract sender recipient amount])))
 
+;; : Void <- Address Address UInt256
 ;;It only approves if the target is not 0
 (def (erc20-approve contract sender recipient amount)
   (reset-allowance-if-not-zero contract sender recipient sender)
   (unless (zero? amount)
           (erc20-approve-tx contract sender recipient amount)))
 
+;; : Void <- Address Address Address UInt256 requester: ? Address
 (def (erc20-transfer-from contract sender recipient amount requester: (requester recipient))
   (!> (ethabi-encode [Address Address UInt256] [sender recipient amount] transferFrom-selector)
       (cut call-function requester contract <>)
       post-transaction
       (cut erc20-assert-log! <> [Transfer-event contract sender recipient amount])))
+
+;; No parameter optional functions(Query)
+;; : Bytes <- Address Address [Listof Any] requester: ? Address
+(def (erc20-optional-fn contract selector return-types requester: (requester null-address))
+  (!> (call-function requester contract selector)
+      eth_call
+      (cut ethabi-decode return-types <>)))
