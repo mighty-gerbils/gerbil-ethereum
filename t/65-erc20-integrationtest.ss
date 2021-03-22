@@ -28,10 +28,12 @@
     (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
     (ensure-addresses-prefunded)
     (def initial-supply 1000000000)
+    (def name "Alice")
+    (def symbol "ALI")
     (def contract (abi-create croesus
                               (test-erc20-contract-bytes)
                               [String String UInt256 Address]
-                              ["Alice" "ALI" initial-supply alice]))
+                              [name symbol initial-supply alice]))
 
     #;(evm-eval croesus
               (assemble/bytes
@@ -65,4 +67,14 @@
       (check-equal? (erc20-allowance contract bob trent requester: bob) 0)
       (erc20-approve contract bob trent 999)
       (check-equal? (erc20-allowance contract bob trent requester: bob) 999))
+
+;; Optional functions
+
+    (test-case "Call ERC20 contract optional functions without parameter"
+      (check-equal? (erc20-optional-fn contract name-selector [String] requester: bob)
+                    [name])
+      (check-equal? (erc20-optional-fn contract symbol-selector [String] requester: bob)
+                    [symbol])
+      (check-equal? (erc20-optional-fn contract decimals-selector [UInt8] requester: bob)
+                    [18]))
     ))
