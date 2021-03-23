@@ -211,7 +211,9 @@
   (help: "precompile solidity contracts used during testing"
    getopt: [])
   (precompile-contract "HelloWorld.sol")
-  (precompile-contract "erc20/ERC20PresetFixedSupply.sol"))
+  (precompile-contract "erc20/ERC20PresetFixedSupply.sol")
+  (precompile-contract "erc721/ERC721PresetMinterPauserAutoId.sol"))
+
 
 ;; Create a contract using the Ethereum ABI for arguments
 (def (abi-create owner contract-bytes (types []) (arguments []) value: (value 0))

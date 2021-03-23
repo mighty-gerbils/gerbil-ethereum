@@ -34,7 +34,6 @@
   (test-suite "integration test for ethereum/erc721"
     (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
     (ensure-addresses-prefunded)
-    (precompile-contract "erc721/ERC721PresetMinterPauserAutoId.sol")
     (def initial-supply 0)
     (def name "MukN")
     (def symbol "MK")
