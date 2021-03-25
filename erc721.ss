@@ -127,7 +127,8 @@
   (!> (ethabi-encode [Address Address] [owner operator] isApprovedForAll-selector)
       (cut call-function requester contract <>)
       eth_call
-      (cut ethabi-decode [Bool] <>)))
+      (cut ethabi-decode [Bool] <>)
+      car))
 
 ;; : Void <- Address Address Address UInt256 requester: ? Address
 (def (erc721-transfer-from contract sender recipient tokenId requester: (requester recipient))
@@ -170,15 +171,17 @@
 
 ;; No parameter optional functions(Query)
 ;; : Bytes <- Address Bytes4 [Listof Any] requester: ? Address
-(def (erc721-optional-fn-without-parameter contract selector return-type requester: (requester null-address))
+(def (erc721-optional-fn-without-argument contract selector return-type requester: (requester null-address))
   (!> (call-function requester contract selector)
       eth_call
-      (cut ethabi-decode return-type <>)))
+      (cut ethabi-decode return-type <>)
+      car))
 
 ;; Optional functions with parameters(Query)
 ;; : Bytes <- Address Bytes4 [Listof Any] [Listof Any] [Listof Any] requster: ? Address
-(def (erc721-optional-fn-with-parameter contract selector param-types param-values return-type requester: (requester null-address))
-  (!> (ethabi-encode param-types param-values selector)
+(def (erc721-optional-fn-with-argument contract selector argument-types argument-values return-type requester: (requester null-address))
+  (!> (ethabi-encode argument-types argument-values selector)
       (cut call-function requester contract <>)
       eth_call
-      (cut ethabi-decode return-type <>)))
+      (cut ethabi-decode return-type <>)
+      car))

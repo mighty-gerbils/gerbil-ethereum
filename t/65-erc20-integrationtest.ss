@@ -65,9 +65,9 @@
 
     (test-case "Call ERC20 contract optional functions without parameter"
       (check-equal? (erc20-optional-fn contract name-selector [String] requester: bob)
-                    [name])
+                    name)
       (check-equal? (erc20-optional-fn contract symbol-selector [String] requester: bob)
-                    [symbol])
+                    symbol)
       (check-equal? (erc20-optional-fn contract decimals-selector [UInt8] requester: bob)
-                    [18]))
+                    18))
     ))

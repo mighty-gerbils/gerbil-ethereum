@@ -247,4 +247,5 @@
 (def (erc20-optional-fn contract selector return-types requester: (requester null-address))
   (!> (call-function requester contract selector)
       eth_call
-      (cut ethabi-decode return-types <>)))
+      (cut ethabi-decode return-types <>)
+      car))

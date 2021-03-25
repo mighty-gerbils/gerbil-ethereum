@@ -19,5 +19,6 @@
   (!> (ethabi-encode [Bytes4] [interface-id] supportsInterface-selector)
       (cut call-function requester contract <>)
       eth_call
-      (cut ethabi-decode [Bool] <>)))
+      (cut ethabi-decode [Bool] <>)
+      car))
 
