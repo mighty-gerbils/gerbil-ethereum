@@ -3,4 +3,5 @@
 ;; You can even run tests without first running ./build.ss !
 (import :clan/testing :clan/path-config :clan/path)
 (init-test-environment!)
-(import :mukn/ethereum/version :mukn/ethereum/testing :mukn/ethereum/cli)
+(import :mukn/ethereum/version :mukn/ethereum/testing :mukn/ethereum/cli
+        :mukn/ethereum/initialize-pet)

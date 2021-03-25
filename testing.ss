@@ -14,8 +14,8 @@
   (string-set! Name 0 (char-upcase (string-ref Name 0)))
   Name)
 
-(def test-keys [])
-(def test-addresses [])
+(def test-keys (values []))
+(def test-addresses (values []))
 
 (defrule (defkeys ctx (name secret-key) ...)
   (begin
@@ -40,9 +40,6 @@
   ;; This key was chosen because it's got money on in genesis block for IOHK's Mantis docker image.
   ;; We now configure use of the same key for the "got all the money" account on our Geth genesis block.
   (croesus  "0x1167a41c432d1a494408b8fdeecd79bff89a5689925606dff8adf01f4bf92922"))
-
-;; Register test keypairs
-(for-each (cut apply register-keypair <>) test-keys)
 
 ;; Display an account having the given balance given a way to print address, optional name and balance
 ;; : 'a <- ('a <- string string) Address TokenAmount
@@ -223,3 +220,7 @@
         debug-send-tx))
   (DDT create: TransactionReceipt receipt)
   (.@ receipt contractAddress))
+
+(def (register-test-keys)
+  ;; Register test keypairs
+  (for-each (cut apply register-keypair <>) test-keys))

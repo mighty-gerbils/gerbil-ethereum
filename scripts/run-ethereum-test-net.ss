@@ -6,13 +6,18 @@
 ;; This implies able to find any ancillary data files it uses.
 
 (import
+  (for-syntax :std/misc/ports :clan/syntax)
   :gerbil/expander
   :gerbil/gambit/exceptions :gerbil/gambit/os :gerbil/gambit/ports :gerbil/gambit/threads
   :std/format :std/getopt :std/misc/list :std/misc/ports :std/misc/process :std/misc/string
-  :std/pregexp :std/srfi/1 :std/srfi/13 :std/sugar
+  :std/pregexp :std/srfi/1 :std/srfi/13 :std/sugar :std/text/hex
   :clan/base :clan/files :clan/json :clan/maybe :clan/multicall
-  :clan/path :clan/path-config :clan/shell :clan/source
-  :clan/net/json-rpc)
+  :clan/path :clan/path-config :clan/shell :clan/syntax :clan/temporary-files
+  :clan/net/json-rpc
+  :clan/crypto/secp256k1
+  :mukn/ethereum/hex :mukn/ethereum/ethereum :mukn/ethereum/known-addresses
+  :mukn/ethereum/testing :mukn/ethereum/initialize-pet)
+
 
 (with-catch void (cut import-module ':mukn/ethereum/version #t #t))
 
@@ -22,11 +27,10 @@
 ;; User-configurable variables
 (def eth-rpc-port 8545) ;; NOTE: Mantis by default uses 8546, while Geth uses 8545
 (def default-node "geth")
-(def croesus "0x25c0bb1A5203AF87869951AEf7cF3FEdD8E330fC")
 
 ;; If the home directory isn't otherwise set, we must be running from unconfigured source code,
 ;; and we'll use the top of this source code hierarchy as home.
-(def here (path-simplify-directory (this-source-file)))
+#;(def here (path-simplify-directory (syntax-call stx-source-file)))
 #;(set-path-config-root! (subpath (path-parent here) "run/"))
 
 (def (eth-rpc-url) (format "http://localhost:~d" eth-rpc-port))
@@ -107,7 +111,7 @@
   ["--datadir" geth-data-directory
    "--identity" "GlowPrivateEthereumTestNet"
    "--verbosity" "4" ;; 3: info, 4: debug
-   "--miner.etherbase" croesus
+   "--miner.etherbase" (0x<-address croesus)
    "--nodiscover"
    "--maxpeers" "0"
    "--nousb"
@@ -156,11 +160,25 @@
   (create-directory* geth-data-directory)
   (create-directory* geth-logs-directory)
   ;; First, register the private key for croesus, so he can sign POA endorsements
-  (run-geth
-   "--unlock" croesus
-   "account" "import" "--password" "/dev/null" (subpath here "croesus.prv"))
+  (call-with-temporary-file
+   prefix: "croesus-tmp-" suffix: ".prv"
+   while-open:
+   (lambda (port _path)
+     (display (hex-encode (secp256k1-seckey-data (keypair-secret-key croesus-keys))) port))
+   after-close:
+   (lambda (croesus.prv)
+     (run-geth
+      "--unlock" (0x<-address croesus)
+      "account" "import" "--password" "/dev/null" croesus.prv)))
   ;; Second, initialize the state of the blockchain
-  (run-geth "init" (subpath here "genesis.json"))
+  (call-with-temporary-file
+   prefix: "genesis-tmp-" suffix: ".json"
+   while-open:
+   (lambda (port _path)
+     (display (syntax-call (lambda (ctx) (read-file-string (stx-source-path ctx "genesis.json")))) port))
+   after-close:
+   (lambda (genesis.json)
+     (run-geth "init" genesis.json)))
   ;; Then, run a geth server in the background
   (bg-geth
    ["--dev"
@@ -176,7 +194,8 @@
     "--vmdebug"
     "--ipcpath" (subpath geth-data-directory "geth.ipc")])
   ;; Finally, wait for the server to be ready to process requests
-  (wait-for-ethereum "geth"))
+  (wait-for-ethereum "geth")
+  (initialize-pet))
 
 (define-entry-point (stop-geth)
   (help: "Stop any currently running geth server" getopt: [])
@@ -233,11 +252,11 @@
 ;;; NB: We could have a log directory outside it and symlink the builtin path to it, but oh well.
 
 ;;; Do we actually need to tweak the genesis? We shouldn't need that anymore.
-;;(def genesis
-;;  (let (h (json<-string (read-file-string (subpath here "genesis.json"))))
-;;    (hash-remove! h "config")
-;;    (hash-put! h "extraData" "0x11bbe8db4e347b4e8c937c1c8370e4b5ed33adb3db69cbdb7a38e1e50b1b82fa")
-;;    h))
+#;(def genesis
+  (let (h (json<-string (syntax-call (lambda (ctx) (read-file-string (stx-source-path ctx "genesis.json"))))))
+  (hash-remove! h "config")
+  (hash-put! h "extraData" "0x11bbe8db4e347b4e8c937c1c8370e4b5ed33adb3db69cbdb7a38e1e50b1b82fa")
+  h))
 
 (define-entry-point (run-mantis)
   (help: "Start a Mantis docker image in the background" getopt: [])
@@ -249,7 +268,7 @@
    [path: "docker"
     arguments: ["run"
                 ;; We mount this directory so we can easily copy files to override configuration
-                "-v" (format "~a:/here" here)
+                ;;"-v" (format "~a:/here" here)
 
                 ;; Uncomment this line if you want to visibly persist the state on your local disk.
                 ;; Beware: docker will create those files *owned by root*
@@ -312,7 +331,8 @@
   (stop)
   (wipe-state-directories)
   (run-mantis)
-  (wait-for-ethereum "mantis"))
+  (wait-for-ethereum "mantis")
+  (initialize-pet))
 
 (define-entry-point (mantis)
   (help: "alias for start-mantis" getopt: [])
@@ -324,6 +344,8 @@
   ;; Download mallet at: https://github.com/input-output-hk/mallet
   ;; Works best with node 10.x.x
   (run-process/batch ["mallet" (eth-rpc-url) (string-append "--datadir=" mantis-data-directory)]))
+
+(def initial-supply (expt 10 36))
 
 (current-program "run-ethereum-test-net")
 (set-default-entry-point! 'start)

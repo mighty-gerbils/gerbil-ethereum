@@ -6,16 +6,9 @@
   :clan/base :clan/debug :clan/filesystem :clan/path :clan/path-config :clan/poo/io
   :clan/poo/object :clan/poo/debug
   ../json-rpc ../transaction ../nonce-tracker ../testing  ../assembly
-  ../abi  ../erc20 ../ethereum ../tx-tracker ../types ../evm-runtime ../meta-create2
+  ../abi  ../erc20 ../ethereum ../tx-tracker ../types ../evm-runtime ../meta-create2 ../initialize-pet
   ./10-json-rpc-integrationtest  ./20-nonce-tracker-integrationtest
   ./30-transaction-integrationtest ./60-abi-integrationtest)
-
-
-;; TODO: either install the damn file with the build, or be able to locate it via nix or gxpkg
-(def test-erc20-contract-bin (source-path "t/precompiled/ERC20PresetFixedSupply.bin"))
-
-(def (test-erc20-contract-bytes)
-  (hex-decode (read-file-string test-erc20-contract-bin)))
 
 (def (erc20-balances contract accounts)
   (map (cut erc20-balance contract <>) accounts))
@@ -31,7 +24,7 @@
     (def name "Alice")
     (def symbol "ALI")
     (def contract (abi-create croesus
-                              (test-erc20-contract-bytes)
+                              test-erc20-contract-bytes
                               [String String UInt256 Address]
                               [name symbol initial-supply alice]))
 

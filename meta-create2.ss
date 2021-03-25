@@ -30,8 +30,8 @@
   :clan/base :clan/number
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/crypto/secp256k1
-  ./logger ./hex ./types ./ethereum ./known-addresses ./json-rpc ./abi
-  ./transaction ./tx-tracker ./simple-apps ./testing)
+  ./logger ./hex ./types ./ethereum ./known-addresses ./json-rpc ./abi ./testing
+  ./transaction ./tx-tracker ./simple-apps)
 
 ;; Return the nth power of sqrt(2), rounded down to the nearest integer
 ;; : Nat <- Nat
