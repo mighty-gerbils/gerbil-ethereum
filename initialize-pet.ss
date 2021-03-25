@@ -9,11 +9,11 @@
   :clan/exception :clan/multicall :clan/path-config :clan/syntax
   :clan/poo/object
   :clan/persist/db
-  ./types ./ethereum ./json-rpc ./abi ./transaction ./tx-tracker ./testing ./meta-create2)
+  ./types ./ethereum ./json-rpc ./abi ./transaction ./tx-tracker ./testing ./meta-create2 ./assets)
 
-(def QASPET (address<-0x "0x8e0BE69f202e245221B6D679B58faaBe1e463100"))
-(def RBTPET (address<-0x "0x9FC8935f73cf1481729FE787669c558a30E5B44B"))
-(def HAMPET (address<-0x "0x990E192133b8A98e229b4f22Fc0C3c1F4d88162E"))
+(def QASPET@ (address<-0x "0x8e0BE69f202e245221B6D679B58faaBe1e463100"))
+(def RBTPET@ (address<-0x "0x9FC8935f73cf1481729FE787669c558a30E5B44B"))
+(def HAMPET@ (address<-0x "0x990E192133b8A98e229b4f22Fc0C3c1F4d88162E"))
 
 (defvalues (test-erc20-contract-bytes test-erc721-contract-bytes)
   (syntax-call
@@ -53,9 +53,9 @@
 
   (def transactions
     [["Funding initializer" (transfer-tokens from: croesus to: initializer value: (wei<-ether 1)) (void)]
-     ["Creating QASPET (ERC20)" (create-contract initializer (QASPET-bytes)) QASPET]
-     ["Creating RBTPET (ERC20)" (create-contract initializer (RBTPET-bytes)) RBTPET]
-     ["Creating HAMPET (ERC721)" (create-contract initializer (HAMPET-bytes)) HAMPET]])
+     ["Creating QASPET (ERC20)" (create-contract initializer (QASPET-bytes)) QASPET@]
+     ["Creating RBTPET (ERC20)" (create-contract initializer (RBTPET-bytes)) RBTPET@]
+     ["Creating HAMPET (ERC721)" (create-contract initializer (HAMPET-bytes)) HAMPET@]])
 
   (assert! (equal? (eth_getTransactionCount initializer) 0))
   (try
@@ -68,3 +68,17 @@
      (display-exception (TransactionFailed-exn e))
      (error "fail!")))
   (assert! (equal? (eth_getTransactionCount initializer) 3)))
+
+(.def (QASPET @ ERC20)
+  .contract-address: QASPET@
+  .name: "Quality Assurance Specie on Private Ethereum Testnet"
+  .symbol: 'QASPET
+  .decimals: 18
+  .network: 'pet)
+
+(.def (RBTPET @ ERC20)
+  .contract-address: RBTPET@
+  .name: "Random Barter Token on Private Ethereum Testnet"
+  .symbol: 'RBTPET
+  .decimals: 18
+  .network: 'pet)

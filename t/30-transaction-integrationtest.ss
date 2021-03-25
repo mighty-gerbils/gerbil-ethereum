@@ -10,6 +10,8 @@
   ../ethereum ../json-rpc ../nonce-tracker ../transaction ../watch ../evm-runtime
   ./10-json-rpc-integrationtest ./20-nonce-tracker-integrationtest)
 
+(register-test-keys)
+
 (def 30-transaction-integrationtest
   (test-suite "integration test for ethereum/transaction"
     (test-case "Send tokens from Croesus to Trent"

@@ -51,7 +51,7 @@
           ;; but its JSON RPC API doesn't give us any way to tell it's failed.
           (DBG create-hello-contract-too-little-gas:)
           (check-exception (post-transaction (create-contract croesus (test-hello-contract-bytes) gas: 21000))
-                           (match <> ((TransactionStatus-TxFailed (vector _ exn))
+                           (match <> ((TransactionFailed _ exn)
                                       (if (ethereum-mantis?)
                                         ;; NB: this error has changed on our mantis support, anyway
                                         (and (TransactionRejected? exn)
@@ -63,7 +63,7 @@
           ;; but its JSON RPC API doesn't give us any way to tell it's failed.
           (DBG create-hello-contract:)
           (check-exception (post-transaction (create-contract croesus (test-hello-contract-bytes) gas: 100000))
-                           (match <> ((TransactionStatus-TxFailed (vector _ (? TransactionRejected?))) #t)
+                           (match <> ((TransactionFailed _ (? TransactionRejected?)) #t)
                                   (_ #f)))))
       (test-case "Call contract function hello with no argument"
         (ensure-hello-contract)

@@ -7,7 +7,7 @@
   :clan/cli :clan/decimal :clan/exit :clan/hash :clan/multicall :clan/path-config :clan/string
   :clan/poo/object :clan/poo/brace :clan/poo/cli :clan/poo/debug
   :clan/persist/db
-  ./network-config ./types ./ethereum ./known-addresses ./json-rpc)
+  ./network-config ./types ./ethereum ./known-addresses ./json-rpc ./testing)
 
 ;; Let's share the configuration and data directories with the rest of the Glow ecosystem
 (set! application-name (lambda () "glow"))
@@ -24,19 +24,13 @@
 (def (show-address-by-nickname h)
   (for/collect (([n . a] (hash->list/sort h string<?))) [n (0x<-address a)]))
 
-(def (import-testing-module)
-  #;(DDT import-testing-module-before: show-address-by-nickname address-by-nickname)
-  (import-module ':mukn/ethereum/testing #t #t)
-  #;(DDT import-testing-module-after: show-address-by-nickname address-by-nickname))
-
 (def (cli-send-tx pretx confirmations: (confirmations (ethereum-confirmations-wanted-in-blocks)))
-  (import-testing-module)
-  ((eval 'mukn/ethereum/testing#debug-send-tx) pretx confirmations: confirmations))
+  (debug-send-tx pretx confirmations: confirmations))
 
 (def options/test
   (make-options
    [(flag 'test "--test" help: "enable testing including test identities")]
-   [(lambda (opt) (when (hash-get opt 'test) (import-testing-module)))]))
+   [(lambda (opt) (when (hash-get opt 'test) (register-test-keys)))]))
 
 ;; TODO: allow the use of a URL instead of a name in the DB.
 ;; Then networkid and chainid are queried from the server.
