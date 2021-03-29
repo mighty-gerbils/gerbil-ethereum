@@ -69,6 +69,12 @@
      (error "fail!")))
   (assert! (equal? (eth_getTransactionCount initializer) 3)))
 
+(.def (PET @ Ether)
+  .name: "PET Ether"
+  .symbol: 'PET
+  .decimals: 18
+  .network: 'pet)
+
 (.def (QASPET @ ERC20)
   .contract-address: QASPET@
   .name: "Quality Assurance Specie on Private Ethereum Testnet"

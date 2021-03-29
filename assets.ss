@@ -29,6 +29,7 @@
 (.def (Ether @ [TokenAmount UInt256] ;; or should it just be UInt96 ???
        .length-in-bytes .length-in-bits)
   .asset-code: 0
+  .network: 'eth
   .name: "Ether"
   .symbol: 'ETH
   .decimals: 18
