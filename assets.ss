@@ -7,7 +7,14 @@
   :std/sugar :std/format :std/misc/string :std/srfi/13
   :clan/basic-parsers :clan/decimal :clan/string
   :clan/poo/object
-  ./assembly ./types ./ethereum ./abi ./evm-runtime)
+  ./assembly ./types ./ethereum ./abi ./evm-runtime ./network-config)
+
+;; keys are uppercase symbols such as ETH, PET, CED, QASPET, RBTPET, etc.
+(def asset-table (hash))
+;; lookup-asset : Symbol -> (U AssetType #f)
+(def (lookup-asset s) (hash-get asset-table s))
+;; register-asset! : AssetType -> Void
+(def (register-asset! a) (hash-put! asset-table (.@ a .symbol) a))
 
 (.def (TokenAmount @ [] .decimals .validate .symbol)
   .denominator: (expt 10 .decimals)
@@ -50,6 +57,8 @@
   withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- Bool)
   (lambda (recipient amount require! _tmp@)
     (&begin 0 DUP1 DUP1 DUP1 amount recipient GAS CALL require!))) ;; Transfer! -- gas address value 0 0 0 0
+
+(register-asset! Ether)
 
 (.def (ERC20 @ [TokenAmount UInt256] ;; https://eips.ethereum.org/EIPS/eip-20
        .contract-address ;; : Address
@@ -114,3 +123,6 @@
 
 (def (string<-asset-amount asset-amount)
   (call-with-output-string (cut display-asset-amount asset-amount <>)))
+
+(def (asset->network a)
+  (hash-ref ethereum-networks (.@ a network)))

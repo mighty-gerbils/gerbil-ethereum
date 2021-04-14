@@ -88,3 +88,7 @@
   .symbol: 'RBTPET
   .decimals: 18
   .network: 'pet)
+
+(register-asset! PET)
+(register-asset! QASPET)
+(register-asset! RBTPET)
