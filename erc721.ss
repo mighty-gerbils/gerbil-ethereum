@@ -1,5 +1,6 @@
 ;;; Support for using and implementing an ERC721
 ;; https://eips.ethereum.org/EIPS/eip-721
+;; TODO: also support ERC1155
 (export #t)
 
 (import

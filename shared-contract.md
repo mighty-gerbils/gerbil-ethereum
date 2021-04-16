@@ -2,7 +2,7 @@
 
 TODO:
 * Move this to some kind of Racket Scribble documentation.
-* A good design does as much as possible at the Glow level,
+* A good design does as much as possible at the *Glow* level,
   and only leaves low-level bits to gerbil-ethereum.
 
 ## State Model
@@ -12,7 +12,7 @@ TODO:
 A shared-contract state is made of many individual interactions,
 each storing data in the persistent of the shared contract.
 
-- In the EVM model, each interaction will have its own state SSTORE'd
+- In the EVM model, each interaction will have its own state `SSTORE`d
   at consecutive addresses in the shared contract's persistent state
   as determined by its 32-byte interaction id.
 
@@ -26,7 +26,7 @@ that gets updated at every relevant transaction,
 e.g. total number of active token in each of several categories, etc.
 
 Regardless of scope, the holding of a state associated to an interaction
-is a bit like a term in the Join Calculus:
+is a bit like a term in the [Join Calculus](https://en.wikipedia.org/wiki/Join-calculus):
 there are rewrite rules based on its being present, that will
 linearly construct a new term associated to the same interaction.
 
@@ -58,6 +58,10 @@ you overwrite other state).
 Regular programs can access the asynchronous state as part of a transaction,
 which is akin to accessing that state with interrupts turned off or deferred
 in our analogy.
+
+Or maybe asynchronous and synchronous can "simply" be for distinct
+(but related?) interaction. If using consecutive addresses, be careful of sizes
+to avoid clashes.
 
 ### Interaction Id
 
@@ -103,7 +107,8 @@ All state is asynchronous, and the last byte identifies the asynchronous state s
 
 
 The global interaction state schema (result of a global transformation of the *Glow* code)
-would be something like:
+would be something like that (this looks a bit like a GADT, but isn't quite;
+it's more like annotating the parts of a record with "id", "synchronous", "asynchronous" tags).
 ```
 data InteractionState =
   | Global -> { totalSupply: TokenAmount }
