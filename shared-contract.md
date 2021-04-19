@@ -2,8 +2,12 @@
 
 TODO:
 * Move this to some kind of Racket Scribble documentation.
-* A good design does as much as possible at the *Glow* level,
-  and only leaves low-level bits to gerbil-ethereum.
+* High-level issue: design the *Glow* **language** so we can nicely express
+  the parallel execution of many interactions.
+  See: Join-calculus, rholang, etc.
+  ALSO: should "magically" work with existing interactions, i.e.
+  buy_sig.
+* Low-level issue: provide the runtime support for it.
 
 ## State Model
 
@@ -61,7 +65,8 @@ in our analogy.
 
 Or maybe asynchronous and synchronous can "simply" be for distinct
 (but related?) interaction. If using consecutive addresses, be careful of sizes
-to avoid clashes.
+to avoid clashes. And/or put the discriminant in high bits and the increment in
+low bits, or the discriminant in low bits, and the increment in less low bits.
 
 ### Interaction Id
 
@@ -133,3 +138,29 @@ All state is asynchronous, and the last byte identifies the asynchronous state s
 
 - State associated to a user allowing a transfer to another user would be:
   `(bytes-replace (digest (Tuple Address Address TokenId) (vector sender recipient token-id)) 31 3)`
+
+### Contract calling convention
+
+#### Just like we do in Glow so far
+
+The CALLDATA segment is an input buffer (a bytes `input-port` in Gambit parlance).
+We read bytes from it as a "program" to execute and/or "published data" to read.
+e.g.
+1. read a boolean (encoded as a single byte, 0 or 1) for whether it's a new or old interaction.
+2. a. IF it's an old interaction, read a interaction ID to restart from.
+   (a 32-byte number, where the top or bottom byte(s) may encode the "type" of the interaction)
+   b. IF it's a new interaction, call the function that makes new interactions and
+      read arguments to make a new interaction
+3. Read a frame, and resume execution from it
+   (same general principle as current `&simple-contract-prelude`)
+4. Read all the published data for the current frame, as in
+   `(&unmarshal-from-CALLDATA DataType)`
+
+5. At the end of the frame, read a boolean for whether to continue or stop.
+6. a. If continue, setup new frame and jump to 4.
+   b. If end, save the state and execute side-effects by calling other contracts.
+
+#### Solidity-compatibility mode????
+
+4-byte to specify the function, the rest in ABI-compatible format?
+

@@ -3,3 +3,4 @@ build-deps
 run
 
 *.orig
+t/solidity/*.json
