@@ -1,9 +1,9 @@
 pragma solidity ^0.8.2; // SPDX-License-Identifier: Apache2.0
 contract ClosingMin { // Minimal working & readable version of the contract
   address payable Buyer; address payable Seller; bytes32 digest; uint deadline;
-  constructor(uint timeoutInBlocks, address payable _Buyer, // (1, 2, 3, 4)
+  constructor(uint timeoutInBlocks, // (1, 2, 3, 4)
               address payable _Seller, bytes32 _digest) payable {
-    Buyer = _Buyer;      Seller = _Seller;       digest = _digest;
+    Buyer = msg.sender;      Seller = _Seller;       digest = _digest;
     deadline = block.number + timeoutInBlocks;
   }
   event SignaturePublished(uint8 v, bytes32 r, bytes32 s);
