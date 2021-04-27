@@ -57,7 +57,7 @@
              '(totalSupply balanceOf transfer transferFrom approve allowance abort-contract-call)
              [totalSupply-selector balanceOf-selector transfer-selector transferFrom-selector approve-selector allowance-selector])))
 
-;; Create the runtime code for a simple ERC20 contract
+;; Create the runtime code for a simple ERC20 contract, in 77 lines of assembly
 ;; : Bytes <- Address
 (def (erc20-runtime total-supply)
   (def safe-sub (&begin DUP2 DUP2 LT [&jumpi1 '&failure] SUB))

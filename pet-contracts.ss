@@ -24,10 +24,10 @@
      `(values ,(hex-decode (read-file-string test-erc20-contract-bin))
               ,(hex-decode (read-file-string test-erc721-contract-bin))))))
 
-(defkeys initialize-pet
+(defkeys ensure-pet-contracts
   (initializer "0x9a0685cf801c0b16a839ec9c28b7dc7f461e70f3d33307f3a15da1d68c7f9d83"))
 
-(define-entry-point (initialize-pet)
+(define-entry-point (ensure-pet-contracts)
   (help: "initialize the pet network"
    getopt: [])
   (ensure-db-connection "testdb")

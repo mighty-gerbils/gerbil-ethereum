@@ -5,16 +5,7 @@
   :clan/list :clan/path-config
   :clan/persist/db
   ../ethereum ../json-rpc ../transaction ../nonce-tracker ../testing
-  ./10-json-rpc-integrationtest)
-
-;; Use the test database
-(displayln "Connecting to the test database...")
-(ensure-db-connection "testdb")
-
-;; TODO: validate that the testdb indeed corresponds to this test net?
-;; - At minimum, check that the last confirmed nonces for croesus, etc.,
-;; are not past the nonce from getTransactionCount.
-;; - Maybe even check that the blocks mentioned in the transaction Confirmations still exist.
+  ./10-json-rpc-integrationtest ./15-db-integrationtest)
 
 (def 20-nonce-tracker-integrationtest
   (test-suite "integration test for ethereum/nonce-tracker"

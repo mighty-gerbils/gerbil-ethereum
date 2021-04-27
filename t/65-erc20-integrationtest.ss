@@ -6,12 +6,13 @@
   :clan/base :clan/debug :clan/filesystem :clan/path :clan/path-config :clan/poo/io
   :clan/poo/object :clan/poo/debug
   ../json-rpc ../transaction ../nonce-tracker ../testing  ../assembly
-  ../abi  ../erc20 ../ethereum ../tx-tracker ../types ../evm-runtime ../meta-create2 ../initialize-pet
+  ../abi  ../erc20 ../ethereum ../tx-tracker ../types ../evm-runtime ../meta-create2 ../pet-contracts
   ./10-json-rpc-integrationtest  ./20-nonce-tracker-integrationtest
   ./30-transaction-integrationtest ./60-abi-integrationtest)
 
 (def (erc20-balances contract accounts)
-  (map (cut erc20-balance contract <>) accounts))
+  (map (lambda (account) (DDT erc20-balance: Address contract Address account Any
+                         (erc20-balance contract account))) accounts))
 
 (def (check-balancesOf-addresses contract inputs outputs)
   (check-equal? (erc20-balances contract inputs) outputs))
@@ -35,6 +36,7 @@
                        0 MLOAD 1000000000 EQ &require! STOP
                        [&label 'foo] [&bytes reqbytes] (&define-abort-contract-call)))
               block: 'onchain)
+    (DDT contract: Address contract)
     (check-equal? (erc20-balance contract alice requester: croesus) initial-supply)
 
     (test-case "Call ERC20 contract function totalsupply"

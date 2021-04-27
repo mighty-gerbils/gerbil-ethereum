@@ -6,7 +6,7 @@
   :clan/base :clan/debug :clan/filesystem :clan/path :clan/path-config :clan/poo/io
   :clan/poo/object :clan/poo/debug
   ../json-rpc ../transaction ../nonce-tracker ../testing  ../assembly
-  ../abi ../erc721 ../erc165 ../ethereum ../tx-tracker ../types ../evm-runtime ../initialize-pet
+  ../abi ../erc721 ../erc165 ../ethereum ../tx-tracker ../types ../evm-runtime ../pet-contracts
   ./10-json-rpc-integrationtest  ./20-nonce-tracker-integrationtest
   ./30-transaction-integrationtest ./60-abi-integrationtest)
 

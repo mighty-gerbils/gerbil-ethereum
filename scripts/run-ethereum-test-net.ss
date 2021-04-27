@@ -16,7 +16,7 @@
   :clan/net/json-rpc
   :clan/crypto/secp256k1
   :mukn/ethereum/hex :mukn/ethereum/ethereum :mukn/ethereum/known-addresses
-  :mukn/ethereum/testing :mukn/ethereum/initialize-pet)
+  :mukn/ethereum/testing :mukn/ethereum/pet-contracts)
 
 
 (with-catch void (cut import-module ':mukn/ethereum/version #t #t))
@@ -42,9 +42,10 @@
 ;; and recreate an empty directory.
 (define-entry-point (wipe-state-directories)
   (help: "Wipe any run directory" getopt: [])
-  (nest (for-each! ["geth" "mantis" "testdb" "t" "log"]) (lambda (sub))
-        (for-each! [log-path data-path cache-path]) (lambda (f))
-        (let (path (f sub)))
+  (nest (for-each! [(data-path "geth")
+                    (persistent-path "testdb")
+                    (log-path "geth")
+                    (log-path "mantis")]) (lambda (path))
         (when (file-exists? path))
         (begin
           (unless (any (cut string-contains path <>)
@@ -195,7 +196,7 @@
     "--ipcpath" (subpath geth-data-directory "geth.ipc")])
   ;; Finally, wait for the server to be ready to process requests
   (wait-for-ethereum "geth")
-  (initialize-pet))
+  (ensure-pet-contracts))
 
 (define-entry-point (stop-geth)
   (help: "Stop any currently running geth server" getopt: [])
@@ -332,7 +333,7 @@
   (wipe-state-directories)
   (run-mantis)
   (wait-for-ethereum "mantis")
-  (initialize-pet))
+  (ensure-pet-contracts))
 
 (define-entry-point (mantis)
   (help: "alias for start-mantis" getopt: [])
