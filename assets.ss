@@ -4,17 +4,31 @@
 
 (export #t)
 (import
-  :std/sugar :std/format :std/misc/string :std/srfi/13
+  :std/sugar :std/format :std/misc/string :std/misc/hash :std/srfi/13
   :clan/basic-parsers :clan/decimal :clan/string
   :clan/poo/object
   ./assembly ./types ./ethereum ./abi ./evm-runtime ./network-config)
 
+;; TODO: rename asset to resource
+;; for ERC721s, multiple resources in a resource-directory or resource-collection?
+
 ;; keys are uppercase symbols such as ETH, PET, CED, QASPET, RBTPET, etc.
 (def asset-table (hash))
-;; lookup-asset : Symbol -> (U AssetType #f)
-(def (lookup-asset s) (hash-get asset-table s))
+;; lookup-asset : Symbol -> AssetType
+(def (lookup-asset s)
+  (hash-ref/default asset-table s
+    (lambda () (error 'lookup-asset s "not found in" (hash-keys asset-table)))))
 ;; register-asset! : AssetType -> Void
 (def (register-asset! a) (hash-put! asset-table (.@ a .symbol) a))
+
+(.def (Asset @ [Type.])
+  .element?: (lambda (v)
+               (and (object? v) (.has? v .symbol) (hash-key? asset-table (.@ v .symbol))))
+  .sexp<-: (lambda (a) `(lookup-asset ',(.@ a .symbol)))
+  .json<-: (lambda (a) (symbol->string (.@ a .symbol)))
+  .<-json: (lambda (j) (lookup-asset (string->symbol j)))
+  .bytes<-: (lambda (a) (string->bytes (symbol->string (.@ a .symbol))))
+  .<-bytes: (lambda (b) (lookup-asset (string->symbol (bytes->string b)))))
 
 (.def (TokenAmount @ [] .decimals .validate .symbol)
   .denominator: (expt 10 .decimals)
