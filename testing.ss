@@ -107,6 +107,15 @@
   (unless success? (raise (TransactionRejected receipt)))
   (values signed receipt))
 
+(def (debug-confirm-tx tx confirmations: (confirmations 0))
+  (let/cc return
+    (while #t
+      (try
+       (return (confirmed-receipt<-transaction tx confirmations: confirmations))
+       (catch StillPending? => void)
+       (catch (TransactionRejected? e) (return (TransactionRejected-receipt e))))
+      (thread-sleep! (ethereum-block-polling-period-in-seconds)))))
+
 ;; Bytes <- Address Bytes value:?(Maybe Quantity) block:?(Or BlockParameter (Enum onchain))
 ;; Block can be a block number, latest, earliest, pending, or onchain.
 ;; if onchain, then commit the evaluation to be inspected with remix.ethereum.org
