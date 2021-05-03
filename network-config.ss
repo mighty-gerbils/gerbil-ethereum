@@ -18,7 +18,7 @@
    nativeCurrency: [(Record name: [String] symbol: [Symbol] decimals: [JsInt])]
    rpc: [(List String)] ;; RPC endpoint URLs
    faucets: [(List String)] ;; Faucet website URLs
-   infoURL: [String]
+   infoUrl: [String]
    ;; These are mine own additions
    description: [String] ;; a description of the network
    targetBlockTime: [JsInt default: 13] ;; target time duration between blocks
@@ -114,7 +114,7 @@
   confirmationsWantedInBlocks: 1
   confirmationsString: "about 15 seconds"
   blockPollingPeriodInSeconds: 1
-  infoURL: "https://localhost/"
+  infoUrl: "https://localhost/"
   pennyCollector: (address<-0x "0xC0773c13b36eB92813aFE5e89EE89b633c5B1F15")) ;; user "penny" from testing.ss
 
 (defrules def-eth-net ()
@@ -138,7 +138,7 @@
   rpc: ["https://mainnet.infura.io/v3/${INFURA_API_KEY}"
         "https://api.mycryptoapi.com/eth"]
   targetBlockTime: 13
-  infoURL: "https://ethereum.org")
+  infoUrl: "https://ethereum.org")
 
 (def-eth-net (etc @ [production-network etherscanable])
   name: "Ethereum Classic Mainnet"
@@ -147,7 +147,7 @@
   nativeCurrency: {name: "Ethereum Classic Ether" symbol: 'ETC decimals: 18}
   rpc: ["https://ethereumclassic.network" "https://www.ethercluster.com/etc"]
   targetBlockTime: 13
-  infoURL: "https://ethereumclassic.org"
+  infoUrl: "https://ethereumclassic.org"
   explorerUrl: "https://etcblockexplorer.com/")
 
 (def-eth-net (ropsten @ [shared-test-network etherscanable])
@@ -158,7 +158,7 @@
         "wss://ropsten.infura.io/ws/v3/${INFURA_API_KEY}"]
   faucets: ["https://faucet.ropsten.be/"
             "https://faucet.ropsten.be/donate/${ADDRESS}"]
-  infoURL: "https://github.com/ethereum/ropsten")
+  infoUrl: "https://github.com/ethereum/ropsten")
 
 (def-eth-net (rinkeby @ [shared-test-network etherscanable])
   name: "Ethereum Testnet Rinkeby"
@@ -167,7 +167,7 @@
   nativeCurrency: {name: "Rinkeby Ether" symbol: 'RIN decimals: 18}
   rpc: ["https://rinkeby.infura.io/v3/${INFURA_API_KEY}"]
   faucets: ["https://faucet.rinkeby.io"]
-  infoURL: "https://www.rinkeby.io")
+  infoUrl: "https://www.rinkeby.io")
 
 (def-eth-net (kovan @ [shared-test-network etherscanable])
   name: "Ethereum Testnet Kovan"
@@ -176,7 +176,7 @@
   nativeCurrency: {name: "Kovan Ether" symbol: 'KOV decimals: 18}
   rpc: ["https://kovan.poa.network" "http://kovan.poa.network:8545" "https://kovan.infura.io/v3/${INFURA_API_KEY}" "wss://kovan.infura.io/ws/v3/${INFURA_API_KEY}" "ws://kovan.poa.network:8546"]
   faucets: ["https://faucet.kovan.network" "https://gitter.im/kovan-testnet/faucet"]
-  infoURL: "https://kovan-testnet.github.io/website")
+  infoUrl: "https://kovan-testnet.github.io/website")
 
 (def-eth-net (goerli @ [shared-test-network etherscanable])
   name: "Optimistic Ethereum Testnet Goerli"
@@ -185,7 +185,7 @@
   nativeCurrency: {name: "Görli Ether" symbol: 'GOR decimals: 18}
   rpc: ["https://www.ethercluster.com/goerli" "https://goerli.infura.io/v3/${INFURA_API_KEY}" "wss://goerli.infura.io/ws/v3/${INFURA_API_KEY}" "ws://goerli.poa.network:8546"]
   faucets: ["https://goerli-faucet.slock.it/" "https://faucet.goerli.mudit.blog/"]
-  infoURL: "https://goerli.net/")
+  infoUrl: "https://goerli.net/")
 
 (def-eth-net (kotti @ shared-test-network)
   name: "Ethereum Classic Testnet Kotti"
@@ -194,20 +194,20 @@
   nativeCurrency: {name: "Kotti Ether" symbol: 'KOT decimals: 18}
   rpc: ["https://www.ethercluster.com/kotti"]
   faucets: [] ;; TODO: find the faucet
-  infoURL: "https://explorer.jade.builders/?network=kotti"
+  infoUrl: "https://explorer.jade.builders/?network=kotti"
   explorerUrl: "https://blockscout.com/etc/kotti/")
 
 (def-eth-net (ced @ shared-test-network)
   name: "Cardano EVM Devnet"
   description: "Cardano side-chain with Mantis EVM client devnet"
-  networkId: 42 chainId: 42
+  networkId: 103 chainId: 103
   ;; The two lines below are made up by us -- TODO: find out if there are better names
   shortName: "ced" chain: "Cardano" network: "ced"
   nativeCurrency: {name: "Cardano EVM Devnet Ether" symbol: 'CED decimals: 18}
   rpc: ["https://rpc-evm.portal.dev.cardano.org/"]
   faucets: ["https://faucet-evm.portal.dev.cardano.org/"]
   web-faucets: ["https://faucet-web-evm.portal.dev.cardano.org/"]
-  infoURL: "https://developers.cardano.org/en/virtual-machines/kevm/getting-started/using-the-kevm-devnet/"
+  infoUrl: "https://developers.cardano.org/en/virtual-machines/kevm/getting-started/using-the-kevm-devnet/"
   explorerUrl: "https://explorer-evm.portal.dev.cardano.org/")
 
 (def-eth-net (pet @ private-test-network)
