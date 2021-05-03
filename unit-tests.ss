@@ -4,4 +4,4 @@
 (import :clan/testing :clan/path-config :clan/path)
 (init-test-environment!)
 (import :mukn/ethereum/version :mukn/ethereum/testing :mukn/ethereum/cli
-        :mukn/ethereum/pet-contracts)
+        :mukn/ethereum/test-contracts)

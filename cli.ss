@@ -32,6 +32,9 @@
    [(flag 'test "--test" help: "enable testing including test identities")]
    [(lambda (opt) (when (hash-get opt 'test) (register-test-keys)))]))
 
+(def options/test-only
+  (make-options [] [(lambda (opt) (hash-put! opt 'test #t) (register-test-keys))]))
+
 ;; TODO: allow the use of a URL instead of a name in the DB.
 ;; Then networkid and chainid are queried from the server.
 (def options/evm-network

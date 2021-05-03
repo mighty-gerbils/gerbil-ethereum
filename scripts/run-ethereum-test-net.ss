@@ -15,8 +15,9 @@
   :clan/path :clan/path-config :clan/shell :clan/syntax :clan/temporary-files
   :clan/net/json-rpc
   :clan/crypto/secp256k1
+  :clan/persist/db
   :mukn/ethereum/hex :mukn/ethereum/ethereum :mukn/ethereum/known-addresses
-  :mukn/ethereum/testing :mukn/ethereum/pet-contracts)
+  :mukn/ethereum/json-rpc :mukn/ethereum/testing :mukn/ethereum/test-contracts)
 
 
 (with-catch void (cut import-module ':mukn/ethereum/version #t #t))
@@ -196,7 +197,14 @@
     "--ipcpath" (subpath geth-data-directory "geth.ipc")])
   ;; Finally, wait for the server to be ready to process requests
   (wait-for-ethereum "geth")
-  (ensure-pet-contracts))
+  (initialize-test-contracts))
+
+(define-entry-point (initialize-test-contracts)
+  (help: "Initialize contracts used during testing" getopt: [])
+  (ensure-ethereum-connection "pet")
+  (ensure-db-connection "testdb")
+  (register-test-keys)
+  (ensure-test-contracts))
 
 (define-entry-point (stop-geth)
   (help: "Stop any currently running geth server" getopt: [])
@@ -333,7 +341,7 @@
   (wipe-state-directories)
   (run-mantis)
   (wait-for-ethereum "mantis")
-  (ensure-pet-contracts))
+  (initialize-test-contracts))
 
 (define-entry-point (mantis)
   (help: "alias for start-mantis" getopt: [])
