@@ -362,9 +362,9 @@
           uncles: [(List Digest)]))
 
 ;; boolean: true for full tx objects, false for txhashes only
-(define-ethereum-api eth getblockByHash
+(define-ethereum-api eth getBlockByHash
   (Maybe BlockInformation) <- Digest Bool)
-(define-ethereum-api eth getblockByNumber
+(define-ethereum-api eth getBlockByNumber
   (Maybe BlockInformation) <- BlockParameter Bool)
 
 (define-ethereum-api eth blockNumber
