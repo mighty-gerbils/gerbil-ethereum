@@ -139,4 +139,4 @@
   (call-with-output-string (cut display-asset-amount asset-amount <>)))
 
 (def (asset->network a)
-  (hash-ref ethereum-networks (.@ a .network)))
+  (hash-ref ethereum-networks (symbol->string (.@ a .network))))
