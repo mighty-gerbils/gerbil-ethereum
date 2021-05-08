@@ -27,6 +27,8 @@
   .sexp<-: (lambda (a) `(lookup-asset ',(.@ a .symbol)))
   .json<-: (lambda (a) (symbol->string (.@ a .symbol)))
   .<-json: (lambda (j) (lookup-asset (string->symbol j)))
+  .string<-: (lambda (a) (symbol->string (.@ a .symbol)))
+  .<-string: (lambda (s) (lookup-asset (string->symbol s)))
   .bytes<-: (lambda (a) (string->bytes (symbol->string (.@ a .symbol))))
   .<-bytes: (lambda (b) (lookup-asset (string->symbol (bytes->string b)))))
 
