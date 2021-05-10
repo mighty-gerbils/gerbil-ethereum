@@ -1,6 +1,6 @@
 #!/usr/bin/env gxi
 ;; Run your own local private copy of an Ethereum as a node on localhost, for testing purposes,
-;; either Geth or Mantis.
+;; either Geth or Mantis (you will need to install either one).
 
 ;; TODO: make it so that script is runnable from installation directories.
 ;; This implies able to find any ancillary data files it uses.
