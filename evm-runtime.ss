@@ -308,11 +308,11 @@
 ;; TESTING STATUS: Used by buy-sig
 (def &require! (&begin ISZERO &require-not!)) ;; [4B, 16G]
 
-;; Check the requirement that the amount actually deposited in the call (from CALLVALUE) is sufficient
-;; to cover the amount that the contract believes should have been deposited (from deposit@ MLOAD).
+;; Check the requirement that the amount actually deposited in the call (from CALLVALUE) matches
+;; the amount that the contract believes should have been deposited (from deposit@ MLOAD).
 ;; TESTING STATUS: Insufficiently tested
-(def &check-sufficient-deposit
-  (&begin deposit CALLVALUE LT &require-not!)) ;; [8B, 25G]
+(def &check-correct-deposit
+  (&begin deposit CALLVALUE EQ &require!)) ;; [8B, 25G]
 
 ;; TODO: *in the future*, have a variant of contracts that allows for posting markets,
 ;; whereby whoever posts the message to the blockchain might not be the participant,
@@ -475,7 +475,7 @@
 (def &define-simple-logging
   (&begin
    [&jumpdest 'commit-contract-call] ;; -- return-address
-   &check-sufficient-deposit ;; First, check deposit
+   &check-correct-deposit ;; First, check deposit
    calldatanew DUP1 CALLDATASIZE SUB ;; -- logsz cdn ret
    SWAP1 ;; -- cdn logsz ret
    DUP2 ;; logsz cdn logsz ret
@@ -489,7 +489,7 @@
 (def &define-variable-size-logging
   (&begin
    [&jumpdest 'commit-contract-call]
-   &check-sufficient-deposit ;; First, check the deposit
+   &check-correct-deposit ;; First, check the deposit
    ;; compute available buffer size: max(MSIZE, n*256)
    ;; -- TODO: find out the optimal number to minimize gas, considering the quadratic cost of memory
    ;; versus the affine cost of logging, and the cost of this loop.
