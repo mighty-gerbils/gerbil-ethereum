@@ -361,6 +361,7 @@
       (&byte a (+ #x5f n-bytes))
       (&bytes a (bytes<-nat z n-bytes))))))
 
+;; <- Assembler Directive
 (def (&directive a directive)
   (cond
    ((exact-integer? directive) (&push a directive))

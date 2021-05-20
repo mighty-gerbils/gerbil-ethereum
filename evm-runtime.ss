@@ -116,6 +116,8 @@
 (def (stateful-contract-init state-digest contract-runtime)
   (assemble/bytes [state-digest 0 SSTORE (&trivial-contract-init contract-runtime)]))
 
+;; This gives us the cumulative length of the type,
+;; when it is encoded as bytes.
 (def (param-length type-or-length)
   (cond ((exact-integer? type-or-length) type-or-length)
         ((element? Type type-or-length) (.@ type-or-length .length-in-bytes))
@@ -613,6 +615,7 @@
 
 ;;; Generating bytes to digest values
 ;; TESTING STATUS: wholly tested.
+;; <- Type Value
 (def (&marshal type &value)
   (def len (param-length type))
   ;; bufptr <-- bufptr
@@ -625,6 +628,8 @@
     (&begin DUP1 (&memcpy/const-size/expr-src &value len overwrite-after?: #t) len ADD))))
 
 ;; TESTING STATUS: wholly tested.
+;; This function digests type value pairs
+;; <- [[Type . Value] ...]
 (def (&digest<-tvps tvps)
   (&begin
    brk DUP1 DUP1 ;; -- bufptr bufstart bufstart ;; NB: an early DUP1 saves us swaps or reloads later.
