@@ -184,6 +184,9 @@
          ;; NOTE: &simple-contract-prelude makes a critical assumption that
          ;; pc is the first thing inside the merkelized state; do not re-order
          ;; it.
+  (balance 32) ;; Balance for this interaction. We store this as a variable, rather than
+               ;; using the BALANCE instruction, so that we can multiplex multiple
+               ;; interactions onto one contract.
   (timer-start Block) ;; Block at which the timer was started
   #;(challenged-participant Offset)) ;; TODO? offset of the parameter containing the participant challenged to post before timeout
 
@@ -369,7 +372,11 @@
 (def &deposit!
   ;; Scheme pseudocode: (lambda (amount) (increment! deposit amount))
   ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
-  (&begin deposit &safe-add deposit-set!)) ;; [14B, 40G]
+  (&begin
+    DUP1
+    deposit &safe-add deposit-set!
+    ;; TODO(perf): defer adding deposit to the balance until transaction commit.
+    balance &safe-add balance-set!)) ;; [14B, 40G]
 
 ;; TESTING STATUS: Wholly untested.
 (def &send-ethers!
@@ -382,7 +389,11 @@
 
 ;; TODO: group the withdrawals at the end, like the deposit checks?
 ;; TESTING STATUS: Wholly untested.
-(def &withdraw! &send-ethers!)
+(def &withdraw!
+   (&begin ;; -- address value
+     DUP2 ;; -- value address value
+     balance &safe-sub balance-set! ;; -- address value
+     &send-ethers!))
 
 ;; TESTING STATUS: Used in buy-sig. TODO: we should also test with a bad signature.
 (def &mload/signature ;; v r s <-- signature@
@@ -541,22 +552,39 @@
    ;; loop!
    [&jump1 'logbuf]))
 
-;; SELFDESTRUCT WITH DEBUG SUPPORT
-;; If debug is true, e.g. for debugging, emulate most of the behavior of SELFDESTRUCT
-;; in a way that won't confuse the remix interface (that won't show code for destroyed contracts):
-;; 1- Send contract balance to temporary replacement for SELFDESTRUCT,
-;; 2- Make the contract unusable (assuming it uses our ABI) by putting 0 in its state digest
-;; 3- Successfully commit the transaction by RETURNing an empty array of bytes.
+;; Emulate the SELFDESTRUCT instruction, but only for the current *interaction*, rather
+;; than the whole contract. At time of writing, there is only one interaction per contract,
+;; So the distinction is inconsequential, but we plan on allowing these to be multiplexed
+;; in the future.
+;;
+;; This also helps with debugging, since the remix interface gets confused by real
+;; SELFDESTRUCT (it won't show code for destroyed contracts)
+;;
+;; Works as follows:
+;;
+;; 1. Send interaction balance to temporary replacement for SELFDESTRUCT,
+;; 2. Make the interaction unusable (assuming it uses our ABI) by putting 0 in its state digest
+;; 3. Successfully commit the transaction by RETURNing an empty array of bytes.
+;;
 ;; Discrepancies from actual SELFDESTRUCT:
-;; If the contract doesn't use our ABI, then step 2 is useless and the contract might still be "usable".
-;; Also, a real SELFDESTRUCT costs much less gas and always succeeds to send with no opportunity
-;; for the recipient to either log data or deny the request.
+;;
+;; - The larger contract remains usable, only the current interaction is destroyed.
+;; - If the contract doesn't use our ABI, then step 2 is useless and the interaction might still
+;;   be "usable".
+;; - A real SELFDESTRUCT costs much less gas and always succeeds to send with no opportunity
+;;   for the recipient to either log data or deny the request.
+;;
 ;; TESTING STATUS: manually tested
-(def (&SELFDESTRUCT debug: (debug #f)) ;; address -->
-  (if debug
-    (&begin SELFBALANCE SWAP1 &send-ethers! ;; 1. send all the remaining ethers to given address
-            0 DUP1 SSTORE STOP) ;; 2. blank out next state digest, 3. return empty array.
-    SELFDESTRUCT))
+(def (&interaction-selfdestruct) ;; address -->
+  (&begin
+    balance SWAP1 &send-ethers!  ;; 1. send all the remaining ethers to given address
+            0 DUP1 SSTORE STOP)) ;; 2. blank out next state digest, 3. return empty array.
+            ;; TODO: when we actually support multiplexed interactions, we need to store
+            ;; the state digest for different interactions at different addresses, so
+            ;; we'll have to replace DUP1 above with loading the correct key for this
+            ;; interaction's state digest. Also, maybe pick a value other than zero, so
+            ;; we can tell the difference between a destroyed contract and a new one,
+            ;; since storage is zero-initialized.
 
 ;; Define the end-contract library function, if reachable.
 ;; TODO: one and only one of end-contract or tail-call shall just precede the commit-contract-call function!
@@ -565,11 +593,11 @@
 ;; or can be anywhere with a jump in the end, with an expected use frequency function
 ;; to prefer one the most used one over the alternatives?
 ;; TESTING STATUS: Used by buy-sig.
-(def (&define-end-contract debug: (debug #f))
+(def (&define-end-contract)
   (&begin
    [&jumpdest 'suicide]
    (ethereum-penny-collector) ;; send any leftover money to this address!
-   (&SELFDESTRUCT debug: debug)
+   (&interaction-selfdestruct)
    [&jumpdest 'end-contract]
    0 0 SSTORE 'suicide [&jump1 'commit-contract-call]))
 
@@ -602,7 +630,7 @@
    JUMPI ;; if the caller matches, return to the program. Jump or not, the stack is: -- other-actor@
    ;; TODO: support some amount being in escrow for the obliged-actor and returned to him
    ;; Also support ERC20s, etc.
-   (&check-timeout!) (&mload 20) (&SELFDESTRUCT debug: debug))) ;; give all the money to the other guy.
+   (&check-timeout!) (&mload 20) (&interaction-selfdestruct))) ;; give all the money to the other guy.
 
 ;; BEWARE: this function passes the actors by address reference, not by address value
 ;; TESTING STATUS: Used by buy-sig.
