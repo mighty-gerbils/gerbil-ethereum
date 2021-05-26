@@ -150,12 +150,7 @@
   (def native-name (.@ network nativeCurrency symbol))
   (equal? (.@ a .symbol) native-name))
 
-;; find-native-asset : Asset <- [Listof Asset]
-;; Produces the native asset of the *current* network from (ethereum-config)
-(def (find-native-asset as)
-  (def native-name (.@ (ethereum-config) nativeCurrency symbol))
-  ;; native-asset? : Bool <- Asset
-  (def (native? a) (equal? (.@ a .symbol) native-name))
-  (def nas (filter native? as))
-  (unless (length=n? nas 1) (error 'get-native-asset native-name nas as))
-  (first nas))
+;; lookup-native-asset : Asset <- EthereumConfig
+;; Produces the native asset of the network from (ethereum-config)
+(def (lookup-native-asset (ec (ethereum-config)))
+  (lookup-asset (.@ ec nativeCurrency symbol)))
