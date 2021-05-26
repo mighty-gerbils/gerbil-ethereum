@@ -473,10 +473,10 @@
    POP (&mloadat frame@ 2) JUMP
    ;; Should the "frame" below include the pc? the timer-start?
    [&jumpdest 'tail-call] ;; -- Should we assume the frame is in place? should we accept next-frame-pc next-frame-start next-frame-width?
-   &sync-deposit!
    ;; -- frame-length TODO: at standard place in frame, info about who is or isn't timing out
    ;; and/or make it a standard part of the cp0 calling convention to catch such.
    (&read-published-datum 1) ISZERO 'tail-call-body JUMPI
+   &sync-deposit!
    frame@ SHA3 0 SSTORE ;; TODO: ensure frame-width is on the stack before here
    'stop-contract-call
    [&jump1 'commit-contract-call])) ;; update the state, then commit and finally stop
