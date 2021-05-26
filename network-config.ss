@@ -1,10 +1,13 @@
 (export #t)
 
 (import
-  :std/sugar :std/text/json
+  :std/format :std/sugar :std/text/json
   :clan/json :clan/path-config
   :clan/poo/object :clan/poo/io :clan/poo/brace
   ./types ./ethereum ./logger)
+
+(define-type EthereumExplorerConfig
+  (Record name: [String] url: [String] standard: [String]))
 
 (define-type EthereumNetworkConfig
   (Record
@@ -18,6 +21,7 @@
    nativeCurrency: [(Record name: [String] symbol: [Symbol] decimals: [JsInt])]
    rpc: [(List String)] ;; RPC endpoint URLs
    faucets: [(List String)] ;; Faucet website URLs
+   explorers: [(List EthereumExplorerConfig)]
    infoUrl: [String]
    ;; These are mine own additions
    description: [String] ;; a description of the network
@@ -28,7 +32,6 @@
    confirmationsString: [String] ;; a string description of the above
    blockPollingPeriodInSeconds: [JsInt] ;; how many seconds to wait before polling for more blocks
    eip145: [Bool default: #t] ;; is EIP-145 available on this network? (TODO: if so should be a block number)
-   explorerUrl: [String] ;; string-append tx/0xTxHash or address/0xAddress for information
    pennyCollector: [Address])) ;; who will get the pennies leftover from self-destructing contracts.
 
 (define-type EthereumNetworkConnection
@@ -90,7 +93,8 @@
   blockPollingPeriodInSeconds: ? 5
   chainId: ? 0
   faucets: ? []
-  explorerUrl: ? []
+  rpc: ? []
+  explorers: ? []
   eip145: ? #t
   pennyCollector: ? (address<-0x "0xC0113C7863cb7c972Bf6BEa2899D3dbae74a9a65")) ;; MuKn production penny collector
 
@@ -126,78 +130,84 @@
      (hash-put! ethereum-networks (.@ config network) config)))
   ((d sym slotspec ...) (d (sym @ []) slotspec ...)))
 
-(.def (etherscanable @ [] network)
-  explorerUrl:
-  (apply string-append ["https://" (if (equal? network "mainnet") [] [network "."])... "etherscan.io/"]))
+(def has-explorer
+  (case-lambda ((url) (has-explorer "explorer" url))
+          ((name url)
+           (def url-fun (if (procedure? url) url (lambda _ url)))
+           {(:: @ []) explorers: => (cut cons {name url: (url-fun @) standard: "EIP3091"} <>)})))
 
-(def-eth-net (ethereum @ [production-network])
+(def has-etherscan
+  (has-explorer "etherscan" (lambda (@) (def-slots (network) @)
+                               (if (equal? network "mainnet") "https://etherscan.io"
+                                   (format "https://~a.etherscan.io" network)))))
+
+(.def (has-infura @ [] network)
+  rpc: => (cut cons* (format "https://~a.infura.io/v3/${INFURA_API_KEY}" network)
+               (format "wss://~a.infura.io/ws/v3/${INFURA_API_KEY}" network) <>))
+
+(def-eth-net (ethereum @ [production-network has-infura has-etherscan])
   name: "Ethereum Mainnet"
   description: "The real thing, PoW mainnet"
   shortName: "eth" chain: "ETH" network: "mainnet" chainId: 1 networkId: 1
   nativeCurrency: {name: "Ether" symbol: 'ETH decimals: 18}
-  rpc: ["https://mainnet.infura.io/v3/${INFURA_API_KEY}"
-        "https://api.mycryptoapi.com/eth"]
+  rpc: => (cut cons "https://api.mycryptoapi.com/eth" <>)
   targetBlockTime: 13
   infoUrl: "https://ethereum.org")
 
-(def-eth-net (etc @ [production-network etherscanable])
+(def-eth-net (etc @ [production-network has-etherscan (has-explorer "https://etcblockexplorer.com/")])
   name: "Ethereum Classic Mainnet"
   description: "The original fork"
   shortName: "etc" chain: "ETC" network: "etcmainnet" chainId: 61 networkId: 1
   nativeCurrency: {name: "Ethereum Classic Ether" symbol: 'ETC decimals: 18}
   rpc: ["https://ethereumclassic.network" "https://www.ethercluster.com/etc"]
   targetBlockTime: 13
-  infoUrl: "https://ethereumclassic.org"
-  explorerUrl: "https://etcblockexplorer.com/")
+  infoUrl: "https://ethereumclassic.org")
 
-(def-eth-net (ropsten @ [shared-test-network etherscanable])
+(def-eth-net (ropsten @ [shared-test-network has-etherscan has-infura])
   name: "Ethereum Testnet Ropsten"
   shortName: "rop" chain: "ETH" network: "ropsten" chainId: 3 networkId: 3
   nativeCurrency: {name: "Ropsten Ether" symbol: "ROP" decimals: 18}
-  rpc: ["https://ropsten.infura.io/v3/${INFURA_API_KEY}"
-        "wss://ropsten.infura.io/ws/v3/${INFURA_API_KEY}"]
   faucets: ["https://faucet.ropsten.be/"
             "https://faucet.ropsten.be/donate/${ADDRESS}"]
   infoUrl: "https://github.com/ethereum/ropsten")
 
-(def-eth-net (rinkeby @ [shared-test-network etherscanable])
+(def-eth-net (rinkeby @ [shared-test-network has-etherscan has-infura])
   name: "Ethereum Testnet Rinkeby"
   description: "Rinkeby, the public PoA (clique) testnet, Geth, Besu, Nethermind and OpenEthereum only"
   shortName: "rin" chain: "ETH" network: "rinkeby" chainId: 4 networkId: 4
   nativeCurrency: {name: "Rinkeby Ether" symbol: 'RIN decimals: 18}
-  rpc: ["https://rinkeby.infura.io/v3/${INFURA_API_KEY}"]
   faucets: ["https://faucet.rinkeby.io"]
   infoUrl: "https://www.rinkeby.io")
 
-(def-eth-net (kovan @ [shared-test-network etherscanable])
+(def-eth-net (kovan @ [shared-test-network has-etherscan has-infura])
   name: "Ethereum Testnet Kovan"
   description: "Kovan, the public PoA (authority round) testnet, OpenEthereum and Nethermind only"
   shortName: "kov" chain: "ETH" network: "kovan" chainId: 42 networkId: 42
   nativeCurrency: {name: "Kovan Ether" symbol: 'KOV decimals: 18}
-  rpc: ["https://kovan.poa.network" "http://kovan.poa.network:8545" "https://kovan.infura.io/v3/${INFURA_API_KEY}" "wss://kovan.infura.io/ws/v3/${INFURA_API_KEY}" "ws://kovan.poa.network:8546"]
+  rpc: ["https://kovan.poa.network" "http://kovan.poa.network:8545" "ws://kovan.poa.network:8546"]
   faucets: ["https://faucet.kovan.network" "https://gitter.im/kovan-testnet/faucet"]
   infoUrl: "https://kovan-testnet.github.io/website")
 
-(def-eth-net (goerli @ [shared-test-network etherscanable])
+(def-eth-net (goerli @ [shared-test-network has-etherscan has-infura])
   name: "Optimistic Ethereum Testnet Goerli"
   description: "Goerli, the public PoA (authority round) testnet, OpenEthereum and Nethermind only"
   shortName: "ogor" chain: "ETH" network: "goerli" chainId: 420 networkId: 420
   nativeCurrency: {name: "Görli Ether" symbol: 'GOR decimals: 18}
-  rpc: ["https://www.ethercluster.com/goerli" "https://goerli.infura.io/v3/${INFURA_API_KEY}" "wss://goerli.infura.io/ws/v3/${INFURA_API_KEY}" "ws://goerli.poa.network:8546"]
+  rpc: ["https://www.ethercluster.com/goerli" "ws://goerli.poa.network:8546"]
   faucets: ["https://goerli-faucet.slock.it/" "https://faucet.goerli.mudit.blog/"]
   infoUrl: "https://goerli.net/")
 
-(def-eth-net (kotti @ shared-test-network)
+(def-eth-net (kotti @ [shared-test-network (has-explorer "https://blockscout.com/etc/kotti/")])
   name: "Ethereum Classic Testnet Kotti"
   description: "ETC PoA testnet"
   shortName: "kot" chain: "ETC" network: "kotti" networkId: 6 chainId: 6
   nativeCurrency: {name: "Kotti Ether" symbol: 'KOT decimals: 18}
   rpc: ["https://www.ethercluster.com/kotti"]
   faucets: [] ;; TODO: find the faucet
-  infoUrl: "https://explorer.jade.builders/?network=kotti"
-  explorerUrl: "https://blockscout.com/etc/kotti/")
+  infoUrl: "https://explorer.jade.builders/?network=kotti")
 
-(def-eth-net (ced @ shared-test-network)
+(def-eth-net (ced @ [shared-test-network
+                     (has-explorer "https://explorer-evm.portal.dev.cardano.org")])
   name: "Cardano EVM Devnet"
   description: "Cardano side-chain with Mantis EVM client devnet"
   networkId: 103 chainId: 103
@@ -207,8 +217,7 @@
   rpc: ["https://rpc-evm.portal.dev.cardano.org/"]
   faucets: ["https://faucet-evm.portal.dev.cardano.org/"]
   web-faucets: ["https://faucet-web-evm.portal.dev.cardano.org/"]
-  infoUrl: "https://developers.cardano.org/en/virtual-machines/kevm/getting-started/using-the-kevm-devnet/"
-  explorerUrl: "https://explorer-evm.portal.dev.cardano.org/")
+  infoUrl: "https://developers.cardano.org/en/virtual-machines/kevm/getting-started/using-the-kevm-devnet/")
 
 (def-eth-net (pet @ private-test-network)
   name: "Private Ethereum Testnet"
@@ -216,5 +225,4 @@
   shortName: "pet" chain: "ETH" network: "petnet" networkId: 17 chainId: 1337
   nativeCurrency: {name: "Private Ether Test" symbol: 'PET decimals: 18}
   targetBlockTime: 1
-  rpc: ["http://localhost:8545"]
-  explorerUrl: "https://localhost/pet/pet/")
+  rpc: ["http://localhost:8545"])

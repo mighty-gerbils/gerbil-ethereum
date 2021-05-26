@@ -77,3 +77,5 @@ TODO for Gerbil-Ethereum
   we must be more conservative in our behavior, and if our same codebase must work everywhere,
   then we better just do away with the nonsense for now.
   But we may want something better back some day.
+
+* Function to compute GAS for a tx and send all at address

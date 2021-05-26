@@ -12,7 +12,7 @@
   ./types ./ethereum ./network-config ./json-rpc ./abi ./transaction ./tx-tracker
   ./testing ./meta-create2 ./assets ./cli ./testing)
 
- ;; NB: based on creator, nonce
+;; NB: based on creator, nonce
 (def QASPET@ (address<-0x "0x8e0BE69f202e245221B6D679B58faaBe1e463100"))
 (def RBTPET@ (address<-0x "0x9FC8935f73cf1481729FE787669c558a30E5B44B"))
 (def HAMPET@ (address<-0x "0x990E192133b8A98e229b4f22Fc0C3c1F4d88162E"))
