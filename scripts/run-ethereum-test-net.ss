@@ -1,6 +1,27 @@
 #!/usr/bin/env gxi
 ;; Run your own local private copy of an Ethereum as a node on localhost, for testing purposes,
-;; either Geth or Mantis (you will need to install either one).
+;; with either Geth  or Mantis
+;;
+;; To setup Geth
+;; =============
+;; If you use Nix to install Glow and its Gerbil dependencies, you can also use it to install geth:
+;;
+;; nixpkgs=https://github.com/muknio/nixpkgs/archive/alpha.tar.gz # Or whichever nixpkgs you use
+;; nix-env -f $nixpkgs -iA go-ethereum
+;;
+;; Otherwise, see your distribution, e.g. apt install geth or brew install ethereum, or
+;; follow the instructions at https://geth.ethereum.org/downloads/
+;;
+;;
+;; To setup Mantis
+;; ===============
+;; See https://hub.docker.com/r/inputoutput/mantis for the latest available images
+;; docker run -v $GERBIL_APPLICATION_HOME/run/mantis:/root/ -p 8546:8546 -it inputoutput/mantis:2020-kevm
+;; or simply:
+;; docker run -p 8545:8546 inputoutput/mantis:2020-kevm
+;; connect via port 8546
+;; To exec
+;; docker exec -it $(run-mantis-test-net.ss mantis-container) bash
 
 ;; TODO: make it so that script is runnable from installation directories.
 ;; This implies able to find any ancillary data files it uses.
@@ -215,15 +236,7 @@
   (help: "alias for start-geth" getopt: [])
   (start-geth))
 
-;;;; Support for Mantis
-
-;; See https://hub.docker.com/r/inputoutput/mantis for the latest available images
-;; docker run -v $GERBIL_APPLICATION_HOME/run/mantis:/root/ -p 8546:8546 -it inputoutput/mantis:2020-kevm
-;; or simply:
-;; docker run -p 8545:8546 inputoutput/mantis:2020-kevm
-;; connect via port 8546
-;; To exec
-;; docker exec -it $(run-mantis-test-net.ss mantis-container) bash
+;;;; Support for Mantis: see the top of this file for setup instructions.
 (def mantis-docker-image "inputoutput/mantis:2020-evm") ;; NB: there are both -evm and -kevm variants
 (def mantis-yolo-conf "yolo-evm.conf") ;; our override file, also with -evm or -kevm
 (def mantis-log-directory (log-path "mantis")) ;; Determine the log directory for mantis
