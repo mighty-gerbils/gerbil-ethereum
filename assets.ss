@@ -4,7 +4,7 @@
 
 (export #t)
 (import
-  :std/sugar :std/format :std/misc/string :std/misc/hash :std/srfi/13
+  :std/sugar :std/format :std/misc/list :std/misc/string :std/misc/hash :std/srfi/1 :std/srfi/13
   :clan/basic-parsers :clan/decimal :clan/string
   :clan/poo/object
   ./assembly ./types ./ethereum ./abi ./evm-runtime ./network-config)
@@ -142,3 +142,15 @@
 
 (def (asset->network a)
   (hash-ref ethereum-networks (symbol->string (.@ a .network))))
+
+;; native-asset? : Bool <- Asset
+;; Produces true if `a` is the native asset of its associated network
+(def (native-asset? a)
+  (def network (asset->network a))
+  (def native-name (.@ network nativeCurrency symbol))
+  (equal? (.@ a .symbol) native-name))
+
+;; lookup-native-asset : Asset <- EthereumConfig
+;; Produces the native asset of the network from (ethereum-config)
+(def (lookup-native-asset (ec (ethereum-config)))
+  (lookup-asset (.@ ec nativeCurrency symbol)))
