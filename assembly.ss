@@ -198,7 +198,7 @@
   (#x20 SHA3 30 #t) ;; Compute Keccak-256 hash. Cost: 30+6/word
   ;; #x21 - #x2f  Unused
   (#x30 ADDRESS 2) ;; Get address of currently executing account
-  (#x31 BALANCE 400) ;; Get balance of the given account
+  (#x31 BALANCE 2600 #t) ;; Get balance of the given account. 2600 since EIP-2929
   (#x32 ORIGIN 2) ;; Get execution origination address
   (#x33 CALLER 2) ;; Get caller address
   (#x34 CALLVALUE 2) ;; Get deposited value by the instruction/transaction responsible for this execution
@@ -208,11 +208,11 @@
   (#x38 CODESIZE 2) ;; Get size of code running in current environment
   (#x39 CODECOPY 3 #t) ;; Copy code running in current environment to memory
   (#x3a GASPRICE 2) ;; Get price of gas in current environment
-  (#x3b EXTCODESIZE 700) ;; Get size of an account's code
-  (#x3c EXTCODECOPY 700 #t) ;; Copy an account's code to memory
+  (#x3b EXTCODESIZE 2600 #t) ;; Get size of an account's code; 2600 since EIP-2929
+  (#x3c EXTCODECOPY 2600 #t) ;; Copy an account's code to memory; 2600 since EIP-2929
   (#x3d RETURNDATASIZE 2) ;; Pushes the size of the return data buffer onto the stack -- EIP 21
   (#x3e RETURNDATACOPY 3) ;; Copies data from the return data buffer to memory -- EIP 21
-  (#x3f EXTCODEHASH #t) ;; ???
+  (#x3f EXTCODEHASH 2600 #t) ;; 2600 since EIP-2929
   (#x40 BLOCKHASH 20) ;; Get the hash of one of the 256 most recent complete blocks
   (#x41 COINBASE 2) ;; Get the block's beneficiary address
   (#x42 TIMESTAMP 2) ;; Get the block's timestamp
@@ -220,13 +220,13 @@
   (#x44 DIFFICULTY 2) ;; Get the block's difficulty
   (#x45 GASLIMIT 2) ;; Get the block's gas limit
   (#x46 CHAINID #t)
-  (#x47 SELFBALANCE #t)
+  (#x47 SELFBALANCE #t) ;; EIP-1884
   ;; #x48 - #x4f  Unused
   (#x50 POP 2) ;; Remove word from stack
   (#x51 MLOAD 3 #t) ;; Load word from memory
   (#x52 MSTORE 3 #t) ;; Save word to memory
   (#x53 MSTORE8 3) ;; Save byte to memory
-  (#x54 SLOAD 200) ;; Load word from storage
+  (#x54 SLOAD 2100) ;; Load word from storage 200, then 700 now 2100 in EIP-2929.
   (#x55 SSTORE 20000 #t #t) ;; Save word to storage. After refund, "only" 5000 per non-zero write.
   (#x56 JUMP 8) ;; Alter the program counter
   (#x57 JUMPI 10) ;; Conditionally alter the program counter
@@ -306,13 +306,13 @@
   (#xa4 LOG4 1875) ;; Append log record with four topics
   ;; #xa5 - #xef  Unused
   (#xf0 CREATE 32000) ;; Create a new account with associated code
-  (#xf1 CALL Complicated) ;; Message-call into an account
-  (#xf2 CALLCODE Complicated) ;; Message-call into this account with alternative account's code
+  (#xf1 CALL 2600 #t) ;; Message-call into an account; base 2600 rather than 700 since EIP-2929. Precompiled contracts still at 700. Only 100 on already accessed contracts.
+  (#xf2 CALLCODE 2600 #t) ;; Message-call into this account with alternative account's code. 2600+
   (#xf3 RETURN 0) ;; Halt execution returning output data
-  (#xf4 DELEGATECALL Complicated) ;; Message-call into this account with an alternative account's code, but persisting into this account with an alternative account's code
+  (#xf4 DELEGATECALL 2600 #t) ;; Message-call into this account with an alternative account's code, but persisting into this account with an alternative account's code. Gas 2600+
   (#xf5 CREATE2 Complicated) ;; Create a new account with deterministic address, EIP-1014 (Constantinople)
   ;; #xf6 - #xf9  Unused
-  (#xfa STATICCALL 40) ;; Similar to CALL, but does not modify state
+  (#xfa STATICCALL 40) ;; Similar to CALL, but does not modify state. Gas 2600+
   ;; #xfb - #xfc  Unused
   (#xfd REVERT #t) ;; Stop execution and revert state changes, without consuming all provided gas and providing a reason
   (#xfe INVALID 0) ;; Designated invalid instruction
