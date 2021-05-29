@@ -1,26 +1,10 @@
 ;;;; A presigned CREATE2-wrapper contract with the very same address on all EVM blockchains
-;;;; where accounts start with nonce 0.
 ;;
-;; I generated a random address starting with 8e7a (for "meta"), and
-;; had it pre-sign transactions to create a trivial CREATE2-wrapper contract with nonce 0,
-;; for all possible values of the gasPrice on a logarithmic scale with step sqrt(2),
-;; so that whatever the present or future level of the gasPrice, you can always
-;; fund the creator account and have it post the CREATE2-wrapper contract with a fixed address,
-;; with at most 42% of lossage in gas costs (for 56616 gas, less than for 3 transfer transactions).
-;; Then, I deleted that address.
-;;
-;; You don't have to trust me on it: you can and must verify that the contract either exists
-;; with the correct content, or that creator address was never used on your blockchain.
-;; If those conditions aren't satisfied, then either:
-;; (1) the blockchain has a starting nonce other than 0,
-;; (2) someone broke the encryption (then all blockchains are broken), or
-;; (3) I lied to you.
-;; The most I can steal by lying is the gas to create the contract (minus the tx fee), and
-;; then again only if I'm sophisticated enough to race your transactions between
-;; the one that funds the creator address and the one that creates the contract.
-;; That would be a piss poor reward for losing my reputation forever.
-;; But, again, please don't take my word: make sure the contract was created correctly
-;; on a given blockchain before you rely on it existing. - fare
+;; I pre-signed transactions to create a trivial CREATE2-wrapper contract
+;; with nonce 0 from an address I randomly generated and subsequently deleted.
+;; Whatever the gasPrice may be, you can fund the creator account and post a
+;; transaction with at most 42% lossage in gas costs.
+;; You don't have to trust me about it: see presigned.ss for details.
 
 (export #t)
 
@@ -30,78 +14,12 @@
   :clan/base :clan/number
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/crypto/secp256k1
-  ./logger ./hex ./types ./ethereum ./known-addresses ./json-rpc ./abi ./testing
-  ./transaction ./tx-tracker ./simple-apps)
-
-;; Return the nth power of sqrt(2), rounded down to the nearest integer
-;; : Nat <- Nat
-(def (integer-floor-sqrt2expt n)
-  (assert! (nat? n))
-  (if (odd? n) (integer-sqrt (arithmetic-shift 1 n))
-      (arithmetic-shift 1 (arithmetic-shift n -1))))
-
-;; integer-length: il such that (< (1- (expt 2 (1- il))) n (expt 2 il)) = (ceiling (log (1+ n) 2))
-;; integer-floor-log2: the largest l such that (<= (expt 2 l) n) = (floor (log n) 2)
-;;(def (integer-floor-log2 n) (1- (integer-length n)))
-
-;; Return the largest l such that (<= (integer-sqrt2expt l) n)
-;; (every (lambda (i) (<= (integer-floor-sqrt2expt (integer-floor-logsqrt2 i)) i (1- (integer-floor-sqrt2expt (1+ (integer-floor-logsqrt2 i)))))) (iota 500 1))
-;; : Nat <- Nat+
-(def (integer-floor-logsqrt2 n)
-  (assert! (and (nat? n) (plus? n)))
-  (def j (* 2 (1- (integer-length n))))
-  #;(DBG icl: n j (integer-floor-sqrt2expt j) (integer-floor-sqrt2expt (1+ j)) (integer-floor-sqrt2expt (+ j 2)))
-  #;(assert! (<= (integer-floor-sqrt2expt j) n (1- (integer-floor-sqrt2expt (+ j 2)))))
-  (if (<= (integer-floor-sqrt2expt (1+ j)) n) (1+ j) j))
-
-;; For n>=2, return the smallest l such that (<= n (integer-sqrt2expt l))
-;; For n in 0 or 1, return n
-#;(every (lambda (i) (<= (1+ (integer-floor-sqrt2expt (1- (integer-ceiling-logsqrt2 i)))) i (integer-floor-sqrt2expt (integer-ceiling-logsqrt2 i)))) (iota 500 2))
-;; : Nat <- Nat
-(def (integer-ceiling-logsqrt2 n)
-  (assert! (nat? n))
-  (if (< n 2) n (1+ (integer-floor-logsqrt2 (1- n)))))
-
-(.def (presigned-tx. @ [] from)
-   to: (void)
-   data: (void)
-   value: 0
-   nonce: 0
-   gas: (eth_estimateGas {from to data nonce value})
-   sigs: (list->vector
-          (for/collect (i (in-range 512))
-            (def gasPrice (if (zero? i) 0 (integer-floor-sqrt2expt i))) ;; treat 0 specially
-            (def-slots (v r s) (sign-transaction {from to data value nonce gas gasPrice} 0))
-            (bytes<- Signature (signature<-vrs v r s)))))
-
-(def (presign-transaction pretx)
-  (.mix pretx presigned-tx.))
-
-(def (tx<-presigned presigned gasPrice: (gasPrice (eth_gasPrice)))
-  (def i (integer-ceiling-logsqrt2 gasPrice))
-  (set! gasPrice (if (zero? i) 0 (integer-floor-sqrt2expt i)))
-  (def-slots (from to data value nonce gas sigs) presigned)
-  (defvalues (v r s) (vrs<-signature (<-bytes Signature (vector-ref sigs i))))
-  (verify-signed-tx! (make-signed-transaction from nonce gasPrice gas to value data v r s)))
+  ./logger ./hex ./ethereum ./abi ./transaction ./tx-tracker ./presigned ./testing ./simple-apps)
 
 ;; I used this function once to create the presigned transactions below.
 ;; No one needs to use it ever again.
 (def (presign-create2-wrapper)
-  (def creator-name "meta-create2")
-  (register-keypair creator-name (generate-keypair scoring: (scoring<-prefix "8e7a")))
-  (def creator (address<-nickname creator-name))
-  (begin0
-      (force-object (presign-transaction {from: creator data: (create2-wrapper-init)}))
-    (unregister-keypair creator-name)))
-
-(def (verify-presigned presigned (i #f))
-  (if i
-    (tx<-presigned presigned gasPrice: (if (< i 2) i (integer-floor-sqrt2expt i)))
-    (for ((i (in-iota 512))) (verify-presigned presigned i))))
-
-(def (raw<-presigned presigned)
-  (for/collect (i (in-iota 512))
-    (hex-encode (bytes<-signed-tx (tx<-presigned presigned gasPrice: (if (< i 2) i (integer-floor-sqrt2expt i)))))))
+  (presign-contract-creation (create2-wrapper-init)))
 
 ;; Presigned transactions for the create2-wrapper contract.
 (.def presigned-create2-wrapper
@@ -624,35 +542,20 @@
            "b1322061c26293fdaaceacfd1b5473f5b22ae021cffa2da2d81f66eedf96360f74b7b1aa0deca9c8adea8b75b1f28a5a15c4173e63ab030d1cbc0110af693c481c")))
 
 ;; Ensure that the create2-wrapper contract exists on the current blockchain.
-(def (ensure-presigned-create2-wrapper (funder croesus) gasPrice: (gasPrice (void)) log: (log eth-log))
-  (def-slots (from to data nonce value gas sigs) presigned-create2-wrapper)
-  (assert! (equal? [to data nonce value] [(void) (create2-wrapper-init) 0 0]))
-  (def creator from)
-  (def address (address<-creator-nonce creator nonce))
-  (def block (eth_blockNumber))
-  (unless (nat? gasPrice)
-    (set! gasPrice (max 1 (eth_gasPrice))))
-  (match (eth_getTransactionCount creator block)
-    (0 (let (tx (tx<-presigned presigned-create2-wrapper gasPrice: gasPrice))
-         (def balance (eth_getBalance creator block))
-         (def missing (- (* gas (.@ tx gasPrice)) balance))
-         (when (plus? missing)
-           (post-transaction {from: funder to: creator value: missing}))
-         (eth-log ["create-create2-wrapper" (json<- SignedTransactionInfo tx)])
-         (post-transaction tx)))
-    (1 (unless (equal? (eth_getCode address block) (create2-wrapper-runtime))
-         (error "Bad contract created for create2 wrapper" address (eth_getCode address block))))
-    (nonce (error "Creator address was used more than once(?) or initial nonce > 0" address nonce)))
-  address) ;; 0x2508bA0AFa2708C51B0D2a433f315d400f6E59C6
+(def (ensure-presigned-create2-wrapper
+      funder: (funder croesus) gasPrice: (gasPrice (void)) log: (log eth-log))
+  (ensure-presigned-contract presigned-create2-wrapper
+                             funder: funder gasPrice: gasPrice log: log))
 
 (def create2-wrapper (address<-0x "0x2508bA0AFa2708C51B0D2a433f315d400f6E59C6"))
 
 ;; Deploys a contract to private test net
-(def (abi-create2 creator salt contract-bytes (types []) (arguments []) value: (value 0))
-  (ensure-presigned-create2-wrapper)
+(def (abi-create2 funder: (funder croesus)
+                  salt contract-bytes (types []) (arguments []) value: (value 0))
+  (ensure-presigned-create2-wrapper funder: funder)
   (def init-code (ethabi-encode types arguments contract-bytes))
   (def address (address<-create2 create2-wrapper salt init-code))
   (!> (bytes-append salt init-code)
-      (cut call-function creator create2-wrapper <> value: value)
+      (cut call-function funder create2-wrapper <> value: value)
       post-transaction)
   address)
