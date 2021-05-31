@@ -48,7 +48,7 @@
 
     (test-case "Presigned create2-wrapper works"
       (def salt (bytes<- UInt256 (randomUInt256)))
-      (def create2-wrapper (ensure-presigned-create2-wrapper croesus gasPrice: 100))
+      (def create2-wrapper (ensure-presigned-create2-wrapper funder: croesus gasPrice: 100))
       (check-equal? (eth_getCode create2-wrapper) (create2-wrapper-runtime))
       (def logger2 (address<-create2 create2-wrapper salt (trivial-logger-init)))
       (DDT 50-create2-wrapper-0:
@@ -69,7 +69,7 @@
       (def amount (wei<-ether 1))
       (def salt (bytes<- UInt256 (randomUInt256)))
 
-      (def creator (ensure-presigned-create2-wrapper croesus gasPrice: 100))
+      (def creator (ensure-presigned-create2-wrapper funder: croesus gasPrice: 100))
 
       (def universal-batcher-init (batch-contract-init #f))
       (def universal-batcher (address<-create2 creator salt universal-batcher-init))
