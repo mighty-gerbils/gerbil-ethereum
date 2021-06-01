@@ -7,7 +7,7 @@
   :std/misc/hash
   :clan/base :clan/json :clan/list
   :clan/poo/object :clan/poo/io :clan/poo/brace (only-in :clan/poo/mop define-type)
-  ../types ../hex)
+  ../types ../hex ../abi)
 
 (define-type EthereumRpcConfig
   (Record
@@ -55,6 +55,10 @@
       (check-rep (.@ Nat .<-json) (.@ Nat .json<-) "0x22" 34)
       (check-rep (.@ Nat .<-json) (.@ Nat .json<-) "0x37" 55)
       (check-rep (.@ Nat .<-json) (.@ Nat .json<-) "0x50" 80))
+    (test-case "Bytes"
+      (def x (string->bytes "hello"))
+      (def x2 (car (ethabi-decode [Bytes] (ethabi-encode [Bytes] [x]))))
+      (check-equal? x2 x))
     (test-case "Record"
       (check-rep (compose .alist (.@ EthereumRpcConfig .<-json) list->hash-table)
                  (compose Alist-value (.@ EthereumRpcConfig .json<-) object<-alist)

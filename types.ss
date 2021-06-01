@@ -137,6 +137,26 @@
         (register-simple-eth-type rid)...)))
 (defBytesNs)
 
+;; This constructs a variable Uint16-sized byte array.
+;;
+;; Encoding to Stack:
+;; There are 2 segments, the HEAD and the TAIL.
+;;
+;; HEAD
+;; This is the length of our bytestring (number of bytes).
+;; This is a UInt16 (i.e. 0-65535).
+;; It takes up 32 Bytes on the EVM Stack.
+;; This is encoded in big-endian (i.e. store MSB at lowest stack addr), and left-padded with zeros.
+;; NOTE: The Solidity ABI spec uses the entire slot (uint256) for this.
+;; TODO: Explain why we have a lower bound.
+;; TODO: Error out after calling / remove the .length-in-bytes method.
+;;       The type does not have a static length.
+;;
+;; TAIL
+;; This is the actual bytestring. It starts from the next Stack Address.
+;; This is padded with zeros such that the overall encoding length is a multiple of 32.
+;;
+;; Further reference: https://docs.soliditylang.org/en/develop/abi-spec.html#formal-specification-of-the-encoding
 (define-type (BytesL16 @ [methods.bytes<-marshal BytesN.])
    .Length: UInt16
    .ethabi-name: "bytes"
