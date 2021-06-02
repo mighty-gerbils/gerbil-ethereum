@@ -33,7 +33,7 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/misc
-  :std/iter :std/text/hex :std/sugar
+  :std/iter :std/text/hex :std/srfi/1 :std/sugar
   :clan/base :clan/number
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/crypto/secp256k1
@@ -69,6 +69,13 @@
   (assert! (nat? n))
   (if (< n 2) n (1+ (integer-floor-logsqrt2 (1- n)))))
 
+;; Treat 0 specially, mapping it to 0
+;; TokenAmount <- UInt9
+(def (zero-or-integer-floor-sqrt2expt i)
+  (if (zero? i) 0 (integer-floor-sqrt2expt i)))
+
+;; Incomplete prototype for a presigned transaction
+;; : PresignedTransaction
 (.def (presigned-tx. @ [] from)
    to: (void)
    data: (void)
@@ -77,20 +84,26 @@
    gas: (eth_estimateGas {from to data nonce value})
    sigs: (list->vector
           (for/collect (i (in-range 512))
-            (def gasPrice (if (zero? i) 0 (integer-floor-sqrt2expt i))) ;; treat 0 specially
+            (def gasPrice (zero-or-integer-floor-sqrt2expt i))
             (def-slots (v r s) (sign-transaction {from to data value nonce gas gasPrice} 0))
             (bytes<- Signature (signature<-vrs v r s)))))
 
+;; Create a presigned transaction for a pre-transaction
+;; : PresignedTransaction <- PreTransaction
 (def (presign-transaction pretx)
   (.mix pretx presigned-tx.))
 
+;; Given a PresignedTransaction data structure and some gas prices (default: current),
+;; return the presigned Transaction that fits for said level of gas price.
+;; : Transaction <- PresignedTransaction gasPrice: ? TokenAmount
 (def (tx<-presigned presigned gasPrice: (gasPrice (eth_gasPrice)))
   (def i (integer-ceiling-logsqrt2 gasPrice))
-  (set! gasPrice (if (zero? i) 0 (integer-floor-sqrt2expt i)))
+  (set! gasPrice (zero-or-integer-floor-sqrt2expt i))
   (def-slots (from to data value nonce gas sigs) presigned)
   (defvalues (v r s) (vrs<-signature (<-bytes Signature (vector-ref sigs i))))
   (verify-signed-tx! (make-signed-transaction from nonce gasPrice gas to value data v r s)))
 
+;; : Transaction <- PresignedTransaction gasPrice: ? TokenAmount
 (def (verify-presigned presigned (i #f))
   (if i
     (tx<-presigned presigned gasPrice: (if (< i 2) i (integer-floor-sqrt2expt i)))
@@ -127,6 +140,19 @@
   (log ["send-presigned" (json<- SignedTransactionInfo tx)])
   (post-transaction tx))
 
+;; Create a new list by alternate between entries of a and b (a first)
+;; until either list runs out, at which point append the other one.
+;; List <- List List ?List
+(def (alternate-lists a b (r-head '()))
+  (cond
+   ((null? a) (append-reverse r-head b))
+   ((null? b) (append-reverse r-head a))
+   (else (alternate-lists (cdr a) (cdr b) [(car b) (car a) r-head ...]))))
+
+(def (likely-gasPrice-indices (gasPrice (eth_gasPrice)))
+  (def current (integer-ceiling-logsqrt2 gasPrice))
+  (alternate-lists (iota (- 512 current) current) (iota current)))
+
 (def (ensure-presigned-contract presigned
       name: (name "presigned contract")
       funder: (funder croesus) gasPrice: (gasPrice (void)) log: (log eth-log))
@@ -135,9 +161,19 @@
   (def creator from)
   (def address (address<-creator-nonce creator nonce))
   (match (eth_getTransactionCount creator 'latest)
-    (0 (send-presigned presigned funder: funder gasPrice: gasPrice log: log))
-    (1 (let (code (eth_getCode address 'latest))
-         (unless (equal? code data)
-           (error "Bad contract created for " name address code data))))
+    (0
+     ;; TODO: be ready to raise the gasPrice
+     ;; if the transaction doesn't go through after a while...
+     (send-presigned presigned funder: funder gasPrice: gasPrice log: log))
+    (1
+     ;; TODO: handle the case where the transaction wasn't sufficiently confirmed (yet)
+     (def i (any (lambda (i)
+                   (def gasPrice (zero-or-integer-floor-sqrt2expt i))
+                   (def tx (tx<-presigned presigned gasPrice: gasPrice))
+                   (def ti (eth_getTransactionByHash (.@ tx hash)))
+                   (and (object? ti)))
+                 (likely-gasPrice-indices)))
+     (unless i
+       (error "Bad contract created for " name address data)))
     (n (error "Creator address was used more than once(?) or initial nonce > 0" address n)))
   address)
