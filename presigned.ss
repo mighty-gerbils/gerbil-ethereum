@@ -170,8 +170,8 @@
      (def i (any (lambda (i)
                    (def gasPrice (zero-or-integer-floor-sqrt2expt i))
                    (def tx (tx<-presigned presigned gasPrice: gasPrice))
-                   (def ti (eth_getTransactionByHash (.@ tx hash)))
-                   (and (object? ti)))
+                   (def tr (eth_getTransactionReceipt (.@ tx hash)))
+                   (successful-receipt? tr))
                  (likely-gasPrice-indices)))
      (unless i
        (error "Bad contract created for " name address data)))
