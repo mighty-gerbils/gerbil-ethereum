@@ -28,7 +28,7 @@
 (import
   :gerbil/gambit/bytes :gerbil/gambit/ports :gerbil/gambit/threads
   (for-syntax :std/format)
-  :std/format :std/lazy :std/sugar
+  :std/format :std/lazy :std/sugar :std/srfi/13 :std/pregexp
   :clan/base :clan/concurrency :clan/json :clan/logger :clan/failure :clan/maybe :clan/option :clan/syntax
   :clan/net/json-rpc
   :clan/poo/object :clan/poo/brace :clan/poo/io
@@ -545,9 +545,16 @@
   (retry retry-window: retry-window max-window: max-window max-retries: max-retries
          (lambda () (display message) (eth_blockNumber url: url timeout: 1.0))))
 
-;; TODO: handle ${INFURA_API_KEY} substitution, etc.
 (def (ethereum-url<-config config)
   (car (.@ config rpc)))
+
+(def (substitute-key-label-with-key url key: (key #f))
+  (cond ((string-contains url "infura")     
+          (cond 
+            ((not key) (error "Missing Infura API key" url))
+            ((pregexp-match "\\$\\{.+\\}" url) (pregexp-replace "\\$\\{.+\\}" url key))
+            (else (error "Missing pattern for string interpolation" url))))
+        (else (error "Support only infura at this time. Network unknown" url))))
 
 (def (current-ethereum-connection-for? name)
   (match (current-ethereum-network)
