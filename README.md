@@ -38,7 +38,9 @@ Notable modules include but are not limited to the below:
 * `meta-create2.ss` includes pre-signed transactions so every EVM network can have the very same address
   for a universal CREATE2 wrapper, making Bitcoin-style MAST a reality across all EVM networks.
 
-* `json-rpc.ss` offers you a typechecked FFI to all the usual Ethereum JSON RPC APIs.
+* `json-rpc.ss` offers you a typechecked FFI to all the usual Ethereum JSON RPC APIs. One can add
+  Infura API key to Infura end-node url through `ethereum-url<-config` function. Infura API key is
+  stored in a JSON file, a key named `key` whose value is Infura API key.
 
 There are plenty of other support files, and we'll keep working on this library
 as we build software on top of it.
@@ -101,3 +103,5 @@ as we build software on top of it.
   if you use a few hundreds of lines of Gambit Scheme to retarget Gerbil Ethereum
   than if you use web3.js and start auditing millions of lines of JavaScript,
   or some similar situation with another "blub" language.
+
+

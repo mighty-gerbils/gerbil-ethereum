@@ -26,14 +26,18 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes :gerbil/gambit/ports :gerbil/gambit/threads
+  :gerbil/gambit/bytes :gerbil/gambit/os :gerbil/gambit/ports :gerbil/gambit/threads
   (for-syntax :std/format)
-  :std/format :std/lazy :std/sugar
-  :clan/base :clan/concurrency :clan/json :clan/logger :clan/failure :clan/maybe :clan/option :clan/syntax
+  :std/format :std/lazy :std/pregexp :std/sugar :std/srfi/13
+  :clan/base :clan/concurrency :clan/failure :clan/json :clan/logger :clan/maybe :clan/option :clan/syntax
   :clan/net/json-rpc
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/crypto/secp256k1
   ./types ./ethereum ./network-config ./logger)
+
+;; This  file contains API Key of end nodes like infura and others.
+;; File contain `{"END_NODE_API_KEY": "0123456789abcdef0123456789abcdef"}` . Remember to use a valid key
+(def api-key-file "url_substitutions.json")
 
 ;; We use a mutex for access to the ethereum node, not to overload it and get timeouts.
 ;; TODO: Have a pool of a small number of connections to the node rather than just one.
@@ -545,9 +549,30 @@
   (retry retry-window: retry-window max-window: max-window max-retries: max-retries
          (lambda () (display message) (eth_blockNumber url: url timeout: 1.0))))
 
-;; TODO: handle ${INFURA_API_KEY} substitution, etc.
-(def (ethereum-url<-config config)
-  (car (.@ config rpc)))
+;; url[String] <- url[String] key[String]
+;; Perform string interpolation
+;; Example
+;; (url-with-api-key "https://mainnet.infura.io/v3/${INFURA_API_KEY}" key: "90445523551235")
+(def (url-with-api-key url key: (key #f))
+  (cond 
+    ((string-contains url "${INFURA_API_KEY}")     
+      (cond 
+        ((not key) (error "Missing API key" url))
+        (else (pregexp-replace "\\$\\{INFURA_API_KEY\\}" url key))))
+    (else url)))
+
+;; url[String] <- config[EthereumNetworkConfig] filename[String]?
+;; File(json) name `url_substitutions.json`
+;; File contain `{"END_NODE_API_KEY": "0123456789abcdef0123456789abcdef"}` . Remember to use a valid key
+;; File is expected to be already created and inside ` ~/.config/glow/` folder
+;; Example
+;; (ethereum-url<-config config infura-api-file: "url_substitutions.json")
+;; For more information on `config` argument visit network-config.ss
+(def (ethereum-url<-config config api-key-file: (api-key-file #f))
+  (let (url (car (.@ config rpc)))
+    (if (or api-key-file (getenv "END_NODE_API_KEY" #f))
+      (url-with-api-key url key: (or (getenv "END_NODE_API_KEY" #f) (hash-get (api-key-map<-file api-key-file) 'END_NODE_API_KEY)))
+      url)))
 
 (def (current-ethereum-connection-for? name)
   (match (current-ethereum-network)
@@ -562,7 +587,7 @@
 (def (init-ethereum-connection name poll: poll)
   (def network (ensure-ethereum-network name))
   (def config (ethereum-network-config network))
-  (def url (ethereum-url<-config config))
+  (def url (ethereum-url<-config config api-key-file: api-key-file))
   (when poll
     (poll-for-ethereum-node
      url message: (format "Connecting to the ~a at ~a ...\n" (.@ config name) url)))

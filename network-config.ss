@@ -6,6 +6,9 @@
   :clan/poo/object :clan/poo/io :clan/poo/brace
   ./types ./ethereum ./logger)
 
+(def (api-key-map<-file infura-api-filename)
+  (call-with-input-string (read-file-json (config-path infura-api-filename)) read-json))
+
 (define-type EthereumExplorerConfig
   (Record name: [String] url: [String] standard: [String]))
 
