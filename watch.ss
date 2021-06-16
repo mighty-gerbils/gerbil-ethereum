@@ -3,7 +3,7 @@
 
 (import
   :gerbil/gambit/threads
-  :std/sugar
+  :std/sugar :std/srfi/1
   :clan/concurrency :clan/exception
   :clan/poo/object :clan/poo/brace
   :clan/persist/persist
@@ -13,6 +13,7 @@
 ;; TODO: Support watching multiple Ethereum-like networks in one image
 ;; Use "paging_options" https://explorer.energyweb.org/eth-rpc-api-docs -- available on geth???
 
+;; Wait until at least target-block has been confirmed,
 (def (wait-until-block target-block)
   (def current-block #f)
   (def (get-current-block!) (set! current-block (eth_blockNumber)))
@@ -20,7 +21,8 @@
   (while (< current-block target-block)
     (thread-sleep! (ethereum-block-polling-period-in-seconds))
     (get-current-block!))
-  current-block)
+  current-block) ; NOTE: due to polling intervals,
+                 ; current-block might be after our target-block
 
 ;; Watch the contract until we either find logs or we reach past the to-block.
 ;; Return two values: a list of log entries found, and the last block that was scanned.
@@ -39,22 +41,92 @@
     (values '() to-block)))
 
 ;; Watch all logs from a contract from a block to another (included),
-;; and process the log events through a function f.
+;; and process the log events and watch state through a function f.
 ;; If some blocks are in the future, wait until they happen to return.
 ;; Function f may throw and/or use continuations to cause an early exit.
 ;; https://infura.io/docs/ethereum/json-rpc/eth-getLogs
-(def (watch-contract f contract-address from-block to-block
+(def (watch-contract f contract-address from-block to-block next-event
                      confirmations: (confirmations (ethereum-confirmations-wanted-in-blocks)))
   (while (<= from-block to-block)
     (let ()
+      ;; Determine blocks to watch
       (def current-block (wait-until-block (+ from-block confirmations)))
       (def confirmed-block (- current-block confirmations))
-      ;; TODO: correctly process timeouts and/or overly long lists
+      (def end-block (min to-block confirmed-block))
+
+      ;; Get logs
+      (get-logs-from-blocks f contract-address from-block end-block next-event)
+
+      (set! from-block (1+ confirmed-block))))
+  )
+
+(.def (WatchResult @ [] log next-event next-block)
+      .make: (lambda (log: log
+                      next-event: next-event ; next unprocessed event in next-block (0-indexed)
+                      next-block: next-block ; block with unprocessed events
+                      )
+               {(log) (next-event) (next-block)}))
+
+;; Request logs between indicated blocks (inclusive).
+(def (get-logs-from-blocks f contract-address from-block to-block next-event)
+     (get-logs-from-blocks/tc f contract-address from-block to-block to-block next-event))
+
+;; Gets all logs between from-block and to-block,
+;; Re-partitioning the getLogs request if we timeout / have too many logs in the repsonse.
+(def (get-logs-from-blocks/tc f contract-address from-block part-block to-block next-event)
+  (if (> from-block part-block)
+    ;; Watch second part
+    (and (< part-block to-block)
+            (get-logs-from-blocks/tc f contract-address part-block to-block to-block 0))
+
+    ;; Watch first part
+    (let ()
       (def logs (eth_getLogs {address: contract-address
                               fromBlock: from-block
-                              toBlock: (min to-block confirmed-block)}))
-      (for-each f logs)
-      (set! from-block (1+ confirmed-block)))))
+                              toBlock: part-block}))
+      (match logs
+        ;; Recoverable errors - TODO Test this.
+        ;; Too many logs or query timed out. Repartition to decrease request size.
+        ;; See: https://infura.io/docs/ethereum/json-rpc/eth-getLogs#limitations
+        ({error: {code: -32005}}
+         (def new-part-block (- part-block 1))
+         (get-logs-from-blocks/tc f contract-address from-block new-part-block to-block next-event)
+         )
+
+        ;; Log(s) found
+        ([l . ls]
+         ;; Use next-event to get the start of unprocessed-logs
+         (and (< next-event (length logs))
+           (let ()
+             ;; Get the latest event
+             (defvalues (_ unprocessed-logs) (split-at logs next-event))
+             (match unprocessed-logs
+               ([latest-log . remaining-logs]
+
+                ;; Compute next-block, next-event
+                (def latest-block (.@ latest-log blockNumber))
+                (def next-remaining-block (match remaining-logs ([] #f) ([x . _] (.@ x blockNumber))))
+                (defvalues (new-next-block new-next-event)
+                  (if (eq? next-remaining-block latest-block)
+                    (values latest-block (1+ next-event)) ; Unprocessed logs in the latest-block
+                    (values (1+ latest-block) 0))) ; Unprocessed logs in subsequent blocks
+
+                ;; Call f with log and watch state
+                (f (.call WatchResult .make
+                     log: latest-log
+                     next-block: new-next-block
+                     next-event: new-next-event))
+                (get-logs-from-blocks/tc f contract-address
+                  new-next-block part-block to-block new-next-event))
+               (else []))
+             )))
+
+        ;; Unrecoverable errors / no logs found -> skip
+        ;; TODO Log these errors
+        (else []))
+      )
+    ))
+
 
 #| ;;; The code below was hand-translated from my previous CPS-based client JavaScript.
    ;;; It is untested and most probably needs to be rewritten / refactored in more direct style
