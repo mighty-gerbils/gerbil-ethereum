@@ -37,7 +37,8 @@
   (def creation-hash (.@ receipt transactionHash))
   (def transaction-info (eth_getTransactionByHash creation-hash))
   (def contract-address (.@ receipt contractAddress))
-  (def creation-block (.@ receipt blockNumber))
+  (def creation-block (.@ receipt blockNumber)) ; TODO we should wait until it is confirmed,
+                                                ; See ethereum-confirmations-wanted-in-blocks
   (def code-hash (keccak256<-bytes (.@ transaction-info input)))
   {contract-address code-hash creation-hash creation-block})
 
