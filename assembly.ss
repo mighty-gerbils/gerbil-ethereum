@@ -2,7 +2,7 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
-  :std/misc/bytes :std/misc/number :std/sugar
+  :std/format :std/misc/bytes :std/misc/number :std/sugar
   :clan/base :clan/number :clan/syntax
   :clan/poo/object :clan/poo/io
   ./types ./ethereum ./network-config)
@@ -83,7 +83,14 @@
 (def (eval-fixup-expression labels expr)
   (match expr
     ((? number? x) x)
-    ((? symbol? s) (hash-get labels s))
+    ((? symbol? s)
+     (def v (hash-get labels s))
+     (unless v
+       (eprintf
+         "warning: eval-fixup-expression:\n  expr symbol ~r not found in labels ~r\n"
+         s
+         (hash-keys labels)))
+     v)
     ([f . l]
      (apply (hash-get fixup-functions f) (map (cut eval-fixup-expression labels <>) l)))))
 
