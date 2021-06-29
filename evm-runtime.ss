@@ -329,6 +329,12 @@
   ;; Scheme pseudocode: (lambda (participant) (require! (eqv? (CALLER) participant)))
   (&begin CALLER EQ &require!)) ;; [6B, 21G]
 
+(def (safe-add . xs)
+  (def s (apply + xs))
+  (unless (<= (integer-length s) 256)
+    (error "safe-add: overflow from adding" xs "=" s))
+  s)
+
 ;; Safely add two UInt256, checking for overflow
 ;; TESTING STATUS: Wholly tested
 (def &safe-add
@@ -374,6 +380,7 @@
   ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
   (&begin deposit &safe-add deposit-set!)) ;; [14B, 40G]
 
+;; (EVMThunk <- Address Amount)
 ;; TESTING STATUS: Wholly untested.
 (def &send-ethers!
   (&begin ;; -- address value
