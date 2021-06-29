@@ -2,7 +2,7 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/ports
-  :std/format :std/iter :std/misc/bytes :std/srfi/1 :std/sugar :std/test
+  :std/format :std/iter :std/pregexp :std/misc/bytes :std/srfi/1 :std/sugar :std/test
   :clan/debug :clan/number
   :clan/crypto/keccak
   :clan/poo/object :clan/poo/io :clan/poo/debug :clan/poo/brace
@@ -93,7 +93,14 @@
       (evm-test [[UInt16 . 80] [UInt16 . 42]] &safe-sub [[UInt16 . 38]]))
 
     (test-case "safe-add normal case"
-      (evm-test [[UInt8 . 8] [UInt8 . 8]] &safe-add [[UInt8 . 16]]))
+      (evm-test [[UInt8 . 8] [UInt8 . 8]] &safe-add [[UInt8 . 16]])
+      (check-equal? (safe-add 8 8) 16))
+    (test-case "safe-add overflow"
+      (def 2^255 (expt 2 255))
+      (evm-test-failure [[UInt256 . 2^255] [UInt256 . 2^255]] &safe-add)
+      (check-exception (safe-add 2^255 2^255)
+                       (lambda (e)
+                         (pregexp-match "safe-add: overflow from adding" (error-message e)))))
     (test-case "safe-add/n-bits n-bits equals 256"
       (evm-test [[UInt256 . 4000] [UInt256 . 6000]] (&safe-add/n-bits 200) [[UInt256 . 10000]]))
     (test-case "safe-add/n-bits n-bits equals 0"
@@ -259,8 +266,8 @@
 
     (test-case "&marshal UInt8"
       (evm-test [] (&begin brk DUP1 DUP1 (&marshal UInt8 7))
-                [[UInt8 . 1]]))              
-                
+                [[UInt8 . 1]]))
+
     (test-case "&marshal UInt8"
       (evm-test [] (&begin brk DUP1 DUP1 (&marshal UInt16 7))
                 [[UInt16 . 2]]))))
