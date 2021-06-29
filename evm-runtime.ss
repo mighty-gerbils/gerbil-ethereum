@@ -375,7 +375,7 @@
      EQ &require! [&jumpdest safe-mul-end]))) ;; -- xy [6B, 20G]
 
 ;; TESTING STATUS: Wholly tested
-(def &deposit!
+(def &add-deposit!
   ;; Scheme pseudocode: (lambda (amount) (increment! deposit amount))
   ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
   (&begin deposit &safe-add deposit-set!)) ;; [14B, 40G]

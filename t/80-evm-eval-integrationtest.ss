@@ -200,9 +200,9 @@
     ;; (test-case "&check-sufficient-deposit when deposit is GT"
     ;; (evm-test-failure [] (&begin &check-sufficient-deposit)))
 
-    (test-case "&deposit!"
+    (test-case "&add-deposit!"
       (evm-test [[UInt256 . 300]]
-                (&begin &deposit! deposit &deposit! deposit)
+                (&begin &add-deposit! deposit &add-deposit! deposit)
                 [[UInt256 . 600]]))
 
     (test-case "&brk-cons when n-bytes is 32"
