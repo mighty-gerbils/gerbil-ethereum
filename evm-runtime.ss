@@ -176,7 +176,9 @@
   (brk 32 #|3|#) ;; The free memory pointer.
   (calldatapointer 32 #|3|#) ;; Pointer within CALLDATA to yet unread published information.
   (calldatanew 32 #|3|#) ;; Pointer to new information within CALLDATA (everything before was seen).
-  (deposit 32 #|12|#)) ;; Required deposit so far.
+  (deposit 32 #|12|#) ;; Required deposit so far.
+  (withdraw0 32)
+  (withdraw1 32))
 
 ;; Second, the frame state as merkleized. These are the fields present in all frames:
 (define-consecutive-addresses this-ctx frame@ params-start@
@@ -379,6 +381,9 @@
   ;; Scheme pseudocode: (lambda (amount) (increment! deposit amount))
   ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
   (&begin deposit &safe-add deposit-set!)) ;; [14B, 40G]
+
+(def &add-withdraw0! (&begin withdraw0 &safe-add withdraw0-set!)) ;; [14B, 40G]
+(def &add-withdraw1! (&begin withdraw1 &safe-add withdraw1-set!)) ;; [14B, 40G]
 
 ;; (EVMThunk <- Address Amount)
 ;; TESTING STATUS: Wholly untested.
