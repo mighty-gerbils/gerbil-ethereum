@@ -579,6 +579,25 @@
                             (char-scanner str index: (1+ index) start: -1 found: #f accumulate: accumulate 
                                         char-list: char-list token-list: token-list)))))))
 
+(def (create-list-of-substring-with-string-separation str tokens)
+  (def substring-list [])
+  (def len (length tokens))
+  (def str-len (string-length str))
+  (for ((i (in-iota len)))
+      (if (= i 0) 
+      (set! substring-list (append substring-list [(substring str 0 (token-start (list-ref tokens i)))] ["~a"]))
+      (set! substring-list (append substring-list [(substring str (1+ (token-end (list-ref tokens (1- i))))
+                                              (token-start (list-ref tokens i)))] ["~a"])))
+      (if (= (1+ i) len)
+          (let (sub (substring str (1+ (token-end (list-ref tokens i))) str-len))
+              (unless (string-empty? sub)
+                  (set! substring-list (append1 substring-list sub))))))
+  substring-list)
+
+(def (get-env-variables tokens)
+ (map (cut getenv <> #f) (map (cut token-word <>) tokens)))
+
+
 ;; url[String] <- url[String] key[String]
 ;; Perform string interpolation
 ;; Example
