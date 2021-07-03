@@ -28,7 +28,7 @@
 (import
   :gerbil/gambit/bytes :gerbil/gambit/os :gerbil/gambit/ports :gerbil/gambit/threads
   (for-syntax :std/format)
-  :std/format :std/lazy :std/pregexp :std/sugar :std/srfi/13
+  :std/format :std/iter :std/lazy :std/pregexp :std/sugar :std/srfi/13
   :clan/base :clan/concurrency :clan/failure :clan/json :clan/logger :clan/maybe :clan/option :clan/syntax
   :clan/net/json-rpc
   :clan/poo/object :clan/poo/brace :clan/poo/io
@@ -548,6 +548,37 @@
       max-retries: (max-retries 10))
   (retry retry-window: retry-window max-window: max-window max-retries: max-retries
          (lambda () (display message) (eth_blockNumber url: url timeout: 1.0))))
+
+(defstruct token (start word end))
+ 
+;; Extract variable between `${`and `}`. 
+;; List[token] <- String
+(def (char-scanner str)
+  (def start -1)
+  (def found #f)
+  (def accumulate #f)
+  (def char-list [])
+  (def token-list [])
+  (for ((i (in-iota (string-length str))))
+      (let (char (string-ref str i))
+          (cond
+              ((char=? #\$ char) (set! found #t))
+              ((and (char=? #\{ char) found) (begin
+                                                  (set! start (1- i))
+                                                  (set! found #f) 
+                                                  (set! accumulate #t)))
+              ((char=? #\} char) (begin 
+                                      (set! accumulate #f)
+                                      (set! token-list (append token-list [(make-token start (apply string char-list) i)]))
+                                      (set! start -1)
+                                      (set! char-list [])))                         
+              (else (if accumulate 
+                          (set! char-list (append char-list [char]))
+                          (begin 
+                              (set! found #f)
+                              (set! char-list [])
+                              (set! start -1))))))) 
+  token-list)
 
 ;; url[String] <- url[String] key[String]
 ;; Perform string interpolation
