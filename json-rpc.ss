@@ -28,7 +28,7 @@
 (import
   :gerbil/gambit/bytes :gerbil/gambit/os :gerbil/gambit/ports :gerbil/gambit/threads
   (for-syntax :std/format)
-  :std/format :std/iter :std/lazy :std/pregexp :std/sugar :std/srfi/13
+  :std/format :std/iter :std/misc/list :std/lazy :std/pregexp :std/sugar :std/srfi/13
   :clan/base :clan/concurrency :clan/failure :clan/json :clan/logger :clan/maybe :clan/option :clan/syntax
   :clan/net/json-rpc
   :clan/poo/object :clan/poo/brace :clan/poo/io
@@ -553,32 +553,31 @@
  
 ;; Extract variable between `${`and `}`. 
 ;; List[token] <- String
-(def (char-scanner str)
-  (def start -1)
-  (def found #f)
-  (def accumulate #f)
-  (def char-list [])
-  (def token-list [])
-  (for ((i (in-iota (string-length str))))
-      (let (char (string-ref str i))
-          (cond
-              ((char=? #\$ char) (set! found #t))
-              ((and (char=? #\{ char) found) (begin
-                                                  (set! start (1- i))
-                                                  (set! found #f) 
-                                                  (set! accumulate #t)))
-              ((char=? #\} char) (begin 
-                                      (set! accumulate #f)
-                                      (set! token-list (append token-list [(make-token start (apply string char-list) i)]))
-                                      (set! start -1)
-                                      (set! char-list [])))                         
-              (else (if accumulate 
-                          (set! char-list (append char-list [char]))
-                          (begin 
-                              (set! found #f)
-                              (set! char-list [])
-                              (set! start -1))))))) 
-  token-list)
+(def (char-scanner str index: (index 0) start: (start -1) found: (found #f) accumulate: (accumulate #f) 
+  char-list: (char-list []) token-list: (token-list []))
+    (if (or (= index (string-length str)) (string-empty? str))
+        token-list
+        (let (char (string-ref str index))
+            (cond
+                ((char=? #\$ char) 
+                                (char-scanner str index: (1+ index) start: start  found: #t accumulate: accumulate 
+                                    char-list: char-list token-list: token-list))
+                ((and (char=? #\{ char) found) 
+                                            (char-scanner str index: (1+ index) start: (1- index) found: #f accumulate: #t
+                                                char-list: char-list token-list: token-list))
+                ((char=? #\} char) 
+                                (char-scanner str index: (1+ index) start: -1 found: found accumulate: #f
+                                    char-list: [] 
+                                    token-list:
+                                      (if (null? char-list)
+                                          token-list 
+                                      (append1 token-list (make-token start (apply string char-list) index)))))                       
+                (else (if accumulate 
+                            (char-scanner str index: (1+ index) start: start  found: found accumulate: accumulate 
+                                        char-list: (append1 char-list char)
+                                        token-list: token-list)
+                            (char-scanner str index: (1+ index) start: -1 found: #f accumulate: accumulate 
+                                        char-list: char-list token-list: token-list)))))))
 
 ;; url[String] <- url[String] key[String]
 ;; Perform string interpolation
