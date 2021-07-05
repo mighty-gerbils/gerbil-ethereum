@@ -555,13 +555,10 @@
 ;; List[token] <- String
 (def (char-scanner str index: (index 0) start: (start -1) found: (found #f) accumulate: (accumulate #f) 
   char-list: (char-list []) token-list: (token-list []))
-    (if (or (= index (string-length str)) (string-empty? str))
+    (if (or (>= index (string-length str)))
         token-list
         (let (char (string-ref str index))
             (cond
-                ((char=? #\$ char) 
-                                (char-scanner str index: (1+ index) start: start  found: #t accumulate: accumulate 
-                                    char-list: char-list token-list: token-list))
                 ((and (char=? #\{ char) found) 
                                             (char-scanner str index: (1+ index) start: (1- index) found: #f accumulate: #t
                                                 char-list: char-list token-list: token-list))
@@ -576,7 +573,7 @@
                             (char-scanner str index: (1+ index) start: start  found: found accumulate: accumulate 
                                         char-list: (append1 char-list char)
                                         token-list: token-list)
-                            (char-scanner str index: (1+ index) start: -1 found: #f accumulate: accumulate 
+                            (char-scanner str index: (1+ (or (string-index str #\$ index) (string-length str))) start: -1 found: (and (string-index str #\$ index) #t) accumulate: accumulate 
                                         char-list: char-list token-list: token-list)))))))
 
 (def (create-list-of-substring-with-string-separation str tokens)
