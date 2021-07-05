@@ -36,6 +36,59 @@
       (def token-list (char-scanner sample))
       (check-equal? (null? token-list) #t))
 
+    (test-case "create-list-of-substring-with-string-separation with empty list of tokens"
+      (def sample "mukn$POO}/like${Hoop/Nnewi$On_it_sha")
+      (def token-list '())
+      (def result (create-list-of-substring-with-string-separation sample token-list))
+      (check-equal? (null? result) #t))
+
+    (test-case "create-list-of-substring-with-string-separation with out of range start and end indexes"
+      (def sample "mukn$POO}/like${Hoop/Nnewi$On_it_sha")
+      (def token (make-token 90 "Hoop" 120))
+      (def token-list [token])
+      ;;(def result (create-list-of-substring-with-string-separation sample token-list))
+      (check-exception (create-list-of-substring-with-string-separation sample token-list) true))
+
+    (test-case "create-list-of-substring-with-string-separation with list of tokens"
+      (def sample "mukn${POO}/like${Hoop}/Nnewi/${On_it_sha}")
+      (def token-list (char-scanner sample))
+      (def result (create-list-of-substring-with-string-separation sample token-list))
+      (check-equal? (null? result) #f)
+      (check-equal? (length result) 6)
+      (def concate-list (string-join result ""))
+      (check-equal? (string=? "mukn~a/like~a/Nnewi/~a" concate-list) #t))
+
+    (test-case "url-substitution path"
+      (setenv "MUKN_NET" "89999999")
+      (setenv "MUKN_LOCAL" "899999990000")
+      (setenv "MUKN_TEST" "2123t43435535")
+      (def sample "mukn${MUKN_NET}/like${MUKN_LOCAL}/Nnewi/${MUKN_TEST}")
+      (def token-list (char-scanner sample))
+      (def result (create-list-of-substring-with-string-separation sample token-list))
+      (check-equal? (null? result) #f)
+      (check-equal? (length result) 6)
+      (def concate-list (string-join result ""))
+      (check-equal? (string=? "mukn~a/like~a/Nnewi/~a" concate-list) #t))
+
+    (test-case "get-env-values using env"
+      (setenv "INFURA_NET" "89999999")
+      (setenv "INFURA_LOCAL" "899999990000")
+      (setenv "INFURA_TEST" "2123t43435535")
+      (def sample "mukn${INFURA_NET}/like/${INFURA_LOCAL}/Nnewi/${INFURA_TEST}")
+      (def token-list (char-scanner sample))
+      (def result (get-env-values token-list))
+      (check-equal? result '("89999999" "899999990000" "2123t43435535")))
+
+    (test-case "get-env-values using url_substitutions.json file"
+      (setenv "INFURA_LOCAL" "899999990000")
+      (setenv "INFURA_TEST" "2123t43435535")
+      (def sample "mukn${INFURA_NETI}/like/${INFURA_LOCAL}/Nnewi/${INFURA_TEST}")
+      (def token-list (char-scanner sample))
+      (def result (get-env-values token-list api-key-file: "url_substitutions.json"))
+      (check-equal? result '("89999999" "899999990000" "2123t43435535")))
+
+     ;; (get-env-values tokens api-key-file: (api-key-file #f))
+
 
 #|
     (test-case "txpool-content round-trip decode/encode/decode succeeds"

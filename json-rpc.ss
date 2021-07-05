@@ -594,10 +594,29 @@
                   (set! substring-list (append1 substring-list sub))))))
   substring-list)
 
-(def (get-env-variables tokens)
- (map (cut getenv <> #f) (map (cut token-word <>) tokens)))
+(def (hashed-get hashed str) 
+  (hash-get hashed (string->symbol str)))
 
+(def (get-env-values tokens api-key-file: (api-key-file #f))
+  (let (vals (map (cut getenv <> #f) (map (cut token-word <>) tokens)))
+    (if (member #f vals)
+        (if api-key-file
+            (let (hashed (api-key-map<-file api-key-file))
+                (map (cut hashed-get hashed <>) (map (cut token-word <>) tokens)))
+              vals)
+    vals)))
 
+(def (url-substitution path api-key-file: (api-key-file #f))
+  (let (tokens (char-scanner path))
+    (cond
+      ((null? tokens) path)
+      (else 
+        (let (env-variables (get-env-values tokens api-key-file: api-key-file))
+          (if (member #f env-variables) 
+            (error "Missing some environment variables" path)
+            (apply format (string-join (create-list-of-substring-with-string-separation path tokens) "")
+              env-variables)))))))
+      
 ;; url[String] <- url[String] key[String]
 ;; Perform string interpolation
 ;; Example
@@ -618,7 +637,7 @@
 ;; (ethereum-url<-config config infura-api-file: "url_substitutions.json")
 ;; For more information on `config` argument visit network-config.ss
 (def (ethereum-url<-config config api-key-file: (api-key-file #f))
-  (let (url (car (.@ config rpc)))
+  (let (url (car (.@ config rpc))) ;; TODO use Gerbil/Gambit parse_url to extract only path for url_substitution
     (if (or api-key-file (getenv "END_NODE_API_KEY" #f))
       (url-with-api-key url key: (or (getenv "END_NODE_API_KEY" #f) (hash-get (api-key-map<-file api-key-file) 'END_NODE_API_KEY)))
       url)))
