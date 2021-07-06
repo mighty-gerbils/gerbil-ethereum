@@ -172,13 +172,18 @@
 ;; We could have used any of the variables above or below as context, including frame@.
 (def this-ctx (void))
 
-(define-consecutive-addresses this-ctx 0 frame@
+(define-consecutive-addresses this-ctx 0 tmp100@
   (brk 32 #|3|#) ;; The free memory pointer.
   (calldatapointer 32 #|3|#) ;; Pointer within CALLDATA to yet unread published information.
   (calldatanew 32 #|3|#) ;; Pointer to new information within CALLDATA (everything before was seen).
   (deposit 32 #|12|#) ;; Required deposit so far.
   (withdraw0 32)
   (withdraw1 32))
+
+;; tmp100@ is the constant offset to a 100-byte scratch buffer
+;; used by methods in assets.ss .commit-deposit! and .commit-withdraw!
+(define-consecutive-addresses this-ctx tmp100@ frame@
+  (tmp100-stuff 100))
 
 ;; Second, the frame state as merkleized. These are the fields present in all frames:
 (define-consecutive-addresses this-ctx frame@ params-start@
