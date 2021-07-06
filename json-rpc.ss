@@ -603,16 +603,26 @@
               vals)
     vals)))
 
-(def (url-substitution path api-key-file: (api-key-file #f))
+(def (confirm-token-list tokens allowed-list)
+  (let (word-list (map (cut token-word <>) tokens))
+    (unless (and (= (length word-list) (length allowed-list))
+              (andmap (cut string=? <> <>) word-list allowed-list))
+      (error "Generated variable list not allowed " word-list))))
+
+(def allowed-map (hash ("infura" ["INFURA_API_KEY"])))
+
+(def (url-substitution path api-key-file: (api-key-file #f) network-name)
   (let (tokens (char-scanner path))
     (cond
-      ((null? tokens) path)
-      (else 
-        (let (env-variables (get-env-values tokens api-key-file: api-key-file))
-          (if (member #f env-variables) 
-            (error "Missing some environment variables" path)
-            (apply format (string-join (create-list-of-substring-with-string-separation path tokens) "")
-              env-variables)))))))
+        ((null? tokens) path)
+        (else 
+            (begin 
+                (confirm-token-list tokens (hash-get allowed-map network-name)) ;; ToDo net-work would be used a to get end node type
+                (let (env-variables (get-env-values tokens api-key-file: api-key-file))
+                (if (member #f env-variables) 
+                    (error "Missing some environment variables" path)
+                    (apply format (string-join (create-list-of-substring-with-string-separation path tokens) "")
+                    env-variables))))))))
       
 ;; url[String] <- url[String] key[String]
 ;; Perform string interpolation

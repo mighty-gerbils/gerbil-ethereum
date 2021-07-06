@@ -87,6 +87,26 @@
       (def result (get-env-values token-list api-key-file: "url_substitutions.json"))
       (check-equal? result '("89999999" "899999990000" "2123t43435535")))
 
+    (test-case "url-substitution"
+      (setenv "INFURA_API_KEY" "899999990000")
+      (def sample-path "/v3/${INFURA_API_KEY}")
+      (def end-node "infura")
+      (def result (url-substitution sample-path end-node))
+      (check-equal? result "/v3/899999990000"))
+
+    (test-case "url-substitution variable not in allowed list"
+      (setenv "INFURA_API_KEY" "899999990000")
+      (def sample-path "/v3/${INFURA_API_KEYI}")
+      (def end-node "infura")
+      (check-exception (url-substitution sample-path end-node) true))
+    
+    ;; ToDo review this test
+    (test-case "url-substitution wrong pattern"
+      (setenv "INFURA_API_KEYI" "899999990000")
+      (def sample-path "/v3/${INFURA_API_KEYA}")
+      (def end-node "infura")
+      (check-exception  (url-substitution sample-path end-node) true))
+
      ;; (get-env-values tokens api-key-file: (api-key-file #f))
 
 
