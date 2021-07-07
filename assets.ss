@@ -64,7 +64,7 @@
     (&begin amount CALLVALUE EQ &require!))
   .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-)
   (lambda (recipient amount _tmp@)
-    (&begin amount recipient &withdraw!))) ;; Transfer!
+    (&begin amount recipient DUP2 &sub-balance! &send-ethers!))) ;; Transfer!
 
 (register-asset! Ether)
 

@@ -390,6 +390,9 @@
 (def &add-withdraw0! (&begin withdraw0 &safe-add withdraw0-set!)) ;; [14B, 40G]
 (def &add-withdraw1! (&begin withdraw1 &safe-add withdraw1-set!)) ;; [14B, 40G]
 
+;; (EVMThunk <- Amount)
+(def &sub-balance! (&begin balance &safe-sub balance-set!))
+
 ;; (EVMThunk <- Address Amount)
 ;; TESTING STATUS: Wholly untested.
 (def &send-ethers!
@@ -405,7 +408,7 @@
 (def &withdraw!
    (&begin ;; -- address value
      DUP2 ;; -- value address value
-     balance &safe-sub balance-set! ;; -- address value
+     &sub-balance! ;; -- address value
      &send-ethers!))
 
 ;; TESTING STATUS: Used in buy-sig. TODO: we should also test with a bad signature.
