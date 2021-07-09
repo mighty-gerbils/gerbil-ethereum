@@ -62,9 +62,9 @@
   .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-) UInt16
   (lambda (amount _tmp@)
     (&begin amount CALLVALUE EQ &require!))
-  .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-)
-  (lambda (recipient amount _tmp@)
-    (&begin amount recipient DUP2 &sub-balance! &send-ethers!))) ;; Transfer!
+  .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
+  (lambda (recipient amount sub-balance _tmp@)
+    (&begin amount recipient DUP2 sub-balance &send-ethers!))) ;; Transfer!
 
 (register-asset! Ether)
 
@@ -105,12 +105,12 @@
      32 tmp@ 100 DUP2 0 .contract-address GAS CALL
      (&mloadat tmp@) AND &require!)) ;; check that both the was successful and its boolean result true
   .approve-selector: (selector<-function-signature ["approve" Address UInt256]) ;; returns bool
-  .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- Bool) UInt16
-  (lambda (recipient amount tmp@) ;; tmp@ is a constant offset to a 68-byte scratch buffer
+  .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
+  (lambda (recipient amount sub-balance tmp@) ;; tmp@ is a constant offset to a 68-byte scratch buffer
     (&begin
      .approve-selector (&mstoreat/overwrite-after tmp@ 4)
      recipient (&mstoreat (+ tmp@ 4))
-     amount (&mstoreat (+ tmp@ 36))
+     amount DUP1 sub-balance (&mstoreat (+ tmp@ 36))
      32 tmp@ 68 DUP2 0 .contract-address GAS CALL
      (&mloadat tmp@) AND &require!))) ;; check that both the was successful and its boolean result true
 
