@@ -594,47 +594,52 @@
 (def (hashed-get hashed str) 
   (hash-get hashed (string->symbol str)))
 
-(def (get-env-values tokens api-key-file: (api-key-file #f))
+(def (get-env-values tokens)
   (let (vals (map (cut getenv <> #f) (map (cut token-word <>) tokens)))
     (if (member #f vals)
-        (if api-key-file
-            (let (hashed (api-key-map<-file api-key-file))
-                (map (cut hashed-get hashed <>) (map (cut token-word <>) tokens)))
-              vals)
-    vals)))
+      (let (hashed (api-key-map<-file api-key-file))
+          (map (cut hashed-get hashed <>) (map (cut token-word <>) tokens)))
+        vals)))
 
-(def (confirm-token-list tokens allowed-list)
+;; Todo use hash-set
+(def (assert-membership tokens allowed-list)
   (let (word-list (map (cut token-word <>) tokens))
     (unless (and (= (length word-list) (length allowed-list))
               (andmap (cut string=? <> <>) word-list allowed-list))
       (error "Generated variable list not allowed " word-list))))
 
-(def allowed-map (hash ("infura" ["INFURA_API_KEY"])))
+;; Todo: This would change to hash-set
+(def allowed-list (hash ("infura" ["INFURA_API_KEY"])))
 
-(def (url-substitution path api-key-file: (api-key-file #f) network-name)
+(def (url-substitution path)
   (let (tokens (char-scanner path))
     (cond
         ((null? tokens) path)
         (else 
             (begin 
-                (confirm-token-list tokens (hash-get allowed-map network-name)) ;; ToDo net-work would be used a to get end node type
-                (let (env-variables (get-env-values tokens api-key-file: api-key-file))
+               ;; (assert-membership tokens allowed-list) ;; ToDo net-work would be used a to get end node type
+                (let (env-variables (get-env-values tokens))
                 (if (member #f env-variables) 
                     (error "Missing some environment variables" path)
                     (apply format (string-join (create-list-of-substring-with-string-separation path tokens) "")
                     env-variables))))))))
       
-;; url[String] <- url[String] key[String]
-;; Perform string interpolation
-;; Example
-;; (url-with-api-key "https://mainnet.infura.io/v3/${INFURA_API_KEY}" key: "90445523551235")
-(def (url-with-api-key url key: (key #f))
-  (cond 
-    ((string-contains url "${INFURA_API_KEY}")     
-      (cond 
-        ((not key) (error "Missing API key" url))
-        (else (pregexp-replace "\\$\\{INFURA_API_KEY\\}" url key))))
-    (else url)))
+(defstruct url (protocol domain path))
+
+;; Todo: Add websocket however Glow does not support yet.
+;; Todo: parse every component https://dmitripavlutin.com/parse-url-javascript/
+;; Move function to gerbil-util
+(def (parse-url url)
+  (if (or (and (string-prefix? "https://" url) (> (string-length url) (string-length "https://")))
+          (and (string-prefix? "http://" url) (> (string-length url) (string-length "http://"))))
+      (let* ((protocol (or (and (string-prefix? "https://" url) "https://") "http://" ))
+          (len (string-length protocol))
+          (third-index (string-index url #\/ len))
+          (domain (substring url len (or third-index (string-length url)))))
+          (if third-index
+              (make-url protocol domain (substring url (string-index url #\/ len) (string-length url)))
+              (make-url protocol domain "")))
+      (error "Expected url to start with either http:// or https:// " url)))
 
 ;; url[String] <- config[EthereumNetworkConfig] filename[String]?
 ;; File(json) name `url_substitutions.json`
@@ -644,10 +649,10 @@
 ;; (ethereum-url<-config config infura-api-file: "url_substitutions.json")
 ;; For more information on `config` argument visit network-config.ss
 (def (ethereum-url<-config config api-key-file: (api-key-file #f))
-  (let (url (car (.@ config rpc))) ;; TODO use Gerbil/Gambit parse_url to extract only path for url_substitution
-    (if (or api-key-file (getenv "END_NODE_API_KEY" #f))
-      (url-with-api-key url key: (or (getenv "END_NODE_API_KEY" #f) (hash-get (api-key-map<-file api-key-file) 'END_NODE_API_KEY)))
-      url)))
+  (let* ((url (car (.@ config rpc))) ;; TODO use Gerbil/Gambit parse_url to extract only path for url_substitution
+    (url-components (parse-url url))
+    (returned-path (url-substitution (url-path url-components))))
+    (string-append (url-protocol url-components) (url-domain url-components) returned-path)))
 
 (def (current-ethereum-connection-for? name)
   (match (current-ethereum-network)

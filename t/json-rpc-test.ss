@@ -2,7 +2,7 @@
 
 (import
   :gerbil/gambit/bytes :gerbil/gambit/exceptions
-  :std/sugar :std/test
+  :std/sugar :std/test :std/srfi/13
   :clan/poo/object :clan/poo/io
   ../json-rpc)
 
@@ -84,28 +84,43 @@
       (setenv "INFURA_TEST" "2123t43435535")
       (def sample "mukn${INFURA_NETI}/like/${INFURA_LOCAL}/Nnewi/${INFURA_TEST}")
       (def token-list (char-scanner sample))
-      (def result (get-env-values token-list api-key-file: "url_substitutions.json"))
+      (def result (get-env-values token-list))
       (check-equal? result '("89999999" "899999990000" "2123t43435535")))
+
+   (test-case "parse-url has path"
+      (def sample "https://rinkeby.infura.io/v3/${INFURA_API_KEY}")
+      (def url-components (parse-url sample))
+      (check-equal? (string-append (url-protocol url-components) (url-domain url-components)  (url-path url-components)) sample))
+
+   (test-case "parse-url no path"
+      (def sample "http://localhost:8545")
+      (def url-components (parse-url sample))
+      (check-equal? (string-append (url-protocol url-components) (url-domain url-components)  (url-path url-components)) sample))
+
+    (test-case "parse-url empty string"
+      (def sample "")
+      (check-exception  (parse-url sample) true))
+
+    (test-case "parse-url without http protocol"
+      (def sample "rinkeby.infura.io/v3/${INFURA_API_KEY}")
+      (check-exception  (parse-url sample) true))
 
     (test-case "url-substitution"
       (setenv "INFURA_API_KEY" "899999990000")
       (def sample-path "/v3/${INFURA_API_KEY}")
-      (def end-node "infura")
-      (def result (url-substitution sample-path end-node))
+      (def result (url-substitution sample-path))
       (check-equal? result "/v3/899999990000"))
 
     (test-case "url-substitution variable not in allowed list"
       (setenv "INFURA_API_KEY" "899999990000")
       (def sample-path "/v3/${INFURA_API_KEYI}")
-      (def end-node "infura")
-      (check-exception (url-substitution sample-path end-node) true))
+      (check-exception (url-substitution sample-path) true))
     
     ;; ToDo review this test
     (test-case "url-substitution wrong pattern"
       (setenv "INFURA_API_KEYI" "899999990000")
       (def sample-path "/v3/${INFURA_API_KEYA}")
-      (def end-node "infura")
-      (check-exception  (url-substitution sample-path end-node) true))
+      (check-exception  (url-substitution sample-path) true))
 
      ;; (get-env-values tokens api-key-file: (api-key-file #f))
 
