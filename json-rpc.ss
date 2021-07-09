@@ -601,28 +601,26 @@
           (map (cut hashed-get hashed <>) (map (cut token-word <>) tokens)))
         vals)))
 
-;; Todo use hash-set
-(def (assert-membership tokens allowed-list)
-  (let (word-list (map (cut token-word <>) tokens))
-    (unless (and (= (length word-list) (length allowed-list))
-              (andmap (cut string=? <> <>) word-list allowed-list))
-      (error "Generated variable list not allowed " word-list))))
-
 ;; Todo: This would change to hash-set
-(def allowed-list (hash ("infura" ["INFURA_API_KEY"])))
+(def allowed-list [["INFURA_API_KEY"]])
+
+;; Todo use hash-set
+(def (assert-membership-of-allowed-list tokens)
+    (unless (member (map (cut token-word <>) tokens) allowed-list)
+      (error "Generated variable list not allowed " tokens)))
 
 (def (url-substitution path)
   (let (tokens (char-scanner path))
     (cond
-        ((null? tokens) path)
-        (else 
-            (begin 
-               ;; (assert-membership tokens allowed-list) ;; ToDo net-work would be used a to get end node type
-                (let (env-variables (get-env-values tokens))
-                (if (member #f env-variables) 
-                    (error "Missing some environment variables" path)
-                    (apply format (string-join (create-list-of-substring-with-string-separation path tokens) "")
-                    env-variables))))))))
+      ((null? tokens) path)
+      (else 
+          (begin 
+            (assert-membership-of-allowed-list tokens) 
+            (let (env-variables (get-env-values tokens))
+              (if (member #f env-variables) 
+                  (error "Missing some environment variables" path)
+                  (apply format (string-join (create-list-of-substring-with-string-separation path tokens) "")
+                  env-variables))))))))
       
 (defstruct url (protocol domain path))
 

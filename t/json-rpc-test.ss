@@ -115,6 +115,19 @@
       (def url-components (parse-url sample))
       (check-equal? (string-append (url-protocol url-components) (url-domain url-components)  (url-path url-components)) sample))
 
+    (test-case "assert-membership-of-allowed-list"
+      (def sample "https://rinkeby.infura.io/v3/${INFURA_API_KEY}")
+      (def url-components (parse-url sample))
+      (def token-list (char-scanner (url-path url-components)))
+      (def result (assert-membership-of-allowed-list token-list))
+      (check-equal? result #!void))
+
+    (test-case "assert-membership-of-allowed-list"
+      (def sample "https://rinkeby.infura.io/v3/${INFURA_API_KEYI}")
+      (def url-components (parse-url sample))
+      (def token-list (char-scanner (url-path url-components)))
+      (check-exception (assert-membership-of-allowed-list token-list) true))
+
     (test-case "url-substitution"
       (setenv "INFURA_API_KEY" "899999990000")
       (def sample-path "/v3/${INFURA_API_KEY}")
