@@ -105,6 +105,16 @@
       (def sample "rinkeby.infura.io/v3/${INFURA_API_KEY}")
       (check-exception  (parse-url sample) true))
 
+    (test-case "parse-url secure websocket"
+      (def sample "wss://rinkeby.infura.io/ws/v3/${INFURA_API_KEY}")
+      (def url-components (parse-url sample))
+      (check-equal? (string-append (url-protocol url-components) (url-domain url-components)  (url-path url-components)) sample))
+
+   (test-case "parse-url websocket"
+      (def sample "ws://goerli.poa.network:8546")
+      (def url-components (parse-url sample))
+      (check-equal? (string-append (url-protocol url-components) (url-domain url-components)  (url-path url-components)) sample))
+
     (test-case "url-substitution"
       (setenv "INFURA_API_KEY" "899999990000")
       (def sample-path "/v3/${INFURA_API_KEY}")

@@ -626,20 +626,25 @@
       
 (defstruct url (protocol domain path))
 
-;; Todo: Add websocket however Glow does not support yet.
 ;; Todo: parse every component https://dmitripavlutin.com/parse-url-javascript/
 ;; Move function to gerbil-util
+;; Todo: Clean up (looks ugly)
 (def (parse-url url)
-  (if (or (and (string-prefix? "https://" url) (> (string-length url) (string-length "https://")))
-          (and (string-prefix? "http://" url) (> (string-length url) (string-length "http://"))))
-      (let* ((protocol (or (and (string-prefix? "https://" url) "https://") "http://" ))
-          (len (string-length protocol))
-          (third-index (string-index url #\/ len))
-          (domain (substring url len (or third-index (string-length url)))))
-          (if third-index
-              (make-url protocol domain (substring url (string-index url #\/ len) (string-length url)))
-              (make-url protocol domain "")))
-      (error "Expected url to start with either http:// or https:// " url)))
+    (if (or (and (string-prefix? "https://" url) (> (string-length url) (string-length "https://")))
+            (and (string-prefix? "http://" url) (> (string-length url) (string-length "http://")))
+            (and (string-prefix? "wss://" url) (> (string-length url) (string-length "wss://")))
+            (and (string-prefix? "ws://" url) (> (string-length url) (string-length "ws://"))))
+        (let* ((protocol (or (and (string-prefix? "https://" url) "https://") 
+                            (and (string-prefix? "http://" url) "http://")
+                            (and (string-prefix? "wss://" url) "wss://")
+                            "ws://"))
+            (len (string-length protocol))
+            (third-index (string-index url #\/ len))
+            (domain (substring url len (or third-index (string-length url)))))
+            (if third-index
+                (make-url protocol domain (substring url (string-index url #\/ len) (string-length url)))
+                (make-url protocol domain "")))
+        (error "Expected url to start with either http:// or https:// " url)))
 
 ;; url[String] <- config[EthereumNetworkConfig] filename[String]?
 ;; File(json) name `url_substitutions.json`
@@ -650,7 +655,7 @@
 ;; For more information on `config` argument visit network-config.ss
 (def (ethereum-url<-config config api-key-file: (api-key-file #f))
   (let* ((url (car (.@ config rpc))) ;; TODO use Gerbil/Gambit parse_url to extract only path for url_substitution
-    (url-components (parse-url url))
+    (url-components (parse-url (string-trim-right (string-trim url))))
     (returned-path (url-substitution (url-path url-components))))
     (string-append (url-protocol url-components) (url-domain url-components) returned-path)))
 
