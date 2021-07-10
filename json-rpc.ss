@@ -576,52 +576,36 @@
                             (char-scanner str index: (1+ (or (string-index str #\$ index) (string-length str))) start: -1 found: (and (string-index str #\$ index) #t) accumulate: accumulate 
                                         char-list: char-list token-list: token-list)))))))
 
-(def (create-list-of-substring-with-string-separation str tokens)
-  (def substring-list [])
-  (def len (length tokens))
-  (def str-len (string-length str))
-  (for ((i (in-iota len)))
-      (if (= i 0) 
-      (set! substring-list (append substring-list [(substring str 0 (token-start (list-ref tokens i)))] ["~a"]))
-      (set! substring-list (append substring-list [(substring str (1+ (token-end (list-ref tokens (1- i))))
-                                              (token-start (list-ref tokens i)))] ["~a"])))
-      (if (= (1+ i) len)
-          (let (sub (substring str (1+ (token-end (list-ref tokens i))) str-len))
-              (unless (string-empty? sub)
-                  (set! substring-list (append1 substring-list sub))))))
-  substring-list)
-
 (def (hashed-get hashed str) 
   (hash-get hashed (string->symbol str)))
 
 (def (get-env-values tokens)
-  (let (vals (map (cut getenv <> #f) (map (cut token-word <>) tokens)))
-    (if (member #f vals)
-      (let (hashed (api-key-map<-file api-key-file))
-          (map (cut hashed-get hashed <>) (map (cut token-word <>) tokens)))
-        vals)))
+  (vals (map (cut getenv <> #f) (map (cut token-word <>) tokens))))
 
-;; Todo: This would change to hash-set
 (def allowed-list [["INFURA_API_KEY"]])
 
 ;; Todo use hash-set
 (def (assert-membership-of-allowed-list tokens)
     (unless (member (map (cut token-word <>) tokens) allowed-list)
-      (error "Generated variable list not allowed " tokens)))
+      (error "Generated variable list not allowed " (map (cut token-word <>) tokens))))
 
 (def (url-substitution path)
   (let (tokens (char-scanner path))
     (cond
       ((null? tokens) path)
       (else 
-          (begin 
-            (assert-membership-of-allowed-list tokens) 
-            (let (env-variables (get-env-values tokens))
-              (if (member #f env-variables) 
-                  (error "Missing some environment variables" path)
-                  (apply format (string-join (create-list-of-substring-with-string-separation path tokens) "")
-                  env-variables))))))))
-      
+        (begin 
+          (assert-membership-of-allowed-list tokens) 
+          (let (env-variables (get-env-values tokens))
+            (if (member #f env-variables) 
+              (error "Missing some environment variables " path)
+              (let loop ((tkns tokens) (result "") (offset 0) (variables env-variables))
+                (if (null? tkns)
+                  result
+                  (let* ((result (with-output-to-string result (cut display (substring path offset (token-start (car tkns))))))
+                          (result (with-output-to-string result (cut display (car variables)))))
+                          (loop (cdr tkns) result (1+ (token-end (car tkns))) (cdr variables))))))))))))
+
 (defstruct url (protocol domain path))
 
 ;; Todo: parse every component https://dmitripavlutin.com/parse-url-javascript/
