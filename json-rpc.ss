@@ -35,10 +35,6 @@
   :clan/crypto/secp256k1
   ./types ./ethereum ./network-config ./logger)
 
-;; This  file contains API Key of end nodes like infura and others.
-;; File contain `{"INFURA_API_KEY": "0123456789abcdef0123456789abcdef"}` . Remember to use a valid key
-(def api-key-file "url_substitutions.json")
-
 ;; We use a mutex for access to the ethereum node, not to overload it and get timeouts.
 ;; TODO: Have a pool of a small number of connections to the node rather than just one.
 (def ethereum-mutex (make-mutex 'ethereum))
@@ -580,7 +576,7 @@
   (hash-get hashed (string->symbol str)))
 
 (def (get-env-values tokens)
-  (vals (map (cut getenv <> #f) (map (cut token-word <>) tokens))))
+  (map (cut getenv <> #f) (map (cut token-word <>) tokens)))
 
 (def allowed-list [["INFURA_API_KEY"]])
 
@@ -601,47 +597,48 @@
               (error "Missing some environment variables " path)
               (let loop ((tkns tokens) (result "") (offset 0) (variables env-variables))
                 (if (null? tkns)
-                  result
+                  (with-output-to-string result (cut display (substring path offset (string-length path))))
                   (let* ((result (with-output-to-string result (cut display (substring path offset (token-start (car tkns))))))
                           (result (with-output-to-string result (cut display (car variables)))))
                           (loop (cdr tkns) result (1+ (token-end (car tkns))) (cdr variables))))))))))))
 
-(defstruct url (protocol domain path))
+(defstruct uri (scheme authority path))
 
-;; Todo: parse every component https://dmitripavlutin.com/parse-url-javascript/
-;; Move function to gerbil-util
-;; Todo: Clean up (looks ugly)
-(def (parse-url url)
-  (if (or (and (string-prefix? "https://" url) (> (string-length url) (string-length "https://")))
-          (and (string-prefix? "http://" url) (> (string-length url) (string-length "http://")))
-          (and (string-prefix? "wss://" url) (> (string-length url) (string-length "wss://")))
-          (and (string-prefix? "ws://" url) (> (string-length url) (string-length "ws://"))))
-      (let* ((protocol (or (and (string-prefix? "https://" url) "https://") 
-                          (and (string-prefix? "http://" url) "http://")
-                          (and (string-prefix? "wss://" url) "wss://")
-                          "ws://"))
-          (len (string-length protocol))
-          (third-index (string-index url #\/ len))
-          (domain (substring url len (or third-index (string-length url)))))
-          (if third-index
-              (make-url protocol domain (substring url (string-index url #\/ len) (string-length url)))
-              (make-url protocol domain "")))
-      (error "Expected url to start with either http:// or https:// " url)))
+(def (parse-uri uri prefix)
+  (let* ((len (string-length prefix))
+    (uri-length (string-length uri))
+    (scheme (substring prefix 0 (- len 3)))
+    (slash-index (string-index uri #\/ len))
+    (query-index (string-index uri #\? len))
+    (fragment-index (string-index uri #\# len)))
+    (cond
+      ((andmap (cut eqv? #f <>) [slash-index query-index fragment-index])
+          (make-uri scheme (substring uri len uri-length) ""))
+      ((and (eqv? #f query-index) (eqv? #f fragment-index))
+          (make-uri scheme (substring uri len slash-index) (substring uri slash-index uri-length)))
+      (else
+          (error "URI format not allowed " uri)))))
+
+(def (uri-components uri)
+    (cond
+        ((string-prefix? "https://" uri) (parse-uri uri "https://"))
+        ((string-prefix? "http://" uri) (parse-uri uri "http://"))
+        ((string-prefix? "wss://" uri) (parse-uri uri "wss://"))
+        ((string-prefix? "ws://" uri) (parse-uri uri "ws://"))
+        (else
+            (error "URI format not allowed " uri))))
 
 ;; url[String] <- config[EthereumNetworkConfig] filename[String]?
 ;; Use senvironment variable to  "INFURA_API_KEY" "899999990000" 
-;; Or File(json) name `url_substitutions.json`
-;; File content {\"INFURA_API_KEY\" \"899999990000\"}
-;; File is expected to be already created and inside ` ~/.config/glow/` folder
-;; Change the above key values to your API key
+;; Change the above key to your API key
 ;; Example
 ;; (ethereum-url<-config config)
 ;; For more information on `config` argument visit network-config.ss
 (def (ethereum-url<-config config)
   (let* ((url (car (.@ config rpc))) ;; TODO use Gerbil/Gambit parse_url to extract only path for url_substitution
-    (url-components (parse-url (string-trim-right (string-trim url))))
-    (returned-path (url-substitution (url-path url-components))))
-    (string-append (url-protocol url-components) (url-domain url-components) returned-path)))
+    (returned-components (uri-components (string-trim-right (string-trim url))))
+    (returned-path (url-substitution (uri-path returned-components))))
+    (string-append (uri-scheme returned-components) "://" (uri-authority returned-components) returned-path)))
 
 (def (current-ethereum-connection-for? name)
   (match (current-ethereum-network)

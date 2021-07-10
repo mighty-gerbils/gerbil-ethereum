@@ -45,53 +45,45 @@
       (def result (get-env-values token-list))
       (check-equal? result '("89999999" "899999990000" "2123t43435535")))
 
-    (test-case "get-env-values using url_substitutions.json file"
-      (setenv "INFURA_LOCAL" "899999990000")
-      (setenv "INFURA_TEST" "2123t43435535")
-      (def sample "mukn${INFURA_NETI}/like/${INFURA_LOCAL}/Nnewi/${INFURA_TEST}")
-      (def token-list (char-scanner sample))
-      (def result (get-env-values token-list))
-      (check-equal? result '("89999999" "899999990000" "2123t43435535")))
-
    (test-case "parse-url has path"
       (def sample "https://rinkeby.infura.io/v3/${INFURA_API_KEY}")
-      (def url-components (parse-url sample))
-      (check-equal? (string-append (url-protocol url-components) (url-domain url-components)  (url-path url-components)) sample))
+      (def url-components (uri-components sample))
+      (check-equal? (string-append (uri-scheme url-components) "://" (uri-authority url-components)  (uri-path url-components)) sample))
 
    (test-case "parse-url no path"
       (def sample "http://localhost:8545")
-      (def url-components (parse-url sample))
-      (check-equal? (string-append (url-protocol url-components) (url-domain url-components)  (url-path url-components)) sample))
+      (def url-components (uri-components sample))
+      (check-equal? (string-append (uri-scheme url-components) "://" (uri-authority url-components)  (uri-path url-components)) sample))
 
     (test-case "parse-url empty string"
       (def sample "")
-      (check-exception  (parse-url sample) true))
+      (check-exception  (uri-components sample) true))
 
     (test-case "parse-url without http protocol"
       (def sample "rinkeby.infura.io/v3/${INFURA_API_KEY}")
-      (check-exception  (parse-url sample) true))
+      (check-exception  (uri-components sample) true))
 
     (test-case "parse-url secure websocket"
       (def sample "wss://rinkeby.infura.io/ws/v3/${INFURA_API_KEY}")
-      (def url-components (parse-url sample))
-      (check-equal? (string-append (url-protocol url-components) (url-domain url-components)  (url-path url-components)) sample))
+      (def url-components (uri-components sample))
+      (check-equal? (string-append (uri-scheme url-components) "://" (uri-authority url-components)  (uri-path url-components)) sample))
 
    (test-case "parse-url websocket"
       (def sample "ws://goerli.poa.network:8546")
-      (def url-components (parse-url sample))
-      (check-equal? (string-append (url-protocol url-components) (url-domain url-components)  (url-path url-components)) sample))
+      (def url-components (uri-components sample))
+      (check-equal? (string-append (uri-scheme url-components) "://" (uri-authority url-components)  (uri-path url-components)) sample))
 
     (test-case "assert-membership-of-allowed-list"
       (def sample "https://rinkeby.infura.io/v3/${INFURA_API_KEY}")
-      (def url-components (parse-url sample))
-      (def token-list (char-scanner (url-path url-components)))
+      (def url-components (uri-components sample))
+      (def token-list (char-scanner (uri-path url-components)))
       (def result (assert-membership-of-allowed-list token-list))
       (check-equal? result #!void))
 
     (test-case "assert-membership-of-allowed-list"
       (def sample "https://rinkeby.infura.io/v3/${INFURA_API_KEYI}")
-      (def url-components (parse-url sample))
-      (def token-list (char-scanner (url-path url-components)))
+      (def url-components (uri-components sample))
+      (def token-list (char-scanner (uri-path url-components)))
       (check-exception (assert-membership-of-allowed-list token-list) true))
 
     (test-case "url-substitution"

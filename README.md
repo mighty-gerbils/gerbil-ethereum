@@ -39,9 +39,8 @@ Notable modules include but are not limited to the below:
   for a universal CREATE2 wrapper, making Bitcoin-style MAST a reality across all EVM networks.
 
 * `json-rpc.ss` offers you a typechecked FFI to all the usual Ethereum JSON RPC APIs.
-  Infura API key  is needed if one is using Infura end-node url. Set your environment variable:
-  "INFURA_API_KEY" "899999990000" or create a file, url_substitutions.json in ~/.config/glow/, with the following content:
-  {"INFURA_API_KEY": "0123456789abcdef0123456789abcdef"}. Change the value to your API key.
+  Infura API key is needed if one is using Infura end-node url. Set your environment variable:
+  "INFURA_API_KEY" "899999990000". Remember to change API key to your own key.
 
 
 There are plenty of other support files, and we'll keep working on this library
