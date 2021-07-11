@@ -189,12 +189,13 @@
   infoUrl: "https://kovan-testnet.github.io/website")
 
 (def-eth-net (goerli @ [shared-test-network has-etherscan has-infura])
-  name: "Optimistic Ethereum Testnet Goerli"
+  name: "Ethereum Testnet Görli"
   description: "Goerli, the public PoA (authority round) testnet, OpenEthereum and Nethermind only"
-  shortName: "ogor" chain: "ETH" network: "goerli" chainId: 420 networkId: 420
+  shortName: "gor" chain: "ETH" network: "goerli" chainId: 5 networkId: 5
   nativeCurrency: {name: "Görli Ether" symbol: 'GOR decimals: 18}
-  rpc: ["https://www.ethercluster.com/goerli" "ws://goerli.poa.network:8546"]
+  rpc: ["https://www.ethercluster.com/goerli" "ws://goerli.poa.network:8546" "https://rpc.goerli.mudit.blog/" "https://rpc.slock.it/goerli" "https://goerli.prylabs.net/"]
   faucets: ["https://goerli-faucet.slock.it/" "https://faucet.goerli.mudit.blog/"]
+  ;;ens:{registry:"0x112234455c3a32fd11230c42e7bccd4a84e02010"}
   infoUrl: "https://goerli.net/")
 
 (def-eth-net (kotti @ [shared-test-network (has-explorer "https://blockscout.com/etc/kotti/")])

@@ -4,7 +4,8 @@
   :gerbil/expander
   :std/format :std/getopt :std/iter :std/misc/hash
   :std/sort :std/srfi/13 :std/sugar
-  :clan/cli :clan/decimal :clan/exit :clan/hash :clan/multicall :clan/path-config :clan/string
+  :clan/cli :clan/decimal :clan/exit :clan/hash :clan/list
+  :clan/multicall :clan/path-config :clan/string
   :clan/poo/object :clan/poo/brace :clan/poo/cli :clan/poo/debug
   :clan/persist/db
   ./network-config ./types ./ethereum ./known-addresses ./json-rpc ./testing)
@@ -12,14 +13,27 @@
 ;; Let's share the configuration and data directories with the rest of the Glow ecosystem
 (set! application-name (lambda () "glow"))
 
+(def (compare-strings-by-length-then-lexicographically< x y)
+  (def lx (string-length x))
+  (def ly (string-length y))
+  (cond
+   ((< lx ly) #t)
+   ((> lx ly) #f)
+   (else (string< x y))))
+
 (define-entry-point (list-evm-networks)
   (help: "Show a list of available EVM networks" getopt: [])
   (def keys (sort (hash-keys ethereum-networks) string<?))
-  (def names (map (lambda (key) (.@ (hash-get ethereum-networks key) name)) keys))
+  (def (name<-key key) (.@ (hash-get ethereum-networks key) name))
+  (def keys-by-name (map (cut sort <> compare-strings-by-length-then-lexicographically<)
+                         (grouping keys name<-key)))
+  (def keys-strings (map (cut string-join <> " ") keys-by-name))
+  (def primary-keys (map car keys-by-name))
   (def urls (map (lambda (key) (with-catch (lambda (_) "") (cut car (.@ (hash-get ethereum-networks key) rpc))))
-                 keys))
+                 primary-keys))
+  (def names (map name<-key primary-keys))
   (for-each (cut displayln <> "  " <> "  " <>)
-            (co-pad-strings keys) (co-pad-strings names) urls))
+            (co-pad-strings keys-strings) (co-pad-strings names) urls))
 
 (def (show-address-by-nickname h)
   (for/collect (([n . a] (hash->list/sort h string<?))) [n (0x<-address a)]))
