@@ -40,7 +40,7 @@ Notable modules include but are not limited to the below:
 
 * `json-rpc.ss` offers you a typechecked FFI to all the usual Ethereum JSON RPC APIs.
   Infura API key is needed if one is using Infura end-node url. Set your environment variable:
-  "INFURA_API_KEY" "899999990000". Remember to change API key to your own key.
+  "INFURA_API_KEY" "614eede97da84d008b2af1c3f5942c01". Remember to change API key to your own key.
 
 
 There are plenty of other support files, and we'll keep working on this library

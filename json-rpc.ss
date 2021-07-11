@@ -578,12 +578,12 @@
 (def (get-env-values tokens)
   (map (cut getenv <> #f) (map (cut token-word <>) tokens)))
 
-(def allowed-list [["INFURA_API_KEY"]])
+(def allowed-list ["INFURA_API_KEY"])
 
 ;; Todo use hash-set
 (def (assert-membership-of-allowed-list tokens)
-    (unless (member (map (cut token-word <>) tokens) allowed-list)
-      (error "Generated variable list not allowed " (map (cut token-word <>) tokens))))
+  (unless (member (token-word (car tokens)) allowed-list)
+    (error "Generated variable list not allowed " (map (cut token-word <>) tokens))))
 
 (def (url-substitution path)
   (let (tokens (char-scanner path))
@@ -594,13 +594,12 @@
           (assert-membership-of-allowed-list tokens) 
           (let (env-variables (get-env-values tokens))
             (if (member #f env-variables) 
-              (error "Missing some environment variables " path)
-              (let loop ((tkns tokens) (result "") (offset 0) (variables env-variables))
+              (error "Missing some environment variables" path)
+              (let loop ((tkns tokens) (offset 0) (variables env-variables))
                 (if (null? tkns)
-                  (with-output-to-string result (cut display (substring path offset (string-length path))))
-                  (let* ((result (with-output-to-string result (cut display (substring path offset (token-start (car tkns))))))
-                          (result (with-output-to-string result (cut display (car variables)))))
-                          (loop (cdr tkns) result (1+ (token-end (car tkns))) (cdr variables))))))))))))
+                  (substring path offset (string-length path))
+                  (with-output-to-string (substring path offset (token-start (car tkns))) 
+                    (cut display (string-append (car variables) (loop (cdr tkns) (1+ (token-end (car tkns))) (cdr variables))))))))))))))
 
 (defstruct uri (scheme authority path))
 
@@ -629,7 +628,7 @@
             (error "URI format not allowed " uri))))
 
 ;; url[String] <- config[EthereumNetworkConfig] filename[String]?
-;; Use senvironment variable to  "INFURA_API_KEY" "899999990000" 
+;; Use senvironment variable to  "INFURA_API_KEY" "614eede97da84d008b2af1c3f5942c01" 
 ;; Change the above key to your API key
 ;; Example
 ;; (ethereum-url<-config config)
