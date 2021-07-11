@@ -29,7 +29,8 @@
   :gerbil/gambit/bytes :gerbil/gambit/ports :gerbil/gambit/threads
   (for-syntax :std/format)
   :std/format :std/lazy :std/sugar
-  :clan/base :clan/concurrency :clan/json :clan/logger :clan/failure :clan/maybe :clan/option :clan/syntax
+  :clan/base :clan/concurrency :clan/json :clan/logger :clan/failure :clan/hash
+  :clan/maybe :clan/option :clan/string :clan/syntax
   :clan/net/json-rpc
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/crypto/secp256k1
@@ -545,9 +546,20 @@
   (retry retry-window: retry-window max-window: max-window max-retries: max-retries
          (lambda () (display message) (eth_blockNumber url: url timeout: 1.0))))
 
-;; TODO: handle ${INFURA_API_KEY} substitution, etc.
+;; Set of allowed environment variables in URL substitutions
+;; (Table '#t <- String)
+(def allowed-url-variables (hashset<-list '("INFURA_API_KEY")))
+
+;; String <- String
+(def (substitute-url-variable v)
+  (unless (hash-get allowed-url-variables v)
+    (error "Variable not allowed in connection URL configuration" v))
+  (or (getenv v #f)
+      (error "Environment variable undefined in connection URL configuration" v)))
+
+;; String <- EthereumNetworkConfig
 (def (ethereum-url<-config config)
-  (car (.@ config rpc)))
+  (string-interpolate (car (.@ config rpc)) substitute-url-variable))
 
 (def (current-ethereum-connection-for? name)
   (match (current-ethereum-network)
