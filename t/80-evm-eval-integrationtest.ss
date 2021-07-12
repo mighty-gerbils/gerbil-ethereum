@@ -205,6 +205,11 @@
                 (&begin &add-deposit0! deposit0 &add-deposit0! deposit0)
                 [[UInt256 . 600]]))
 
+    (test-case "&add-withdraw0!"
+      (evm-test [[UInt256 . 300]]
+                (&begin &add-withdraw0! withdraw0 &add-withdraw0! withdraw0)
+                [[UInt256 . 600]]))
+
     (test-case "&brk-cons when n-bytes is 32"
       (evm-test [[UInt256 . 500]]
                 (&brk-cons 32)

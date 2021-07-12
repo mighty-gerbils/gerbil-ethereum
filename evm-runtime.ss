@@ -176,9 +176,15 @@
   (brk 32 #|3|#) ;; The free memory pointer.
   (calldatapointer 32 #|3|#) ;; Pointer within CALLDATA to yet unread published information.
   (calldatanew 32 #|3|#) ;; Pointer to new information within CALLDATA (everything before was seen).
-  (deposit0 32 #|12|#) ;; Required deposit so far.
+  (deposit0 32)  ;; Required deposit so far for asset 0.
+  (deposit1 32)  ;; Required deposit so far for asset 1.
+  (deposit2 32)  ;; Required deposit so far for asset 2.
   (withdraw0 32)
-  (withdraw1 32))
+  (withdraw1 32)
+  (withdraw2 32)
+  (withdraw3 32)
+  (withdraw4 32)
+  (withdraw5 32))
 
 ;; tmp100@ is the constant offset to a 100-byte scratch buffer
 ;; used by methods in assets.ss .commit-deposit! and .commit-withdraw!
@@ -192,6 +198,12 @@
          ;; pc is the first thing inside the merkelized state; do not re-order
          ;; it.
   (balance0 32) ;; Balance for this interaction. We store this as a variable, rather than
+                ;; using the BALANCE instruction, so that we can multiplex multiple
+                ;; interactions onto one contract.
+  (balance1 32) ;; Balance for this interaction. We store this as a variable, rather than
+                ;; using the BALANCE instruction, so that we can multiplex multiple
+                ;; interactions onto one contract.
+  (balance2 32) ;; Balance for this interaction. We store this as a variable, rather than
                 ;; using the BALANCE instruction, so that we can multiplex multiple
                 ;; interactions onto one contract.
   (timer-start Block) ;; Block at which the timer was started
@@ -386,12 +398,26 @@
   ;; Scheme pseudocode: (lambda (amount) (increment! deposit0 amount))
   ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
   (&begin deposit0 &safe-add deposit0-set!)) ;; [14B, 40G]
+(def &add-deposit1!
+  ;; Scheme pseudocode: (lambda (amount) (increment! deposit1 amount))
+  ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
+  (&begin deposit1 &safe-add deposit1-set!)) ;; [14B, 40G]
+(def &add-deposit2!
+  ;; Scheme pseudocode: (lambda (amount) (increment! deposit2 amount))
+  ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
+  (&begin deposit2 &safe-add deposit2-set!)) ;; [14B, 40G]
 
 (def &add-withdraw0! (&begin withdraw0 &safe-add withdraw0-set!)) ;; [14B, 40G]
 (def &add-withdraw1! (&begin withdraw1 &safe-add withdraw1-set!)) ;; [14B, 40G]
+(def &add-withdraw2! (&begin withdraw2 &safe-add withdraw2-set!)) ;; [14B, 40G]
+(def &add-withdraw3! (&begin withdraw3 &safe-add withdraw3-set!)) ;; [14B, 40G]
+(def &add-withdraw4! (&begin withdraw4 &safe-add withdraw4-set!)) ;; [14B, 40G]
+(def &add-withdraw5! (&begin withdraw5 &safe-add withdraw5-set!)) ;; [14B, 40G]
 
 ;; (EVMThunk <- Amount)
 (def &sub-balance0! (&begin balance0 &safe-sub balance0-set!))
+(def &sub-balance1! (&begin balance1 &safe-sub balance1-set!))
+(def &sub-balance2! (&begin balance2 &safe-sub balance2-set!))
 
 ;; (EVMThunk <- Address Amount)
 ;; TESTING STATUS: Wholly untested.
