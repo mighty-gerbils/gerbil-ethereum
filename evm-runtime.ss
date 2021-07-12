@@ -176,7 +176,7 @@
   (brk 32 #|3|#) ;; The free memory pointer.
   (calldatapointer 32 #|3|#) ;; Pointer within CALLDATA to yet unread published information.
   (calldatanew 32 #|3|#) ;; Pointer to new information within CALLDATA (everything before was seen).
-  (deposit 32 #|12|#) ;; Required deposit so far.
+  (deposit0 32 #|12|#) ;; Required deposit so far.
   (withdraw0 32)
   (withdraw1 32))
 
@@ -191,9 +191,9 @@
          ;; NOTE: &simple-contract-prelude makes a critical assumption that
          ;; pc is the first thing inside the merkelized state; do not re-order
          ;; it.
-  (balance 32) ;; Balance for this interaction. We store this as a variable, rather than
-               ;; using the BALANCE instruction, so that we can multiplex multiple
-               ;; interactions onto one contract.
+  (balance0 32) ;; Balance for this interaction. We store this as a variable, rather than
+                ;; using the BALANCE instruction, so that we can multiplex multiple
+                ;; interactions onto one contract.
   (timer-start Block) ;; Block at which the timer was started
   #;(challenged-participant Offset)) ;; TODO? offset of the parameter containing the participant challenged to post before timeout
 
@@ -324,8 +324,8 @@
 ;; Check the requirement that the amount actually deposited in the call (from CALLVALUE) is sufficient
 ;; to cover the amount that the contract believes should have been deposited (from deposit@ MLOAD).
 ;; TESTING STATUS: Insufficiently tested
-(def &check-sufficient-deposit
-  (&begin deposit CALLVALUE LT &require-not!)) ;; [8B, 25G]
+(def &check-sufficient-deposit0
+  (&begin deposit0 CALLVALUE LT &require-not!)) ;; [8B, 25G]
 
 ;; TODO: *in the future*, have a variant of contracts that allows for posting markets,
 ;; whereby whoever posts the message to the blockchain might not be the participant,
@@ -382,16 +382,16 @@
      EQ &require! [&jumpdest safe-mul-end]))) ;; -- xy [6B, 20G]
 
 ;; TESTING STATUS: Wholly tested
-(def &add-deposit!
-  ;; Scheme pseudocode: (lambda (amount) (increment! deposit amount))
+(def &add-deposit0!
+  ;; Scheme pseudocode: (lambda (amount) (increment! deposit0 amount))
   ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
-  (&begin deposit &safe-add deposit-set!)) ;; [14B, 40G]
+  (&begin deposit0 &safe-add deposit0-set!)) ;; [14B, 40G]
 
 (def &add-withdraw0! (&begin withdraw0 &safe-add withdraw0-set!)) ;; [14B, 40G]
 (def &add-withdraw1! (&begin withdraw1 &safe-add withdraw1-set!)) ;; [14B, 40G]
 
 ;; (EVMThunk <- Amount)
-(def &sub-balance! (&begin balance &safe-sub balance-set!))
+(def &sub-balance0! (&begin balance0 &safe-sub balance0-set!))
 
 ;; (EVMThunk <- Address Amount)
 ;; TESTING STATUS: Wholly untested.
@@ -403,12 +403,12 @@
    GAS ;; -- gas address value 0 0 0 0
    CALL &require!)) ;; -- Transfer!
 
-;; TODO: group the withdrawals at the end, like the deposit checks?
+;; TODO: group the withdrawals at the end, like the deposit0 checks?
 ;; TESTING STATUS: Wholly untested.
-(def &withdraw!
+(def &withdraw0!
    (&begin ;; -- address value
      DUP2 ;; -- value address value
-     &sub-balance! ;; -- address value
+     &sub-balance0! ;; -- address value
      &send-ethers!))
 
 ;; TESTING STATUS: Used in buy-sig. TODO: we should also test with a bad signature.
@@ -496,22 +496,22 @@
    ;; -- frame-length TODO: at standard place in frame, info about who is or isn't timing out
    ;; and/or make it a standard part of the cp0 calling convention to catch such.
    (&read-published-datum 1) ISZERO 'tail-call-body JUMPI
-   &sync-deposit! ;; NB: update the balance *before* we compute the SHA3
+   &sync-deposit0! ;; NB: update the balance0 *before* we compute the SHA3
    frame@ SHA3 0 SSTORE ;; TODO: ensure frame-width is on the stack before here
    'stop-contract-call
    [&jump1 'commit-contract-call])) ;; update the state, then commit and finally stop
 
-;; add the deposit to our recorded interaction balance.
-(def &sync-deposit!
+;; add the deposit0 to our recorded interaction balance0.
+(def &sync-deposit0!
   (&begin
-    deposit balance &safe-add balance-set!))
+    deposit0 balance0 &safe-add balance0-set!))
 
 ;; Logging the data, simple version, optimal for messages less than 6000 bytes of data.
 ;; TESTING STATUS: Used by buy-sig.
 (def &define-simple-logging
   (&begin
    [&jumpdest 'commit-contract-call] ;; -- return-address
-   &check-sufficient-deposit ;; First, check deposit
+   &check-sufficient-deposit0 ;; First, check deposit0
    calldatanew DUP1 CALLDATASIZE SUB ;; -- logsz cdn ret
    SWAP1 ;; -- cdn logsz ret
    DUP2 ;; logsz cdn logsz ret
@@ -525,7 +525,7 @@
 (def &define-variable-size-logging
   (&begin
    [&jumpdest 'commit-contract-call]
-   &check-sufficient-deposit ;; First, check the deposit
+   &check-sufficient-deposit0 ;; First, check the deposit0
    ;; compute available buffer size: max(MSIZE, n*256)
    ;; -- TODO: find out the optimal number to minimize gas, considering the quadratic cost of memory
    ;; versus the affine cost of logging, and the cost of this loop.
@@ -584,7 +584,7 @@
 ;;
 ;; Works as follows:
 ;;
-;; 1. Send interaction balance to temporary replacement for SELFDESTRUCT,
+;; 1. Send interaction balance0 to temporary replacement for SELFDESTRUCT,
 ;; 2. Make the interaction unusable (assuming it uses our ABI) by putting 0 in its state digest
 ;; 3. Successfully commit the transaction by RETURNing an empty array of bytes.
 ;;
@@ -599,14 +599,14 @@
 ;; TESTING STATUS: manually tested
 (def (&interaction-selfdestruct) ;; address -->
   (&begin
-    balance SWAP1 &send-ethers!  ;; 1. send all the remaining ethers to given address
-            0 DUP1 SSTORE STOP)) ;; 2. blank out next state digest, 3. return empty array.
-            ;; TODO: when we actually support multiplexed interactions, we need to store
-            ;; the state digest for different interactions at different addresses, so
-            ;; we'll have to replace DUP1 above with loading the correct key for this
-            ;; interaction's state digest. Also, maybe pick a value other than zero, so
-            ;; we can tell the difference between a destroyed contract and a new one,
-            ;; since storage is zero-initialized.
+    balance0 SWAP1 &send-ethers!  ;; 1. send all the remaining ethers to given address
+             0 DUP1 SSTORE STOP)) ;; 2. blank out next state digest, 3. return empty array.
+             ;; TODO: when we actually support multiplexed interactions, we need to store
+             ;; the state digest for different interactions at different addresses, so
+             ;; we'll have to replace DUP1 above with loading the correct key for this
+             ;; interaction's state digest. Also, maybe pick a value other than zero, so
+             ;; we can tell the difference between a destroyed contract and a new one,
+             ;; since storage is zero-initialized.
 
 ;; Define the end-contract library function, if reachable.
 ;; TODO: one and only one of end-contract or tail-call shall just precede the commit-contract-call function!

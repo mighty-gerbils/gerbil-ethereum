@@ -197,12 +197,12 @@
                 [[UInt16 . 5]] result-in-memory?: #t result-start: 224))
 
     ;; TODO
-    ;; (test-case "&check-sufficient-deposit when deposit is GT"
-    ;; (evm-test-failure [] (&begin &check-sufficient-deposit)))
+    ;; (test-case "&check-sufficient-deposit0 when deposit0 is GT"
+    ;; (evm-test-failure [] (&begin &check-sufficient-deposit0)))
 
-    (test-case "&add-deposit!"
+    (test-case "&add-deposit0!"
       (evm-test [[UInt256 . 300]]
-                (&begin &add-deposit! deposit &add-deposit! deposit)
+                (&begin &add-deposit0! deposit0 &add-deposit0! deposit0)
                 [[UInt256 . 600]]))
 
     (test-case "&brk-cons when n-bytes is 32"
