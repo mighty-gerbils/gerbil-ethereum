@@ -263,4 +263,15 @@
                 
     (test-case "&marshal UInt8"
       (evm-test [] (&begin brk DUP1 DUP1 (&marshal UInt16 7))
-                [[UInt16 . 2]]))))
+                [[UInt16 . 2]]))
+
+    (test-case "&mstore 1 byte"
+      (evm-test [] (&begin 42 0 (&mstore 1))
+                [[UInt8 . 42]]
+                result-in-memory?: #t))
+
+    (test-case "&mstore 32 bytes"
+      (def maxUInt256 (- (expt 2 256) 1))
+      (evm-test [] (&begin maxUInt256 0 (&mstore 32))
+                [[UInt256 . maxUInt256]]
+                result-in-memory?: #t))))
