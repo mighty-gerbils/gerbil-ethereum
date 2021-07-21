@@ -97,6 +97,24 @@
   (&begin (map &brk-cons sizes/base/evm-word-size) ...)
   )
 
+;; stack in:  offset size part0 part1 ... partn
+;; stack out: -
+;; mem out:   part0 part1 ... partn
+;; TODO: (def (&mstore/any-size))
+
+;; stack input:  offset length part0 part1 ... partn
+;; stack output: offset length
+;; mem out:      part0 part1 ... partn
+;; (def (&mstore/ref/any-size)
+;;   ;;TODO:
+;;   )
+
+;; stack in:  length part0 part1 ... partn
+;; stack out: offset length
+;; mem out:   part0 part1 ... partn
+;; (def (&mstoreat/ref/any-size offset)
+;;   (&begin offset (&mstore/ref/any-size)))
+
 ;; Helper function - Make list of relative offsets and sizes for partitions.
 ;; Used by `&mload/any-size` to obtain memory ranges for storing partitions.
 ;; E.g. (offsets-and-sizes<-size 65) -> [[0 (EVM-WORD-SIZE)] [32 32] [64 1]]
@@ -144,6 +162,118 @@
 ;; (Thunk part0 ... partn <-) <- Offset Size
 (def (&mloadat/any-size offset length-size)
   (&begin offset (&mload/any-size length-size)))
+
+;; stack in:  offset length
+;; mem in:    part0 part1 ... partn
+;; stack out: part0 part1 ... partn
+;; References are the offset and length of bytes on the stack
+;; The contents are stored in memory.
+;; Since bytes are frequently created,
+;; the contents are stored contiguously for compactness,
+;; since cost of memory is quadratic.
+;; (def (&mload/ref/any-size)
+;;   (&begin                    ; -- offset length
+;;    ;; Get partn, update to offset length of remaining partitions
+;;    SWAP1 #|length|# DUP1 #|length|# 32 MOD      ; -- partn-sz length offset
+;;    SWAP1 #|length|# DUP2 #|partn-sz|# SWAP1 SUB ; -- new-length partn-sz offset; NOTE: new-length = rel-part-offfset
+;;    SWAP1 ; -- partn-sz new-length offset
+;;    DUP3 #|offset|# DUP3 #|new-length|# ADD #|partn-offset|# ; -- partn-offset partn-sz new-length offset
+;;    &mload/ref ; partn new-length offset
+;;    SWAP2      ; offset new-length partn
+
+;;     ;; load words
+
+;;     ;; if length <= 32, jump to final step
+;;     33 DUP3 #|length|# LT ; -- length<=32? offset length
+;;     GETPC <OFFSET> ADD       ; -- dest length<32? offset length
+;;     JUMPI                 ; 'final-step<- -- offset length
+
+;;     ;; while length > 32:
+;;     JUMPDEST ;; <-'loop-start
+
+;;     ;; load next evm word
+;;     DUP1 MLOAD ; part0 offset length
+
+;;     ;; update length
+;;     SWAP2 #|length|# 32 SWAP1 SUB ; length-32 offset part0
+;;     ;; update offset
+;;     SWAP1 #|offset|# 32 ADD ; offset+32 length-32 part0
+
+;;     ;; if length > 32: continue
+;;     33 DUP3 #|length|# LT ; length-32<=32? offset+32 length-32 part0
+;;     GETPC <OFFSET> ADD       ; dest length<32? offset+32 length-32 part0
+;;     JUMPI ; 'loop-start<- ; offset length
+
+;;     JUMPDEST ;; <-'final-step
+;;     ;; mload/ref last segment
+;;     &mload/ref
+;;     )
+;;   )
+
+;; stack in:  offset length
+;; mem in:    part0 part1 ... partn
+;; stack out: part0 part1 ... partn
+;; A Reference is the product of offset and length of bytes on the stack.
+;; These can be used to extract the contents are stored in memory.
+;;
+;; NOTE: Since bytes are frequently created,
+;; the contents are stored contiguously for compactness,
+;; since cost of memory is quadratic.
+;;
+;; 1. find length of last partition
+;; 2.
+(def (&mload/ref/any-size)
+  (&begin                    ; -- offset length
+   ;; Get partn, update to offset length of remaining partitions
+   SWAP1 #|length|# DUP1 #|length|# 32 MOD      ; -- partn-sz length offset
+   SWAP1 #|length|# DUP2 #|partn-sz|# SWAP1 SUB ; -- new-length partn-sz offset; NOTE: new-length = rel-part-offfset
+   SWAP1 ; -- partn-sz new-length offset
+   DUP3 #|offset|# DUP3 #|new-length|# ADD #|partn-offset|# ; -- partn-offset partn-sz new-length offset
+   &mload/ref ; partn new-length offset
+   SWAP2      ; offset new-length partn
+
+   ;; new-length is modulo-32 (Multiple EVM Words)
+   ;; if new-length == 0: goto end
+   DUP2 ISZERO #|len==0?|# GETPC <OFFSET> ADD #|DEST|# JUMPI #|END<-|# ; partn new-length offset
+
+   JUMPDEST ; LOOP-START
+
+   ;; load next evm word
+   DUP2 #|new-length|# DUP2 #|offset|# ADD 32 SUB ; partn-1-offset offset new-length partn
+   MLOAD ; partn-1 offset new-length partn
+
+    ;; update length
+    SWAP2 #|length|# 32 SWAP1 SUB ; length-32 offset part0
+    ;; update offset
+    SWAP1 #|offset|# 32 ADD ; offset+32 length-32 part0
+
+    ;; if length > 32: continue
+    33 DUP3 #|length|# LT ; length-32<=32? offset+32 length-32 part0
+    GETPC <OFFSET> ADD       ; dest length<32? offset+32 length-32 part0
+    JUMPI ; 'loop-start<- ; offset length
+
+    JUMPDEST ;; <-'final-step
+    ;; mload/ref last segment
+    &mload/ref
+    )
+  )
+
+;; stack in:  length
+;; mem in:    part0 part1 ... partn
+;; stack out: part0 part1 ... partn
+;; (def (&mloadat/ref/any-size offset)
+;;   (&begin offset (&mload/ref/any-size)))
+
+;; stack in:
+;; mem in:    part0 part1 ... partn
+;; stack out: offset length part0 part1 ... partn
+;; TODO: (def (&mloadat/ref/known-size offset size))
+;; Optimization since we can generate offsets statically,
+;; rather than only during evm's runtime.
+
+;; Batch 2
+;; TODO calldata/any-size
+;; TODO memcpy
 
 ;; ----------------
 ;; Shared Utilities
