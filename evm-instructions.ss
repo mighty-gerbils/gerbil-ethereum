@@ -18,9 +18,14 @@
 ;;
 ;; NOTE: Regarding reference types:
 ;; The start-offset and length are stored on the stack,
-;; and the contents are stored compactly in memory.
+;; and the contents are stored in memory.
 ;; The start-offset and length can then be used
 ;; to access contents located in memory.
+;;
+;; Since bytes are frequently created,
+;; contents are stored without padding,
+;; since cost of memory is quadratic.
+
 ;;
 ;; -------------
 ;; Byte encoding
@@ -91,6 +96,8 @@
 ;; NOTE: Uses brk@ for offset via &brk-cons, dependent on EVM memory layout.
 ;; stack input:  part0 part1 ... partn
 ;; stack output: -
+;; mem out:      part0 part1 ... partn
+;; (Thunk <- part0 part1 ... partn) <- Size
 (def (&mstore/free/any-size size)
   (assert-bytes-at-least! size 1)
   (def sizes/base/evm-word-size (sizes/word-size<-size size))
@@ -166,97 +173,88 @@
 ;; stack in:  offset length
 ;; mem in:    part0 part1 ... partn
 ;; stack out: part0 part1 ... partn
-;; References are the offset and length of bytes on the stack
-;; The contents are stored in memory.
-;; Since bytes are frequently created,
-;; the contents are stored contiguously for compactness,
-;; since cost of memory is quadratic.
-;; (def (&mload/ref/any-size)
-;;   (&begin                    ; -- offset length
-;;    ;; Get partn, update to offset length of remaining partitions
-;;    SWAP1 #|length|# DUP1 #|length|# 32 MOD      ; -- partn-sz length offset
-;;    SWAP1 #|length|# DUP2 #|partn-sz|# SWAP1 SUB ; -- new-length partn-sz offset; NOTE: new-length = rel-part-offfset
-;;    SWAP1 ; -- partn-sz new-length offset
-;;    DUP3 #|offset|# DUP3 #|new-length|# ADD #|partn-offset|# ; -- partn-offset partn-sz new-length offset
-;;    &mload/ref ; partn new-length offset
-;;    SWAP2      ; offset new-length partn
-
-;;     ;; load words
-
-;;     ;; if length <= 32, jump to final step
-;;     33 DUP3 #|length|# LT ; -- length<=32? offset length
-;;     GETPC <OFFSET> ADD       ; -- dest length<32? offset length
-;;     JUMPI                 ; 'final-step<- -- offset length
-
-;;     ;; while length > 32:
-;;     JUMPDEST ;; <-'loop-start
-
-;;     ;; load next evm word
-;;     DUP1 MLOAD ; part0 offset length
-
-;;     ;; update length
-;;     SWAP2 #|length|# 32 SWAP1 SUB ; length-32 offset part0
-;;     ;; update offset
-;;     SWAP1 #|offset|# 32 ADD ; offset+32 length-32 part0
-
-;;     ;; if length > 32: continue
-;;     33 DUP3 #|length|# LT ; length-32<=32? offset+32 length-32 part0
-;;     GETPC <OFFSET> ADD       ; dest length<32? offset+32 length-32 part0
-;;     JUMPI ; 'loop-start<- ; offset length
-
-;;     JUMPDEST ;; <-'final-step
-;;     ;; mload/ref last segment
-;;     &mload/ref
-;;     )
-;;   )
-
-;; stack in:  offset length
-;; mem in:    part0 part1 ... partn
-;; stack out: part0 part1 ... partn
-;; A Reference is the product of offset and length of bytes on the stack.
-;; These can be used to extract the contents are stored in memory.
 ;;
-;; NOTE: Since bytes are frequently created,
-;; the contents are stored contiguously for compactness,
-;; since cost of memory is quadratic.
+;; Procedure:
+;; 1. Find last partition (partn) length (partn/l).
+;;    partn/l = (modulo length 32)
+;; 2. Find partn relative offset (partn/ro).
+;;    partn/ro = length - partn/l
+;; 3. Find partn offset (partn/o)
+;;    partn/o = offset + relative-offset
+;; 4. Load partn with partn/o, partn/l
+;; 5. Initialize: current-part = partn
+;; 6. if current-part/ro == 0:
+;;        end
+;;    else:
+;;        next-part/ro = current-part/ro - 32
+;;        next-part/o = offset + next-part/ro
+;;        LOAD (next-part/o, 32)
+;;        JUMP to step 6.
 ;;
-;; 1. find length of last partition
-;; 2.
+;; (Thunk part0 part1 ... partn <- offset length) <-
 (def (&mload/ref/any-size)
+  ;; FIXME: gen unique labels
+  ;; (def lw-start (generate-label 'lw-start))
+  ;; (def end (generate-label 'end))
   (&begin                    ; -- offset length
-   ;; Get partn, update to offset length of remaining partitions
-   SWAP1 #|length|# DUP1 #|length|# 32 MOD      ; -- partn-sz length offset
-   SWAP1 #|length|# DUP2 #|partn-sz|# SWAP1 SUB ; -- new-length partn-sz offset; NOTE: new-length = rel-part-offfset
-   SWAP1 ; -- partn-sz new-length offset
-   DUP3 #|offset|# DUP3 #|new-length|# ADD #|partn-offset|# ; -- partn-offset partn-sz new-length offset
-   &mload/ref ; partn new-length offset
-   SWAP2      ; offset new-length partn
+    (&mload-tail/ref/any-size) ; offset partn/ro partn
 
-   ;; new-length is modulo-32 (Multiple EVM Words)
-   ;; if new-length == 0: goto end
-   DUP2 ISZERO #|len==0?|# GETPC <OFFSET> ADD #|DEST|# JUMPI #|END<-|# ; partn new-length offset
+    [&jumpdest '&lw-start] ; offset partn/ro partn
 
-   JUMPDEST ; LOOP-START
+    ;; If partx/ro == 0
 
-   ;; load next evm word
-   DUP2 #|new-length|# DUP2 #|offset|# ADD 32 SUB ; partn-1-offset offset new-length partn
-   MLOAD ; partn-1 offset new-length partn
+    ;; Yes -> End
+    DUP2 #|partx/ro|# ISZERO ; partx/ro==0
+    [&jumpi1 '&end]          ; offset current-part/ro current-part ... partn
 
-    ;; update length
-    SWAP2 #|length|# 32 SWAP1 SUB ; length-32 offset part0
-    ;; update offset
-    SWAP1 #|offset|# 32 ADD ; offset+32 length-32 part0
+    ;; No -> Continue
+    ;; Find partx/new/ro
+    (&mload-next-part/ref/any-size) ; offset next-part/ro next-part current-part ... partn
 
-    ;; if length > 32: continue
-    33 DUP3 #|length|# LT ; length-32<=32? offset+32 length-32 part0
-    GETPC <OFFSET> ADD       ; dest length<32? offset+32 length-32 part0
-    JUMPI ; 'loop-start<- ; offset length
+    ;; Jump to LW-START
+    [&jump '&lw-start]
 
-    JUMPDEST ;; <-'final-step
-    ;; mload/ref last segment
-    &mload/ref
-    )
-  )
+    [&jumpdest '&end] ; END ; offset partx/ro part0 part1 ... partn
+    POP POP                 ; part0 part1 ... partn
+    ))
+
+;; (Thunk offset partn/ro partn <- offset length) <-
+(def (&mload-tail/ref/any-size)                 ; -- offset length
+  (&begin
+   (&if (&begin DUP2 ISZERO) []
+        (&begin
+          ;; Find partn/l
+          SWAP1 #|length|# 32 DUP2 #|length|# MOD      ; -- partn/l length offset
+
+          ;; Find partn/ro
+          SWAP1 #|length|# DUP2 #|partn/l|# SWAP1 SUB  ; -- partn/ro partn/l offset
+          SWAP1                                        ; -- partn/l partn/ro offset
+                                                        ; NOTE: partn/ro, offset are state vars
+                                                        ; hence we store them at end of stack
+
+          ;; Find partn/o
+          DUP3 #|offset|# DUP3 #|partn/ro|# ADD        ; -- partn/o partn/l partn/ro offset
+
+          ;; Load partn
+          (&mload/ref)                                 ; partn partn/ro offset
+          SWAP2                                        ; offset partn/ro partn
+                                                        ; NOTE: partitions will occupy lowest region of the stack
+                                                        ; as they are return values.
+          ))))
+
+; stack in:  offset current-part/ro
+; stack out: offset next-part/ro next-part
+(def (&mload-next-part/ref/any-size)
+  (&begin                                  ; offset current-part/ro
+    SWAP1 #|current-part/ro|# 32 SWAP1 SUB ; next-part/ro offset
+
+    ;; Find next-part/o
+    DUP2 #|offset|# DUP2 #|next-part/ro|# ADD ; next-part/o next-part/ro offset
+
+    ;; Load next-part
+    MLOAD ; next-part next-part/ro offset
+    SWAP2 ; offset next-part/ro next-part
+    ))
 
 ;; stack in:  length
 ;; mem in:    part0 part1 ... partn
@@ -270,6 +268,17 @@
 ;; TODO: (def (&mloadat/ref/known-size offset size))
 ;; Optimization since we can generate offsets statically,
 ;; rather than only during evm's runtime.
+
+;; stack in:  offset length
+;; stack out: <n-bytes>
+(def (&mload/ref)
+  ;; FIXME: Runtime assertions: (<= 1 n-bytes 32) - see: &safe-add
+  (&begin                         ; offset length
+    MLOAD                         ; value/padded length
+    SWAP1                         ; length value/padded
+    8 MUL #|length-bits|# 256 SUB ; shift/unpad value/padded
+    SHR                           ; value ; FIXME: pre-EIP-145 compat - see: &shr
+    ))
 
 ;; Batch 2
 ;; TODO calldata/any-size

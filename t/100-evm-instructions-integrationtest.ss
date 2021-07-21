@@ -131,6 +131,174 @@
                 result-start: #x20)
       )
 
+    (test-case "EVM-type &mload/ref, size = 1"
+      (def offset 0)
+      (def len 1)
+      (evm-test [] (&begin
+                    ;; Store str65 in mem
+                    (&push/any-size #u8(1))
+                    (&mstoreat offset len)
+                    len offset (&mload/ref)
+                    1 ADD
+                    (&mstoreat offset len)
+                    )
+
+                [[Bytes1 . #u8(2)]
+                 ]
+                result-in-memory?: #t
+                result-start: #x00)
+      )
+
+    (test-case "EVM-type &mload/ref, size = 2"
+      (def offset 0)
+      (def len 2)
+      (evm-test [] (&begin
+                    ;; Store str65 in mem
+                    (&push/any-size #u8(1 2))
+                    (&mstoreat offset len)
+                    len offset (&mload/ref)
+                    #u8(1 1) ADD
+                    (&mstoreat offset len)
+                    )
+
+                [[Bytes2 . #u8(2 3)]
+                 ]
+                result-in-memory?: #t
+                result-start: #x00)
+      )
+
+    (test-case "EVM-type &mload/ref/any-size, size = 0, should not push values to stack"
+      (evm-test [] (&begin
+                    (&push/any-size #u8(1))   ; 1
+                    0 0 (&mload/ref/any-size) ; 1 ; no values should be pushed onto stack
+                    (&mstoreat 0 1)
+                    )
+
+                [[Bytes1 . #u8(1)]
+                 ]
+                result-in-memory?: #t
+                result-start: #x00)
+      )
+
+    (test-case "EVM-type &mload/ref/any-size, size = 1"
+      (def offset 0)
+      (def len 1)
+      (evm-test [] (&begin
+                    ;; Store str65 in mem
+                    (&push/any-size #u8(1))
+                    (&mstoreat offset len)
+                    ;; 1
+                    len offset (&mload/ref/any-size) ; 1
+                    ;; len offset (&mload-tail/ref/any-size) POP POP ; 1
+                    1 ADD
+                    (&mstoreat offset len)
+                    )
+
+                [[Bytes1 . #u8(2)]
+                 ]
+                result-in-memory?: #t
+                result-start: #x00)
+      )
+
+    (test-case "EVM-type &mload/ref/any-size, size = 2"
+      (def offset 0)
+      (def len 2)
+      (evm-test [] (&begin
+                    ;; Store str65 in mem
+                    (&push/any-size #u8(1 2))
+                    (&mstoreat offset len)
+                    ;; 1
+                    len offset (&mload/ref/any-size) ; 1
+                    ;; len offset (&mload-tail/ref/any-size) POP POP ; 1
+                    #u8(1 1) ADD
+                    (&mstoreat offset len)
+                    )
+
+                [[Bytes2 . #u8(2 3)]
+                 ]
+                result-in-memory?: #t
+                result-start: #x00)
+      )
+
+    (test-case "EVM-type &mload/ref/any-size, size = 31"
+      (def offset 0)
+      (def len 31)
+      (evm-test [] (&begin
+                    ;; Store str65 in mem
+                    (&push/any-size #u8(1 2))
+                    (&mstoreat offset len)
+                    ;; 1
+                    len offset (&mload/ref/any-size) ; 1
+                    ;; len offset (&mload-tail/ref/any-size) POP POP ; 1
+                    #u8(1 1) ADD
+                    (&mstoreat offset len)
+                    )
+
+                [[Bytes31 . #u8(0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+                                0 0 0 0  0 0 0 0  0 0 0 0  0 2 3)]
+                 ]
+                result-in-memory?: #t
+                result-start: #x00)
+      )
+
+    (test-case "EVM-type &mload/ref/any-size, size = 32"
+      (evm-test [] (&begin
+                    (&push/any-size #u8(0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+                                        0 0 0 0  0 0 0 0  0 0 0 0  0 0 1 2))
+                    (&mstoreat 0 32)
+                    32 0 (&mload/ref/any-size)
+                    #u8(1 1) ADD
+                    (&mstoreat 0 32)
+                    )
+
+                [[Bytes32 . #u8(0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+                                0 0 0 0  0 0 0 0  0 0 0 0  0 0 2 3)]]
+                result-in-memory?: #t
+                result-start: #x00)
+      )
+
+    (test-case "EVM-type &mload-next-part/ref/any-size, size = 34"
+      (evm-test []
+        (&begin
+          (&push/any-size #u8(0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+                              0 0 0 0  0 0 0 0  0 0 0 0  0 0 1 2))
+          (&mstoreat 0 32)
+          32 #|current-part/ro|# 0 #|offset|# (&mload-next-part/ref/any-size) ; offset next-part/ro next-part
+          (&mstoreat 0 32)  ; next-part/ro next-part
+          (&mstoreat 32 32) ; next-part
+          (&mstoreat 64 32) ; -
+          )
+
+          [[Bytes32 . #u8(0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+                          0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0)]
+           [Bytes32 . #u8(0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+                          0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0)]
+           [Bytes32 . #u8(0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+                          0 0 0 0  0 0 0 0  0 0 0 0  0 0 1 2)]]
+          result-in-memory?: #t
+          result-start: #x00))
+
+    (test-case "EVM-type &mload/ref/any-size, size = 34"
+      (evm-test [] (&begin
+                    ;; Store str34 in mem
+                    (&push/any-size #u8(0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+                                        0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  1 2))
+                    (&mstoreat 0 32)
+                    (&mstoreat 32 2)
+                    34 0 (&mload/ref/any-size) ; 1
+                    SWAP1 #u8(1 1) ADD SWAP1
+                    (&mstoreat 0 32)
+                    (&mstoreat 32 2)
+                    )
+
+                [[Bytes32 . #u8(0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+                                0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0)]
+                 [Bytes2 . #u8(2 3)]
+                 ]
+                result-in-memory?: #t
+                result-start: #x00)
+      )
+
     ;; Dependent on network config initialized during integration tests
     (test-case "&mload/any-size assembled, size = 65"
       (def &load65/actual (assemble/bytes (&mload/any-size 65)))

@@ -387,17 +387,6 @@
   (def ret (generate-label 'ret))
   (&begin ret (&begin* (reverse args)) routine JUMP [&jumpdest ret]))
 
-;; stack in:  offset length
-;; stack out: <n-bytes>
-;; TODO shortcircuit when 0
-;; TODO remove if not needed
-(def (&mload/ref)
-  ;; FIXME: Runtime assertions: (<= 1 n-bytes 32) - see: &safe-add
-  (&begin             ; offset length
-    MLOAD SWAP1       ; length value
-    8 MUL 256 SUB SHR ; value; FIXME: pre-EIP-145 compat - see: &shr
-    ))
-
 ;; Local memory can only be accessed 32-byte (or, for writes, also 1 byte) at a time,
 ;; and masking / merging is rather expensive, so for often-used stuff, it makes sense
 ;; to waste memory to save some gas. On the other hand, the cost of local memory is ultimately
