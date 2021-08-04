@@ -46,13 +46,13 @@
     (ethabi-encode [String String UInt256 Address]
                    [(string-append "Quality Assurance Specie on " name)
                     (string-append "QAS" NET)
-                    (expt 10 18) owner]
+                    (expt 10 27) owner] ;; one billion total tokens with 1e-18 precision
                    test-erc20-contract-bytes))
   (def (RBT-bytes)
     (ethabi-encode [String String UInt256 Address]
                    [(string-append "Random Barter Token on " name)
                     (string-append "RBT" NET)
-                    (expt 10 18) owner]
+                    (expt 10 27) owner] ;; one billion total tokens with 1e-18 precision
                    test-erc20-contract-bytes))
   (def (HAM-bytes)
     (ethabi-encode [String String String]
