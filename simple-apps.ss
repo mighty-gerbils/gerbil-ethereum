@@ -62,16 +62,23 @@
 ;;  The input data format does not use the Solidity ABI. Instead we use a
 ;;  simpler and cheaper style, with just a raw vector of bytes,
 ;;  containing "virtual instructions":
-;;  - Byte 0, followed by 20-byte address, followed by 11-byte value, for transfering
-;;    up to 309M ethers at once (more than the foreseeable ETH supply for years).
-;;  - Byte 1, followed by 20-byte address, followed by 11-byte value, followed by 2-byte length,
-;;    followed by message of given length, to CALL a contract with same value limit and message.
-;;  - Byte 2, followed by 20-byte address, followed by 2-byte length,
-;;    followed by code of given length, to DELEGATECALL a contract.
-;;  - Byte 3, followed by 11-byte value, followed by 2-byte length,
-;;    followed by code of given length, to create a contract with CREATE.
-;;  - Byte 4, followed by 11-byte value, followed by 2-byte length, followed by 32-byte salt,
-;;    followed by code of given length, to create a contract with CREATE2.
+;;  - Byte value 0 (instruction &transfer),
+;;    followed by 20-byte address, followed by 11-byte value,
+;;    for transfering up to 309M ethers at once (more than the foreseeable ETH supply for years).
+;;  - Byte value 1 (instruction &call),
+;;    followed by 20-byte address, followed by 11-byte value, followed by 2-byte length,
+;;    followed by message of given length,
+;;    to CALL a contract with same value limit and message.
+;;  - Byte value 2 (instruction &delegatecall),
+;;    followed by 20-byte address, followed by 2-byte length, followed by code of given length,
+;;    to DELEGATECALL a contract.
+;;  - Byte value 3 (instruction &create),
+;;    followed by 11-byte value, followed by 2-byte length, followed by code of given length,
+;;    to create a contract with CREATE.
+;;  - Byte value 4 (instruction &create2),
+;;    followed by 11-byte value, followed by 2-byte length, followed by 32-byte salt,
+;;    followed by code of given length,
+;;    to create a contract with CREATE2.
 ;;
 ;;  There is no 4-byte header to identify a "function" to call; there's only one "function".
 ;;  There is no 32-byte vector count as first implicit argument; the size is taken from CALLDATASIZE.
