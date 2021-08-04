@@ -4,10 +4,10 @@
 
 (export #t)
 (import
-  :std/sugar :std/format :std/misc/list :std/misc/string :std/misc/hash :std/srfi/1 :std/srfi/13
-  :clan/basic-parsers :clan/decimal :clan/string
+  :std/sugar :std/format :std/misc/list :std/misc/string :std/misc/hash :std/srfi/1 :std/srfi/13 :std/iter
+  :clan/base :clan/basic-parsers :clan/decimal :clan/string
   :clan/poo/object
-  ./assembly ./types ./ethereum ./abi ./evm-runtime ./network-config)
+  ./assembly ./types ./ethereum ./abi ./evm-runtime ./network-config ./json-rpc ./erc20 ./simple-apps)
 
 ;; TODO: rename asset to resource
 ;; for ERC721s, multiple resources in a resource-directory or resource-collection?
@@ -57,6 +57,12 @@
   .symbol: 'ETH
   .decimals: 18
   .Address: Address
+  .get-balance:
+  (lambda (address) ;; UInt256 <- Address
+    (eth_getBalance address 'latest))
+  .batched-transfer:
+  (lambda (amount address)
+    (batched-transfer amount address))
   ;; NB: The above crucially depends on the end-of-transaction code including the below check,
   ;; that must be AND'ed with all other checks before [&require!]
   .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-) UInt16
@@ -90,6 +96,13 @@
   ;; event Transfer(address indexed _from, address indexed _to, uint256 _value)
   ;; event Approval(address indexed _owner, address indexed _spender, uint256 _value)
   .transferFrom-selector: (selector<-function-signature ["transferFrom" Address Address UInt256])
+  .get-balance:
+  (lambda (address) ;; UInt256 <- Address
+    (erc20-balance .contract-address address))
+  .batched-transfer:
+  (lambda (amount recipient)
+    (batched-call 0 .contract-address
+                  (ethabi-encode [Address UInt256] [recipient amount] transfer-selector)))
   .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-) UInt16
   (lambda (amount tmp@) ;; tmp@ is the constant offset to a 100-byte scratch buffer
     ;; instead of [brk] doing [brk@ MLOAD], cache it on stack and have
@@ -145,3 +158,9 @@
 ;; Produces the native asset of the network from (ethereum-config)
 (def (lookup-native-asset (ec (ethereum-config)))
   (lookup-asset (.@ ec nativeCurrency symbol)))
+
+;; find-network-assets : Network -> [Listof Asset]
+(def (find-network-assets (network (ethereum-config)))
+  (for/collect ((p (hash->list/sort asset-table symbol<?))
+                when (equal? (asset->network (cdr p)) network))
+    (cdr p)))

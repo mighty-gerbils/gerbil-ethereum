@@ -46,20 +46,20 @@
 (def (display-balance display address balance)
   (display (nicknamed-string<-address address) balance))
 
-(def (get-address-missing-amount min-balance target-balance address)
+(def (get-address-missing-amount min-balance target-balance address asset)
   (assert! (<= min-balance target-balance))
-  (def balance (eth_getBalance address 'latest))
+  (def balance (.call asset .get-balance address))
   (if (>= balance min-balance)
     (begin
       (printf "~a has ~a already. Good.\n"
               (nicknamed-string<-address address)
-              (.call Ether .string<- balance))
+              (.call asset .string<- balance))
       0)
     (begin
       (printf "~a has ~a ether only. Funding to ~a ether.\n"
               (nicknamed-string<-address address)
-              (.call Ether .string<- balance)
-              (.call Ether .string<- target-balance))
+              (.call asset .string<- balance)
+              (.call asset .string<- target-balance))
       (- target-balance balance))))
 
 (def prefunded-addresses [alice bob trent])
@@ -71,13 +71,18 @@
       min-balance: (min-balance one-ether-in-wei)
       target-balance: (target-balance (* 2 min-balance))
       batch-contract: (batch-contract #f))
+  (def prefunded-assets (find-network-assets))
   (def needful-transfers
     (with-list-builder (c)
-      (for (a addresses)
+      (for (asset prefunded-assets)
+       (printf "Funder balance for asset ~a: ~a\n"
+               (.@ asset .symbol)
+               (.call asset .string<- (.call asset .get-balance funder)))
+       (for (a addresses)
         (unless (equal? a funder)
-          (let (v (get-address-missing-amount min-balance target-balance a))
-            (when (> v 0)
-              (c (batched-transfer v a))))))))
+           (let (v (get-address-missing-amount min-balance target-balance a asset))
+             (when (> v 0)
+               (c (.call asset .batched-transfer v a)))))))))
   (batch-txs funder needful-transfers log: write-json-ln batch-contract: batch-contract gas: 400000))
 
 ;; Send a tx, not robust, but useful for debugging
