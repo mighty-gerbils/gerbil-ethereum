@@ -72,18 +72,18 @@
       target-balance: (target-balance (* 2 min-balance))
       batch-contract: (batch-contract #f))
   (def prefunded-assets (find-network-assets))
-  (def needful-transfers
-    (with-list-builder (c)
-      (for (asset prefunded-assets)
-       (printf "Funder balance for asset ~a: ~a\n"
-               (.@ asset .symbol)
-               (.call asset .string<- (.call asset .get-balance funder)))
+  (for (asset prefunded-assets)
+    (printf "Funder balance for asset ~a: ~a\n"
+            (.@ asset .symbol)
+            (.call asset .string<- (.call asset .get-balance funder)))
+    (def needful-transfers
+      (with-list-builder (c)
        (for (a addresses)
         (unless (equal? a funder)
            (let (v (get-address-missing-amount min-balance target-balance a asset))
              (when (> v 0)
-               (c (.call asset .batched-transfer v a)))))))))
-  (batch-txs funder needful-transfers log: write-json-ln batch-contract: batch-contract gas: 400000))
+               (c (.call asset .batched-transfer v a))))))))
+    (batch-txs funder needful-transfers log: write-json-ln batch-contract: batch-contract gas: 400000)))
 
 ;; Send a tx, not robust, but useful for debugging
 ;; : SignedTransactionInfo TransactionReceipt <- PreTransaction confirmations:?Nat
