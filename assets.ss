@@ -95,7 +95,6 @@
   ;; Events:
   ;; event Transfer(address indexed _from, address indexed _to, uint256 _value)
   ;; event Approval(address indexed _owner, address indexed _spender, uint256 _value)
-  .transferFrom-selector: (selector<-function-signature ["transferFrom" Address Address UInt256])
   .get-balance:
   (lambda (address) ;; UInt256 <- Address
     (erc20-balance .contract-address address))
@@ -111,17 +110,16 @@
     ;; Note that the transfer must have been preapproved by the sender.
     ;; TODO: is that how we check the result? Or do we need to check the success from the RET area?
     (&begin
-     .transferFrom-selector (&mstoreat/overwrite-after tmp@ 4)
+     transferFrom-selector (&mstoreat/overwrite-after tmp@ 4)
      CALLER (&mstoreat (+ tmp@ 4)) ;; TODO: should this be right-padded instead of left-padded??? TEST IT!
      ADDRESS (&mstoreat (+ tmp@ 36))
      amount (&mstoreat (+ tmp@ 68))
      32 tmp@ 100 DUP2 0 .contract-address GAS CALL
      (&mloadat tmp@) AND &require!)) ;; check that both the was successful and its boolean result true
-  .approve-selector: (selector<-function-signature ["approve" Address UInt256]) ;; returns bool
   .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
   (lambda (recipient amount sub-balance tmp@) ;; tmp@ is a constant offset to a 68-byte scratch buffer
     (&begin
-     .approve-selector (&mstoreat/overwrite-after tmp@ 4)
+     approve-selector (&mstoreat/overwrite-after tmp@ 4)
      recipient (&mstoreat (+ tmp@ 4))
      amount DUP1 sub-balance (&mstoreat (+ tmp@ 36))
      32 tmp@ 68 DUP2 0 .contract-address GAS CALL
