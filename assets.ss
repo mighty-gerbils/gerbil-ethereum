@@ -123,7 +123,8 @@
      recipient (&mstoreat (+ tmp@ 4))
      amount DUP1 sub-balance (&mstoreat (+ tmp@ 36))
      32 tmp@ 68 DUP2 0 .contract-address GAS CALL
-     (&mloadat tmp@) AND &require!))) ;; check that both the was successful and its boolean result true
+     ;; check that both the call was successful and that its boolean result was true:
+     (&mloadat tmp@) AND &require!)))
 
 (def (expect-asset-amount port)
   (def asset ((expect-one-or-more-of char-ascii-alphabetic?) port))
