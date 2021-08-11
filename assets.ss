@@ -111,7 +111,7 @@
     ;; TODO: is that how we check the result? Or do we need to check the success from the RET area?
     (&begin
      transferFrom-selector (&mstoreat/overwrite-after tmp@ 4)
-     CALLER (&mstoreat (+ tmp@ 4)) ;; TODO: should this be right-padded instead of left-padded??? TEST IT!
+     CALLER (&mstoreat (+ tmp@ 4))
      ADDRESS (&mstoreat (+ tmp@ 36))
      amount (&mstoreat (+ tmp@ 68))
      32 tmp@ 100 DUP2 0 .contract-address GAS CALL
