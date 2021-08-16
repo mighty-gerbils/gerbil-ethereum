@@ -209,6 +209,40 @@
   (timer-start Block) ;; Block at which the timer was started
   #;(challenged-participant Offset)) ;; TODO? offset of the parameter containing the participant challenged to post before timeout
 
+;; Reify the operations on a variable defined with define-consecutive-addresses,
+;; into a first-class object with each generated value as a slot.
+;;
+;; TODO: we should refactor so that define-consecutive-addresses gives us
+;; this out of the box. To take it a step further, we really don't want to
+;; be defining variables like this in a macro in the first place, since that makes
+;; it impossible to define variables at runtime. Which is why we have deposit0,
+;; deposit1, etc. right now.
+(def (make-var-ops type length address getter setter)
+  (.o
+    (type type)
+    (length length)
+    (address address)
+    (get getter)
+    (set! setter)))
+
+;; put reified variables for deposit, balance, and withdraw into lists, so
+;; we can look them up by numeric index.
+(def deposit-vars
+  [(make-var-ops deposit0-type deposit0-length deposit0@ deposit0 deposit0-set!)
+   (make-var-ops deposit1-type deposit1-length deposit1@ deposit1 deposit1-set!)
+   (make-var-ops deposit2-type deposit2-length deposit2@ deposit2 deposit2-set!)])
+(def balance-vars
+  [(make-var-ops balance0-type balance0-length balance0@ balance0 balance0-set!)
+   (make-var-ops balance1-type balance1-length balance1@ balance1 balance1-set!)
+   (make-var-ops balance2-type balance2-length balance2@ balance2 balance2-set!)])
+(def withdraw-vars
+  [(make-var-ops withdraw0-type withdraw0-length withdraw0@ withdraw0 withdraw0-set!)
+   (make-var-ops withdraw1-type withdraw1-length withdraw1@ withdraw1 withdraw1-set!)
+   (make-var-ops withdraw2-type withdraw2-length withdraw2@ withdraw2 withdraw2-set!)
+   (make-var-ops withdraw3-type withdraw3-length withdraw3@ withdraw3 withdraw3-set!)
+   (make-var-ops withdraw4-type withdraw4-length withdraw4@ withdraw4 withdraw4-set!)
+   (make-var-ops withdraw5-type withdraw5-length withdraw5@ withdraw5 withdraw5-set!)])
+
 ;; Then there will be per-frame parameter fields, to be defined in the proper scope with:
 (defrule (define-frame-params ctx params ...)
   (with-id ctx (params-end@)
