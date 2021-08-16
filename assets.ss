@@ -70,7 +70,9 @@
     (&begin amount CALLVALUE EQ &require!))
   .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
   (lambda (recipient amount sub-balance _tmp@)
-    (&begin amount recipient DUP2 sub-balance &send-ethers!))) ;; Transfer!
+    (&begin amount recipient DUP2 sub-balance &send-ethers!)) ;; Transfer!
+  .approve-deposit!:
+  (lambda (sender recipient amount) (void)))
 
 (register-asset! Ether)
 
@@ -124,7 +126,10 @@
      amount DUP1 sub-balance (&mstoreat (+ tmp@ 36))
      32 tmp@ 68 DUP2 0 .contract-address GAS CALL
      ;; check that both the call was successful and that its boolean result was true:
-     (&mloadat tmp@) AND &require!)))
+     (&mloadat tmp@) AND &require!))
+  .approve-deposit!:
+  (lambda (sender recipient amount)
+    (erc20-approve .contract-address sender recipient amount)))
 
 (def (expect-asset-amount port)
   (def asset ((expect-one-or-more-of char-ascii-alphabetic?) port))
