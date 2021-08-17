@@ -428,27 +428,16 @@
      EQ &require! [&jumpdest safe-mul-end]))) ;; -- xy [6B, 20G]
 
 ;; TESTING STATUS: Wholly tested
-
-(def (deposit i)
-  (.@ (list-ref deposit-vars i) get))
-(def (withdraw i)
-  (.@ (list-ref withdraw-vars i) get))
-(def (balance i)
-  (.@ (list-ref balance-vars i) get))
-
-(def (&add-deposit! i)
-  (def var (list-ref deposit-vars i))
+(def (&add-deposit! var)
   ;; Scheme pseudocode: (lambda (amount) (increment! deposit0 amount))
   ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
   (&begin (.@ var get ) &safe-add (.@ var set!))) ;; [14B, 40G]
 
-(def (&add-withdraw! i)
-  (def var (list-ref withdraw-vars i))
+(def (&add-withdraw! var)
   (&begin (.@ var get) &safe-add (.@ var set!))) ;; [14B, 40G]
 
 ;; (EVMThunk <- Amount)
-(def (&sub-balance! i)
-  (def var (list-ref balance-vars i))
+(def (&sub-balance! var)
   (&begin (.@ var get) &safe-sub (.@ var set!)))
 
 ;; (EVMThunk <- Address Amount)
