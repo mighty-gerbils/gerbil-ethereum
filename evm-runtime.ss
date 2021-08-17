@@ -243,6 +243,9 @@
    (make-var-ops withdraw4-type withdraw4-length withdraw4@ withdraw4 withdraw4-set!)
    (make-var-ops withdraw5-type withdraw5-length withdraw5@ withdraw5 withdraw5-set!)])
 
+(def MAX_ASSETS (length balance-vars))
+(def MAX_PARTICIPANTS (/ (length withdraw-vars) MAX_ASSETS))
+
 ;; Then there will be per-frame parameter fields, to be defined in the proper scope with:
 (defrule (define-frame-params ctx params ...)
   (with-id ctx (params-end@)
