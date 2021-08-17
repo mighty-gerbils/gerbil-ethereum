@@ -121,7 +121,7 @@
   .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
   (lambda (recipient amount sub-balance tmp@) ;; tmp@ is a constant offset to a 68-byte scratch buffer
     (&begin
-     approve-selector (&mstoreat/overwrite-after tmp@ 4)
+     transfer-selector (&mstoreat/overwrite-after tmp@ 4)
      recipient (&mstoreat (+ tmp@ 4))
      amount DUP1 sub-balance (&mstoreat (+ tmp@ 36))
      32 tmp@ 68 DUP2 0 .contract-address GAS CALL
