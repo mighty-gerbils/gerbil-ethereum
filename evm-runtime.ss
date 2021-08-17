@@ -176,9 +176,19 @@
   (brk 32 #|3|#) ;; The free memory pointer.
   (calldatapointer 32 #|3|#) ;; Pointer within CALLDATA to yet unread published information.
   (calldatanew 32 #|3|#) ;; Pointer to new information within CALLDATA (everything before was seen).
-  (deposit0 32)  ;; Required deposit so far for asset 0.
-  (deposit1 32)  ;; Required deposit so far for asset 1.
-  (deposit2 32)  ;; Required deposit so far for asset 2.
+
+  ;; Track the required deposit amounts for various assets. For now, we have an arbitrary
+  ;; limit of 3 assets per interaction, mainly because define-consecutive-addresses being
+  ;; a macro means we have to decide on this before we get to look at the particular contract.
+  ;; TODO: rework this so that we define variable offsets in consensus-code-generator,
+  ;; rather than statically in gerbil-ethereum, and then pick this number based on what
+  ;; the contract actually uses.
+  (deposit0 32)
+  (deposit1 32)
+  (deposit2 32)
+
+  ;; Track the pending withdrawals. We have one variable for each (asset, participant)
+  ;; pair.
   (withdraw0 32)
   (withdraw1 32)
   (withdraw2 32)
@@ -197,15 +207,15 @@
          ;; NOTE: &simple-contract-prelude makes a critical assumption that
          ;; pc is the first thing inside the merkelized state; do not re-order
          ;; it.
-  (balance0 32) ;; Balance for this interaction. We store this as a variable, rather than
-                ;; using the BALANCE instruction, so that we can multiplex multiple
-                ;; interactions onto one contract.
-  (balance1 32) ;; Balance for this interaction. We store this as a variable, rather than
-                ;; using the BALANCE instruction, so that we can multiplex multiple
-                ;; interactions onto one contract.
-  (balance2 32) ;; Balance for this interaction. We store this as a variable, rather than
-                ;; using the BALANCE instruction, so that we can multiplex multiple
-                ;; interactions onto one contract.
+
+  ;; Variables to track the balances of various assets for this interaction. For
+  ;; non-native tokens, storing this is cheaper than querying the token's contract,
+  ;; and for the native token, we want to avoid  using the BALANCE instruction, so
+  ;; that we can multiplex multiple interactions onto one contract in the future.
+  (balance0 32)
+  (balance1 32)
+  (balance2 32)
+
   (timer-start Block) ;; Block at which the timer was started
   #;(challenged-participant Offset)) ;; TODO? offset of the parameter containing the participant challenged to post before timeout
 
