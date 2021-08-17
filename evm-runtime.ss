@@ -380,12 +380,6 @@
 ;; TESTING STATUS: Used by buy-sig
 (def &require! (&begin ISZERO &require-not!)) ;; [4B, 16G]
 
-;; Check the requirement that the amount actually deposited in the call (from CALLVALUE) is sufficient
-;; to cover the amount that the contract believes should have been deposited (from deposit@ MLOAD).
-;; TESTING STATUS: Insufficiently tested
-(def &check-sufficient-deposit0
-  (&begin deposit0 CALLVALUE LT &require-not!)) ;; [8B, 25G]
-
 ;; TODO: *in the future*, have a variant of contracts that allows for posting markets,
 ;; whereby whoever posts the message to the blockchain might not be the participant,
 ;; and instead, the participant signs the in-contract message.
@@ -561,74 +555,6 @@
         (.@ balance get)
         &safe-add
         (.@ balance set!)))))
-
-;; Logging the data, simple version, optimal for messages less than 6000 bytes of data.
-;; TESTING STATUS: Used by buy-sig.
-(def &define-simple-logging
-  (&begin
-   [&jumpdest 'commit-contract-call] ;; -- return-address
-   &check-sufficient-deposit0 ;; First, check deposit0
-   calldatanew DUP1 CALLDATASIZE SUB ;; -- logsz cdn ret
-   SWAP1 ;; -- cdn logsz ret
-   DUP2 ;; logsz cdn logsz ret
-   0 SWAP2 ;; -- cdn logsz 0 logsz ret
-   DUP3 ;; -- 0 cdn logsz 0 logsz ret
-   CALLDATACOPY ;; -- 0 logsz ret
-   LOG0 JUMP))
-
-;; Logging the data
-;; TESTING STATUS: Wholly untested.
-(def &define-variable-size-logging
-  (&begin
-   [&jumpdest 'commit-contract-call]
-   &check-sufficient-deposit0 ;; First, check the deposit0
-   ;; compute available buffer size: max(MSIZE, n*256)
-   ;; -- TODO: find out the optimal number to minimize gas, considering the quadratic cost of memory
-   ;; versus the affine cost of logging, and the cost of this loop.
-   ;; i.e. compute total logging gas depending on buffer size, differentiate, minimize
-   ;; The marginal cost C of this loop is ~550 (linear logging costs are not marginal), total C*L/B.
-   ;; The marginal memory cost beyond M is 3/32*B+B*B/Q, Q=524288. Minimize for B: C*L/B+B*B/Q+3/32*B
-   ;; We cancel the derivative, which is -C*L/B^2+2*B/Q+3/32, or (B^3*2/Q + B^2*3/32 -C*L)/B^2.
-   ;; Let's neglect the quadratic term for now.
-   ;; The optimal buffer size verifies -C*L/B^2 + 3/32 = 0, or B = sqrt(32*C*L/3) = sqrt(32*C/3)*sqrt(L)
-   ;; sqrt(32*C/3) is about 77. Under about 6000B (the usual case?), it's always best to have a single log.
-   ;; That's before the quadratic term kicks in.
-   ;; Now, for large call data sizes, the quadratic term starts to matter:
-   ;; 8M gas limit and about 22 g/byte mean that L < 360000 sqrt(L) < 600.
-   ;; The optimal number neglecting the quadratic term goes up to 46200,
-   ;; but at that point, the total two memory costs are comparable (about 4000 Gas).
-   ;; The formula for optimal L with only the quadratic term is cubrt(Q*C/2)*cubrt(L),
-   ;; which also tops at 38000 and grows more slowly.
-   ;; But we can use Wolfram Alpha to solve exactly:
-   ;; https://www.wolframalpha.com/input/?i=Reduce%5B%283+B%5E2%29%2F32+%2B+B%5E3%2F262144+-+550+L+%3D%3D+0%2C+B%5D
-   ;; We find the exact real solution:
-   ;; B = 64 ((275 L + 5 sqrt(11) sqrt(L (275 L - 4194304)) - 2097152)^(1/3) + 16384/(275 L + 5 sqrt(11) sqrt(L (275 L - 4194304)) - 2097152)^(1/3) - 128)
-   ;; We can plot it:
-   ;; https://www.wolframalpha.com/input/?i=plot+%7C+64+%28%28275+L+%2B+5+sqrt%2811%29+sqrt%28L+%28275+L+-+4194304%29%29+-+2097152%29%5E%281%2F3%29+%2B+16384%2F%28275+L+%2B+5+sqrt%2811%29+sqrt%28L+%28275+L+-+4194304%29%29+-+2097152%29%5E%281%2F3%29+-+128%29%2C+L+from+0+to+360000&assumption=%7B%22F%22%2C+%22Plot%22%2C+%22plotvariable%22%7D+-%3E%22L%22&assumption=%22FSelect%22+-%3E+%7B%7B%22Plot%22%7D%7D&assumption=%7B%22F%22%2C+%22Plot%22%2C+%22plotlowerrange%22%7D+-%3E%2232%22&assumption=%7B%22C%22%2C+%22plot%22%7D+-%3E+%7B%22Calculator%22%7D&assumption=%7B%22F%22%2C+%22Plot%22%2C+%22plotfunction%22%7D+-%3E%2264+%28%28275+L+%2B+5+sqrt%2811%29+sqrt%28L+%28275+L+-+4194304%29%29+-+2097152%29%5E%281%2F3%29+%2B+16384%2F%28275+L+%2B+5+sqrt%2811%29+sqrt%28L+%28275+L+-+4194304%29%29+-+2097152%29%5E%281%2F3%29+-+128%29%22&assumption=%7B%22F%22%2C+%22Plot%22%2C+%22plotupperrange%22%7D+-%3E%22360000%22
-   ;; It grows slowly from 0 to a bit over 30000 for L=360000.
-   ;;
-   ;; Instead of having the contract itself minimize a polynomial according to some elaborate formula,
-   ;; we can just let the user specify their buffer size as a parameter (within meaningful limits);
-   ;; if they provide a bad answer, they are the ones who pay the extra gas (or fail).
-   ;; This parameter could be a single byte, to be shifted left 7 bits.
-   ;; -- getting it wrong is only 70-odd gas wrong,
-   ;; less than it costs to use a second byte for precision.
-   MSIZE 16384 DUP2 DUP2 GT [&jumpi1 'maxm1] SWAP1
-   [&jumpdest 'maxm1] POP ;; -- bufsz
-   calldatanew DUP1 CALLDATASIZE SUB ;; -- logsz cdn bufsz
-   ;; Loop:
-   [&jumpdest 'logbuf] ;; -- logsz cdn bufsz
-   ;; If there's no more data, stop.
-   DUP1 #|logsz|# [&jumpi1 'logbuf1] POP POP POP JUMP [&jumpdest 'logbuf1] ;; -- logsz cdn bufsz
-   ;; compute the message size: msgsz = min(cdsz, bufsz)
-   DUP3 #|bufsz|# DUP2 #|logsz|# LT [&jumpi1 'minbl] SWAP1
-   [&jumpdest 'minbl] POP ;; -- msgsz logsz cdn bufsz
-   ;; Log a message
-   DUP1 #|msgsz|# 0 DUP2 #|msgsz|# DUP6 #|cdn|# DUP3 #|0|# CALLDATACOPY LOG0 ;; -- msgsz logsz cdn bufsz
-   ;; Adjust logsz and cdn
-   SWAP2 #|cdn logsz msgsz|# DUP3 #|msgsz|# ADD SWAP2 #|msgsz logsz cdn|# SWAP1 SUB ;; -- logsz cdn bufsz
-   ;; loop!
-   [&jump1 'logbuf]))
 
 ;; Emulate the SELFDESTRUCT instruction, but only for the current *interaction*, rather
 ;; than the whole contract. At time of writing, there is only one interaction per contract,
