@@ -1,7 +1,7 @@
 (export #t)
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
-  :std/misc/number :std/sugar
+  :std/misc/number :std/sugar :std/iter
   :clan/base :clan/number :clan/with-id
   :clan/poo/object (only-in :clan/poo/mop Type)
   :clan/crypto/secp256k1
@@ -545,15 +545,22 @@
    ;; -- frame-length TODO: at standard place in frame, info about who is or isn't timing out
    ;; and/or make it a standard part of the cp0 calling convention to catch such.
    (&read-published-datum 1) ISZERO 'tail-call-body JUMPI
-   &sync-deposit0! ;; NB: update the balance0 *before* we compute the SHA3
+   &sync-deposit! ;; NB: update the balances *before* we compute the SHA3
    frame@ SHA3 0 SSTORE ;; TODO: ensure frame-width is on the stack before here
    'stop-contract-call
    [&jump1 'commit-contract-call])) ;; update the state, then commit and finally stop
 
-;; add the deposit0 to our recorded interaction balance0.
-(def &sync-deposit0!
-  (&begin
-    deposit0 balance0 &safe-add balance0-set!))
+;; add the deposits to our recorded interaction balances.
+(def &sync-deposit!
+  (&begin*
+    (for/collect
+      ((deposit deposit-vars)
+       (balance balance-vars))
+      (&begin
+        (.@ deposit get)
+        (.@ balance get)
+        &safe-add
+        (.@ balance set!)))))
 
 ;; Logging the data, simple version, optimal for messages less than 6000 bytes of data.
 ;; TESTING STATUS: Used by buy-sig.
