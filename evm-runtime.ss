@@ -428,30 +428,28 @@
      EQ &require! [&jumpdest safe-mul-end]))) ;; -- xy [6B, 20G]
 
 ;; TESTING STATUS: Wholly tested
-(def &add-deposit0!
+
+(def (deposit i)
+  (.@ (list-ref deposit-vars i) get))
+(def (withdraw i)
+  (.@ (list-ref withdraw-vars i) get))
+(def (balance i)
+  (.@ (list-ref balance-vars i) get))
+
+(def (&add-deposit! i)
+  (def var (list-ref deposit-vars i))
   ;; Scheme pseudocode: (lambda (amount) (increment! deposit0 amount))
   ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
-  (&begin deposit0 &safe-add deposit0-set!)) ;; [14B, 40G]
-(def &add-deposit1!
-  ;; Scheme pseudocode: (lambda (amount) (increment! deposit1 amount))
-  ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
-  (&begin deposit1 &safe-add deposit1-set!)) ;; [14B, 40G]
-(def &add-deposit2!
-  ;; Scheme pseudocode: (lambda (amount) (increment! deposit2 amount))
-  ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
-  (&begin deposit2 &safe-add deposit2-set!)) ;; [14B, 40G]
+  (&begin (.@ var get ) &safe-add (.@ var set!))) ;; [14B, 40G]
 
-(def &add-withdraw0! (&begin withdraw0 &safe-add withdraw0-set!)) ;; [14B, 40G]
-(def &add-withdraw1! (&begin withdraw1 &safe-add withdraw1-set!)) ;; [14B, 40G]
-(def &add-withdraw2! (&begin withdraw2 &safe-add withdraw2-set!)) ;; [14B, 40G]
-(def &add-withdraw3! (&begin withdraw3 &safe-add withdraw3-set!)) ;; [14B, 40G]
-(def &add-withdraw4! (&begin withdraw4 &safe-add withdraw4-set!)) ;; [14B, 40G]
-(def &add-withdraw5! (&begin withdraw5 &safe-add withdraw5-set!)) ;; [14B, 40G]
+(def (&add-withdraw! i)
+  (def var (list-ref withdraw-vars i))
+  (&begin (.@ var get) &safe-add (.@ var set!))) ;; [14B, 40G]
 
 ;; (EVMThunk <- Amount)
-(def &sub-balance0! (&begin balance0 &safe-sub balance0-set!))
-(def &sub-balance1! (&begin balance1 &safe-sub balance1-set!))
-(def &sub-balance2! (&begin balance2 &safe-sub balance2-set!))
+(def (&sub-balance! i)
+  (def var (list-ref balance-vars i))
+  (&begin (.@ var get) &safe-sub (.@ var set!)))
 
 ;; (EVMThunk <- Address Amount)
 ;; TESTING STATUS: Wholly untested.
@@ -462,14 +460,6 @@
    DUP2 #|0|# SWAP4 ;; -- address value 0 0 0 0
    GAS ;; -- gas address value 0 0 0 0
    CALL &require!)) ;; -- Transfer!
-
-;; TODO: group the withdrawals at the end, like the deposit0 checks?
-;; TESTING STATUS: Wholly untested.
-(def &withdraw0!
-   (&begin ;; -- address value
-     DUP2 ;; -- value address value
-     &sub-balance0! ;; -- address value
-     &send-ethers!))
 
 ;; TESTING STATUS: Used in buy-sig. TODO: we should also test with a bad signature.
 (def &mload/signature ;; v r s <-- signature@
