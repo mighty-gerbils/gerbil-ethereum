@@ -163,7 +163,10 @@
 ;;
 ;; ...with the obvious correspondences. TODO: bring these more in-line with
 ;; the stand-alone names?
-
+;;
+;; Additionally, the object has a property `name` which is the name of the
+;; variable (as a symbol).
+;;
 ;; TODO: support intermediate-speed variables that overwrite-after?
 ;;
 ;; TODO: we really don't want to do this as a macro at all, since it means we
@@ -193,7 +196,8 @@
       (def setter (if (<= 0 length 32) (&mstoreat address length)
                       (lambda _ (error "Variable too large to be stored from stack" 'param length))))
       (def var
-           {type: type
+           {name: 'param
+            type: type
             length: length
             address: address
             get: getter
