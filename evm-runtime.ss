@@ -3,6 +3,7 @@
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
   :std/misc/number :std/sugar :std/iter
   :clan/base :clan/number :clan/with-id
+  :clan/poo/brace
   :clan/poo/object (only-in :clan/poo/mop Type)
   :clan/crypto/secp256k1
   ./network-config ./assembly ./ethereum ./types)
@@ -126,17 +127,50 @@
         ((element? Type type-or-length) type-or-length)
         (else (invalid 'param-type type-or-length))))
 
-;; ctx is a lexical context in which for each of the specified contract-level parameters,
-;; assembly-level variables will be defined for type, length, address, getter and setter.
-;; start is an expression the value of which will be the address for the first parameter
-;; end is an identifier which will be defined as the next available address after these parameters.
-;; For each each parameter, param is a identifier and
-;; type-or-length is an expression evaluating to either a type descriptor or a length (integer).
-;; The respective type, length, address, getter and setter identifiers for each parameter
-;; will be defined in the lexical context ctx, and will be computed by appending to the param identifier
-;; the respective suffixes "-types" "-length " "@" "" "-set!".
-;; The getter and setter will only be usefully defined if the length is between 0 and 32 included.
+;; define-consecutive-addresses defines statically-allocated variables in the EVM address
+;; space.
+;;
+;; Parameters:
+;;
+;; - `ctx` is a lexical context in which for each of the specified contract-level parameters
+;; - `start` is an expression the value of which will be the address for the first variable.
+;; - `end` is an identifier which will be defined as the next available address after these
+;;   variables.
+;;
+;; Finally, any remaining arguments specify the actual variables. They have the form
+;; (param type-or-length), where param is an identifier and type-or-length is an
+;; expression evaluating to either a type descriptor or a length (integer).
+;;
+;; The macro generates the following definitions:
+;;
+;; - A getter, with the same name `param`.
+;; - A setter, named `param-set!`.
+;; - A numeric address, named `param@`.
+;; - A length, named `param-length`.
+;; - A POO object, grouping all of the above into a value that
+;;   can be passed around as a unit. This is named `param-var`.
+;;
+;; The getter and setter will only be useful if the length is between 0 and 32
+;; included; otherwise the implementation just throws an error.
+;;
+;; The object has properties named:
+;;
+;; - type
+;; - length
+;; - address
+;; - get
+;; - set!
+;;
+;; ...with the obvious correspondences. TODO: bring these more in-line with
+;; the stand-alone names?
+
 ;; TODO: support intermediate-speed variables that overwrite-after?
+;;
+;; TODO: we really don't want to do this as a macro at all, since it means we
+;; can't write programs that allocate variables based on their input, if they
+;; have to do so at macro expansion time, which is pretty sad. Instead, we should
+;; store relevant information in a run-time (scheme) variable or parameter, and
+;; have normal *functions* for defining variables.
 (defrule (define-consecutive-addresses ctx start end (param type-or-length) ...)
   (begin
     ;; Variable with a name provided by the macro caller above,
@@ -149,14 +183,21 @@
          (length #'param '-length)
          (address #'param '@)
          (getter #'param)
-         (setter #'param '-set!))
+         (setter #'param '-set!)
+         (var #'param '-var))
       (def type (param-type type-or-length))
       (def length (param-length type-or-length))
       (def address (post-increment! end length))
       (def getter (if (<= 0 length 32) (&mloadat address length)
                       (lambda _ (error "Variable too large to be loaded on stack" 'param length))))
       (def setter (if (<= 0 length 32) (&mstoreat address length)
-                      (lambda _ (error "Variable too large to be stored from stack" 'param length)))))
+                      (lambda _ (error "Variable too large to be stored from stack" 'param length))))
+      (def var
+           {type: type
+            length: length
+            address: address
+            get: getter
+            set!: setter}))
     ...))
 
 ;; Local memory layout for solidity:
@@ -219,39 +260,23 @@
   (timer-start Block) ;; Block at which the timer was started
   #;(challenged-participant Offset)) ;; TODO? offset of the parameter containing the participant challenged to post before timeout
 
-;; Reify the operations on a variable defined with define-consecutive-addresses,
-;; into a first-class object with each generated value as a slot.
-;;
-;; TODO: we should refactor so that define-consecutive-addresses gives us
-;; this out of the box. To take it a step further, we really don't want to
-;; be defining variables like this in a macro in the first place, since that makes
-;; it impossible to define variables at runtime. Which is why we have deposit0,
-;; deposit1, etc. right now.
-(def (make-var-ops type length address getter setter)
-  (.o
-    (type type)
-    (length length)
-    (address address)
-    (get getter)
-    (set! setter)))
-
-;; put reified variables for deposit, balance, and withdraw into lists, so
-;; we can look them up by numeric index.
+;; Put reified variables for deposit, balance, and withdraw into lists, so
+;; we can look them up by numeric index, iterate over them, etc.
 (def deposit-vars
-  [(make-var-ops deposit0-type deposit0-length deposit0@ deposit0 deposit0-set!)
-   (make-var-ops deposit1-type deposit1-length deposit1@ deposit1 deposit1-set!)
-   (make-var-ops deposit2-type deposit2-length deposit2@ deposit2 deposit2-set!)])
+   [deposit0-var
+    deposit1-var
+    deposit2-var])
 (def balance-vars
-  [(make-var-ops balance0-type balance0-length balance0@ balance0 balance0-set!)
-   (make-var-ops balance1-type balance1-length balance1@ balance1 balance1-set!)
-   (make-var-ops balance2-type balance2-length balance2@ balance2 balance2-set!)])
+   [balance0-var
+    balance1-var
+    balance2-var])
 (def withdraw-vars
-  [(make-var-ops withdraw0-type withdraw0-length withdraw0@ withdraw0 withdraw0-set!)
-   (make-var-ops withdraw1-type withdraw1-length withdraw1@ withdraw1 withdraw1-set!)
-   (make-var-ops withdraw2-type withdraw2-length withdraw2@ withdraw2 withdraw2-set!)
-   (make-var-ops withdraw3-type withdraw3-length withdraw3@ withdraw3 withdraw3-set!)
-   (make-var-ops withdraw4-type withdraw4-length withdraw4@ withdraw4 withdraw4-set!)
-   (make-var-ops withdraw5-type withdraw5-length withdraw5@ withdraw5 withdraw5-set!)])
+   [withdraw0-var
+    withdraw1-var
+    withdraw2-var
+    withdraw3-var
+    withdraw4-var
+    withdraw5-var])
 
 (def MAX_ASSETS (length balance-vars))
 (def MAX_PARTICIPANTS (/ (length withdraw-vars) MAX_ASSETS))
