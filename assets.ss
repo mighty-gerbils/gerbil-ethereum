@@ -60,9 +60,12 @@
   .get-balance:
   (lambda (address) ;; UInt256 <- Address
     (eth_getBalance address 'latest))
-  .batched-transfer:
-  (lambda (amount address)
-    (batched-transfer amount address))
+  .transfer:
+    (lambda (sender recipient amount)
+      (batch-txs
+        sender
+        [(batched-transfer amount recipient)]
+        gas: 400000))
   ;; NB: The above crucially depends on the end-of-transaction code including the below check,
   ;; that must be AND'ed with all other checks before [&require!]
   .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-) UInt16
@@ -100,10 +103,9 @@
   .get-balance:
   (lambda (address) ;; UInt256 <- Address
     (erc20-balance .contract-address address))
-  .batched-transfer:
-  (lambda (amount recipient)
-    (batched-call 0 .contract-address
-                  (ethabi-encode [Address UInt256] [recipient amount] transfer-selector)))
+  .transfer:
+    (lambda (sender recipient amount)
+      (erc20-transfer .contract-address sender recipient amount))
   .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-) UInt16
   (lambda (amount tmp@) ;; tmp@ is the constant offset to a 100-byte scratch buffer
     ;; instead of [brk] doing [brk@ MLOAD], cache it on stack and have

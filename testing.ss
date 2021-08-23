@@ -69,21 +69,17 @@
       from: (funder croesus)
       to: (addresses prefunded-addresses)
       min-balance: (min-balance one-ether-in-wei)
-      target-balance: (target-balance (* 2 min-balance))
-      batch-contract: (batch-contract #f))
+      target-balance: (target-balance (* 2 min-balance)))
   (def prefunded-assets (find-network-assets))
   (for (asset prefunded-assets)
     (printf "Funder balance for asset ~a: ~a\n"
             (.@ asset .symbol)
             (.call asset .string<- (.call asset .get-balance funder)))
-    (def needful-transfers
-      (with-list-builder (c)
-       (for (a addresses)
-        (unless (equal? a funder)
-           (let (v (get-address-missing-amount min-balance target-balance a asset))
-             (when (> v 0)
-               (c (.call asset .batched-transfer v a))))))))
-    (batch-txs funder needful-transfers log: write-json-ln batch-contract: batch-contract gas: 400000)))
+    (for (a addresses)
+      (unless (equal? a funder)
+         (let (v (get-address-missing-amount min-balance target-balance a asset))
+           (when (> v 0)
+             (.call asset .transfer funder a v)))))))
 
 ;; Send a tx, not robust, but useful for debugging
 ;; : SignedTransactionInfo TransactionReceipt <- PreTransaction confirmations:?Nat
