@@ -200,14 +200,14 @@
     ;; (test-case "&check-sufficient-deposit0 when deposit0 is GT"
     ;; (evm-test-failure [] (&begin &check-sufficient-deposit0)))
 
-    (test-case "&add-deposit0!"
+    (test-case "&add-var!/deposit0"
       (evm-test [[UInt256 . 300]]
-                (&begin &add-deposit0! deposit0 &add-deposit0! deposit0)
+                (&begin (&add-var! deposit0-var) deposit0 (&add-var! deposit0-var) deposit0)
                 [[UInt256 . 600]]))
 
-    (test-case "&add-withdraw0!"
+    (test-case "&add-var!/withdraw0"
       (evm-test [[UInt256 . 300]]
-                (&begin &add-withdraw0! withdraw0 &add-withdraw0! withdraw0)
+                (&begin (&add-var! withdraw0-var) withdraw0 (&add-var! withdraw0-var) withdraw0)
                 [[UInt256 . 600]]))
 
     (test-case "&brk-cons when n-bytes is 32"
