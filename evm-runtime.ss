@@ -161,6 +161,8 @@
 ;; - get
 ;; - set!
 ;;
+;; NB, in doc comments we refer to this object type as a StaticVar.
+;;
 ;; ...with the obvious correspondences. TODO: bring these more in-line with
 ;; the stand-alone names?
 ;;

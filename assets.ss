@@ -21,6 +21,7 @@
 ;; register-asset! : AssetType -> Void
 (def (register-asset! a) (hash-put! asset-table (.@ a .symbol) a))
 
+;; Abstract interface for an asset type.
 (.def (Asset @ [Type.])
   .element?: (lambda (v)
                (and (object? v) (.has? v .symbol) (hash-key? asset-table (.@ v .symbol))))
@@ -30,7 +31,37 @@
   .string<-: (lambda (a) (symbol->string (.@ a .symbol)))
   .<-string: (lambda (s) (lookup-asset (string->symbol s)))
   .bytes<-: (lambda (a) (string->bytes (symbol->string (.@ a .symbol))))
-  .<-bytes: (lambda (b) (lookup-asset (string->symbol (bytes->string b)))))
+  .<-bytes: (lambda (b) (lookup-asset (string->symbol (bytes->string b))))
+
+  ;; Implementations should additionally define:
+
+  ;; Query the current balance of this asset for an address.
+  ;; .get-balance : UInt256 <- Address
+
+  ;; (.transfer sender recipient amount) transfers 'amount' funds from 'sender' to
+  ;; 'recipient'. Caller must be authorized to act on behalf of the sender.
+  ;;
+  ;; .transfer : <- Address Address UInt16
+
+  ;; (.commit-deposit! amount) generates EVM code to finalize/verify a deposit
+  ;; of 'amount' into the consensus. This will be called once per asset type
+  ;; at transaction commit.
+  ;;
+  ;; .commit-deposit! : (EVMThunk <-) <- (EVMThunk Amount <-)
+
+  ;; (.commit-withdraw! recipient amount balance-var) is generates EVM code to
+  ;; finalize/verify a withdrawal of 'amount' from the consensus. 'recipient' is the
+  ;; participant making the withdrawal, and balance-var is the static variable holding
+  ;; the balance for this (recipient, asset type) pair. called at transaction commit
+  ;; one for each such pair.
+  ;;
+  ;; .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) StaticVar
+
+  ;; (.approve-deposit! sender recipient amount) pre-approves a deposit into 'recipient'
+  ;; from account 'sender', with the given amount, if necessary.
+  ;;
+  ;; .approve-deposit! : <- Address Address Unit256
+  )
 
 (.def (TokenAmount @ [] .decimals .validate .symbol)
   .denominator: (expt 10 .decimals)
@@ -86,20 +117,6 @@
        .decimals) ;; : Nat ;; number of decimals by which to divide the integer amount to get token amount
   .asset-code: .contract-address
   .Address: Address
-  ;; function balanceOf(address _owner) public view returns (uint256 balance)
-  ;; function transfer(address _to, uint256 _value) public returns (bool success)
-  ;; function transferFrom(address _from, address _to, uint256 _value) public returns (bool success)
-  ;; function approve(address _spender, uint256 _value) public returns (bool success)
-  ;; NB: *always* reset the approval value to 0 then wait for confirmation
-  ;; before to set it again to a different non-zero value, or the recipient may race the change
-  ;; to extract the sum of the old and new authorizations.
-  ;; OR, first transfer to another account, and have *that* account approve the transfer.
-  ;; This all makes fast ERC20 payments "interesting".
-  ;; https://docs.google.com/document/d/1YLPtQxZu1UAvO9cZ1O2RPXBbT0mooh4DYKjA_jp-RLM/
-  ;; function allowance(address _owner, address _spender) public view returns (uint256 remaining)
-  ;; Events:
-  ;; event Transfer(address indexed _from, address indexed _to, uint256 _value)
-  ;; event Approval(address indexed _owner, address indexed _spender, uint256 _value)
   .get-balance:
   (lambda (address) ;; UInt256 <- Address
     (erc20-balance .contract-address address))
@@ -108,20 +125,16 @@
       (erc20-transfer .contract-address sender recipient amount))
   .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-) UInt16
   (lambda (amount) ;; tmp@ is the constant offset to a 100-byte scratch buffer
-    ;; instead of [brk] doing [brk@ MLOAD], cache it on stack and have
-    ;; a locals mechanism that binds brk to that?
-    ;; Or could/should we be using a fixed buffer for these things?
-    ;; Note that the transfer must have been preapproved by the sender.
-    ;; TODO: is that how we check the result? Or do we need to check the success from the RET area?
     (&begin
      transferFrom-selector (&mstoreat/overwrite-after tmp100@ 4)
      CALLER (&mstoreat (+ tmp100@ 4))
      ADDRESS (&mstoreat (+ tmp100@ 36))
      amount (&mstoreat (+ tmp100@ 68))
      32 tmp100@ 100 DUP2 0 .contract-address GAS CALL
-     (&mloadat tmp100@) AND &require!)) ;; check that both the was successful and its boolean result true
+     ;; check that both the was successful and its boolean result true:
+     (&mloadat tmp100@) AND &require!))
   .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
-  (lambda (recipient amount balance-var) ;; tmp@ is a constant offset to a 68-byte scratch buffer
+  (lambda (recipient amount balance-var)
     (&begin
      transfer-selector (&mstoreat/overwrite-after tmp100@ 4)
      recipient (&mstoreat (+ tmp100@ 4))
