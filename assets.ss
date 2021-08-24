@@ -69,10 +69,10 @@
   ;; NB: The above crucially depends on the end-of-transaction code including the below check,
   ;; that must be AND'ed with all other checks before [&require!]
   .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-) UInt16
-  (lambda (amount _tmp@)
+  (lambda (amount)
     (&begin amount CALLVALUE EQ &require!))
   .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
-  (lambda (recipient amount sub-balance _tmp@)
+  (lambda (recipient amount sub-balance)
     (&begin amount recipient DUP2 sub-balance &send-ethers!)) ;; Transfer!
   .approve-deposit!:
   (lambda (sender recipient amount) (void)))
@@ -107,28 +107,28 @@
     (lambda (sender recipient amount)
       (erc20-transfer .contract-address sender recipient amount))
   .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-) UInt16
-  (lambda (amount tmp@) ;; tmp@ is the constant offset to a 100-byte scratch buffer
+  (lambda (amount) ;; tmp@ is the constant offset to a 100-byte scratch buffer
     ;; instead of [brk] doing [brk@ MLOAD], cache it on stack and have
     ;; a locals mechanism that binds brk to that?
     ;; Or could/should we be using a fixed buffer for these things?
     ;; Note that the transfer must have been preapproved by the sender.
     ;; TODO: is that how we check the result? Or do we need to check the success from the RET area?
     (&begin
-     transferFrom-selector (&mstoreat/overwrite-after tmp@ 4)
-     CALLER (&mstoreat (+ tmp@ 4))
-     ADDRESS (&mstoreat (+ tmp@ 36))
-     amount (&mstoreat (+ tmp@ 68))
-     32 tmp@ 100 DUP2 0 .contract-address GAS CALL
-     (&mloadat tmp@) AND &require!)) ;; check that both the was successful and its boolean result true
+     transferFrom-selector (&mstoreat/overwrite-after tmp100@ 4)
+     CALLER (&mstoreat (+ tmp100@ 4))
+     ADDRESS (&mstoreat (+ tmp100@ 36))
+     amount (&mstoreat (+ tmp100@ 68))
+     32 tmp100@ 100 DUP2 0 .contract-address GAS CALL
+     (&mloadat tmp100@) AND &require!)) ;; check that both the was successful and its boolean result true
   .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
-  (lambda (recipient amount sub-balance tmp@) ;; tmp@ is a constant offset to a 68-byte scratch buffer
+  (lambda (recipient amount sub-balance) ;; tmp@ is a constant offset to a 68-byte scratch buffer
     (&begin
-     transfer-selector (&mstoreat/overwrite-after tmp@ 4)
-     recipient (&mstoreat (+ tmp@ 4))
-     amount DUP1 sub-balance (&mstoreat (+ tmp@ 36))
-     32 tmp@ 68 DUP2 0 .contract-address GAS CALL
+     transfer-selector (&mstoreat/overwrite-after tmp100@ 4)
+     recipient (&mstoreat (+ tmp100@ 4))
+     amount DUP1 sub-balance (&mstoreat (+ tmp100@ 36))
+     32 tmp100@ 68 DUP2 0 .contract-address GAS CALL
      ;; check that both the call was successful and that its boolean result was true:
-     (&mloadat tmp@) AND &require!))
+     (&mloadat tmp100@) AND &require!))
   .approve-deposit!:
   (lambda (sender recipient amount)
     (erc20-approve .contract-address sender recipient amount)))
