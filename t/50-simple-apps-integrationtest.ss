@@ -15,7 +15,7 @@
 (def (round-up-amount amount increment)
   (ceiling-align (+ amount (* 1/2 increment)) increment))
 
-(def (test-transfer direct?)
+(def (test-prefund)
   (def balances-before (map eth_getBalance prefunded-addresses))
   ;; Round up to one thousandth of an ETH in wei, adding at least half that.
   (def target-amount (round-up-amount (apply max balances-before) (wei<-ether 1/1000)))
@@ -23,8 +23,7 @@
        (cut map (.@ Ether .string<-) <>) balances-before
        (.@ Ether .string<-) target-amount)
   (ensure-addresses-prefunded from: croesus to: prefunded-addresses
-                              min-balance: target-amount target-balance: target-amount
-                              batch-contract: (not direct?))
+                              min-balance: target-amount target-balance: target-amount)
   (def balances-after (map eth_getBalance prefunded-addresses))
   (DDT after-batch-transfer:
        (cut map (.@ Ether .string<-) <>) balances-after)
@@ -34,10 +33,8 @@
   (test-suite "integration test for ethereum/simple-apps"
     (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
 
-    (test-case "direct batch transfer works"
-      (test-transfer #t))
-    (test-case "batch transfer contract works"
-      (test-transfer #f))
+    (test-case "Prefunding accounts works as expected."
+      (test-prefund))
 
     (test-case "trivial-logger works"
       (def trivial-logger
