@@ -72,8 +72,8 @@
   (lambda (amount)
     (&begin amount CALLVALUE EQ &require!))
   .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
-  (lambda (recipient amount sub-balance)
-    (&begin amount recipient DUP2 sub-balance &send-ethers!)) ;; Transfer!
+  (lambda (recipient amount balance-var)
+    (&begin amount recipient DUP2 (&sub-var! balance-var) &send-ethers!)) ;; Transfer!
   .approve-deposit!:
   (lambda (sender recipient amount) (void)))
 
@@ -121,11 +121,11 @@
      32 tmp100@ 100 DUP2 0 .contract-address GAS CALL
      (&mloadat tmp100@) AND &require!)) ;; check that both the was successful and its boolean result true
   .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
-  (lambda (recipient amount sub-balance) ;; tmp@ is a constant offset to a 68-byte scratch buffer
+  (lambda (recipient amount balance-var) ;; tmp@ is a constant offset to a 68-byte scratch buffer
     (&begin
      transfer-selector (&mstoreat/overwrite-after tmp100@ 4)
      recipient (&mstoreat (+ tmp100@ 4))
-     amount DUP1 sub-balance (&mstoreat (+ tmp100@ 36))
+     amount DUP1 (&sub-var! balance-var) (&mstoreat (+ tmp100@ 36))
      32 tmp100@ 68 DUP2 0 .contract-address GAS CALL
      ;; check that both the call was successful and that its boolean result was true:
      (&mloadat tmp100@) AND &require!))
