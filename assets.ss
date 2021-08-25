@@ -53,7 +53,7 @@
   ;; finalize/verify a withdrawal of 'amount' from the consensus. 'recipient' is the
   ;; participant making the withdrawal, and balance-var is the static variable holding
   ;; the balance for this (recipient, asset type) pair. called at transaction commit
-  ;; one for each such pair.
+  ;; once for each such pair.
   ;;
   ;; .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) StaticVar
 
