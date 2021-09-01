@@ -57,6 +57,14 @@
   ;;
   ;; .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) StaticVar
 
+  ;; .commit-withdraw-all! is like .commit-withdraw!, but:
+  ;;
+  ;; - Instead of taking the participant as a (scheme) parameter, it is expected
+  ;;   to be at the top of the stack.
+  ;; - It doesn't take an amount; instead, the entire balance is withdrawn.
+  ;;
+  ;; .commit-withdraw-all!: (EVMThunk <- .Address) <- StaticVar
+
   ;; (.approve-deposit! sender recipient amount) pre-approves a deposit into 'recipient'
   ;; from account 'sender', with the given amount, if necessary.
   ;;
@@ -105,6 +113,9 @@
   .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
   (lambda (recipient amount balance-var)
     (&begin amount recipient DUP2 (&sub-var! balance-var) &send-ethers!)) ;; Transfer!
+  .commit-withdraw-all!:
+  (lambda (balance-var) ;; (EVMThunk <- .Address) <- StaticVar
+    (&begin (.@ balance-var get) SWAP1 &send-ethers! 0 (.@ balance-var set!)))
   .approve-deposit!:
   (lambda (sender recipient amount) (void)))
 
@@ -136,15 +147,39 @@
   .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
   (lambda (recipient amount balance-var)
     (&begin
-     transfer-selector (&mstoreat/overwrite-after tmp100@ 4)
-     recipient (&mstoreat (+ tmp100@ 4))
-     amount DUP1 (&sub-var! balance-var) (&mstoreat (+ tmp100@ 36))
-     32 tmp100@ 68 DUP2 0 .contract-address GAS CALL
-     ;; check that both the call was successful and that its boolean result was true:
-     (&mloadat tmp100@) AND &require!))
+      recipient
+      (&erc20-commit-withdraw
+        .contract-address
+        amount
+        balance-var)))
+  .commit-withdraw-all!:
+  (lambda (balance-var) ;; (EVMThunk <- .Address) <- StaticVar
+    (&erc20-commit-withdraw
+      .contract-address
+      (.@ balance-var get)
+      balance-var))
   .approve-deposit!:
   (lambda (sender recipient amount)
     (erc20-approve .contract-address sender recipient amount)))
+
+;; &erc20-commit-withdraw : (EVMThunk <- Address) <- Address (EVMThunk UInt256 <-) StaticVar
+;;
+;; Sends funds for an erc20 token to a participant. Parameters:
+;;
+;; * contract-address is the address of the erc20 contract.
+;; * amount pushes the amount to send
+;; * balance-var is the balance variable to update.
+;;
+;; The resulting EVMThunk expects the participant address at the top of the stack.
+(def (&erc20-commit-withdraw contract-address amount balance-var)
+  (&begin
+   transfer-selector (&mstoreat/overwrite-after tmp100@ 4)
+   ;; recipient is on top of the stack already.
+   (&mstoreat (+ tmp100@ 4))
+   amount DUP1 (&sub-var! balance-var) (&mstoreat (+ tmp100@ 36))
+   32 tmp100@ 68 DUP2 0 contract-address GAS CALL
+   ;; check that both the call was successful and that its boolean result was true:
+   (&mloadat tmp100@) AND &require!))
 
 (def (expect-asset-amount port)
   (def asset ((expect-one-or-more-of char-ascii-alphabetic?) port))

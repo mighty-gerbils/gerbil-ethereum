@@ -597,12 +597,14 @@
 ;;
 ;; Works as follows:
 ;;
-;; 1. Send interaction balance0 to temporary replacement for SELFDESTRUCT,
+;; 1. Send interaction balances to temporary replacement for SELFDESTRUCT,
 ;; 2. Make the interaction unusable (assuming it uses our ABI) by putting 0 in its state digest
 ;; 3. Successfully commit the transaction by RETURNing an empty array of bytes.
 ;;
 ;; Discrepancies from actual SELFDESTRUCT:
 ;;
+;; - This knows about our assets abstraction, and will transfer *all* assets to the recipient,
+;;   not just the native token but also e.g. ERC20s.
 ;; - The larger contract remains usable, only the current interaction is destroyed.
 ;; - If the contract doesn't use our ABI, then step 2 is useless and the interaction might still
 ;;   be "usable".
@@ -610,16 +612,35 @@
 ;;   for the recipient to either log data or deny the request.
 ;;
 ;; TESTING STATUS: manually tested
-(def (&interaction-selfdestruct) ;; address -->
+(def (&interaction-selfdestruct assets-and-vars) ;; address -->
   (&begin
-    balance0 SWAP1 &send-ethers!  ;; 1. send all the remaining ethers to given address
-             0 DUP1 SSTORE STOP)) ;; 2. blank out next state digest, 3. return empty array.
-             ;; TODO: when we actually support multiplexed interactions, we need to store
-             ;; the state digest for different interactions at different addresses, so
-             ;; we'll have to replace DUP1 above with loading the correct key for this
-             ;; interaction's state digest. Also, maybe pick a value other than zero, so
-             ;; we can tell the difference between a destroyed contract and a new one,
-             ;; since storage is zero-initialized.
+    ;; 1. send all the remaining funds to given address:
+    (&begin*
+      (map
+        (lambda (pair)
+          (def asset (car pair))
+          (def balance-var (cdr pair))
+          (def skip-label (generate-label 'skip-transfer))
+          (&begin
+            ;; If the balance is zero, skip the actual transfer.
+            ;; This is the common case, so should save a bit of gas.
+            (.@ balance-var get) ISZERO skip-label JUMPI
+            DUP1 (.call asset .commit-withdraw-all! balance-var)
+            [&jumpdest skip-label]))
+        assets-and-vars))
+  ;; 2. blank out next state digest:
+   0 DUP1 SSTORE
+
+  ;; 3. return empty array:
+   STOP)
+
+  ;; TODO: when we actually support multiplexed interactions, we need to store
+  ;; the state digest for different interactions at different addresses, so
+  ;; we'll have to replace DUP1 above with loading the correct key for this
+  ;; interaction's state digest. Also, maybe pick a value other than zero, so
+  ;; we can tell the difference between a destroyed contract and a new one,
+  ;; since storage is zero-initialized.
+  )
 
 ;; Define the end-contract library function, if reachable.
 ;; TODO: one and only one of end-contract or tail-call shall just precede the commit-contract-call function!
@@ -628,11 +649,11 @@
 ;; or can be anywhere with a jump in the end, with an expected use frequency function
 ;; to prefer one the most used one over the alternatives?
 ;; TESTING STATUS: Used by buy-sig.
-(def (&define-end-contract)
+(def (&define-end-contract assets-and-vars)
   (&begin
    [&jumpdest 'suicide]
    (ethereum-penny-collector) ;; send any leftover money to this address!
-   (&interaction-selfdestruct)
+   (&interaction-selfdestruct assets-and-vars)
    [&jumpdest 'end-contract]
    0 0 SSTORE 'suicide [&jump1 'commit-contract-call]))
 
@@ -656,16 +677,15 @@
    NUMBER GT &require!))
 
 ;; BEWARE! This is for two-participant contracts only,
-;; where all the money is on the table, no other assets than Ether.
+;; where all the money is on the table.
 ;; TESTING STATUS: Used by buy-sig. Incompletely untested.
-(def (&define-check-participant-or-timeout debug: (debug #f))
+(def (&define-check-participant-or-timeout assets-and-vars debug: (debug #f))
   (&begin ;; obliged-actor@ other-actor@ ret@C --> other-actor@
    [&jumpdest 'check-participant-or-timeout]
    (&mload 20) CALLER EQ #|-- ok? other@ ret@C|# SWAP1 SWAP2 #|-- ret@C ok? other@ |#
    JUMPI ;; if the caller matches, return to the program. Jump or not, the stack is: -- other-actor@
    ;; TODO: support some amount being in escrow for the obliged-actor and returned to him
-   ;; Also support ERC20s, etc.
-   (&check-timeout!) (&mload 20) (&interaction-selfdestruct))) ;; give all the money to the other guy.
+   (&check-timeout!) (&mload 20) (&interaction-selfdestruct assets-and-vars))) ;; give all the money to the other guy.
 
 ;; BEWARE: this function passes the actors by address reference, not by address value
 ;; TESTING STATUS: Used by buy-sig.
