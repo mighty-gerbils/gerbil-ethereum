@@ -2,7 +2,9 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
-  :std/misc/bytes :std/misc/number :std/sugar
+  :std/srfi/1
+  :std/format :std/misc/bytes :std/misc/number :std/misc/hash :std/sugar
+  :std/text/hex
   :clan/base :clan/number :clan/syntax
   :clan/poo/object :clan/poo/io
   ./types ./ethereum ./network-config)
@@ -100,7 +102,45 @@
 
 (def (assemble/bytes directives) (first-value (assemble directives)))
 
-
+(def (disassemble bytes)
+  (def labels (make-hash-table))
+  (def (go offset data)
+    (if (null? data)
+      []
+      (let*
+        ((opcode (car data))
+         (name (vector-ref rev-opcodes opcode)))
+        (cond
+          ((not (symbol? name))
+           (cons ['invalid opcode] (go (+ 1 offset) (cdr data))))
+          ((string-prefix? "PUSH" (symbol->string name))
+           (let ()
+             (def rest (cdr data))
+             (def push-len (- opcode (- (hash-ref opcodes 'PUSH1) 1)))
+             (def arg-bytes (take rest push-len))
+             (def arg-hex (string-append "#x" (hex-encode (list->u8vector arg-bytes))))
+             (def arg-decimal (with-input-from-string arg-hex read))
+             (cons
+               [name arg-decimal arg-hex]
+               (go (+ 1 offset push-len) (drop rest push-len)))))
+          ((equal? 'JUMPDEST name)
+           (let
+             ((label-name
+                (string->symbol (format "label-~a" (hash-length labels)))))
+              (hash-put! labels offset label-name)
+              (cons [name label-name offset] (go (+ 1 offset) (cdr data)))))
+          (else
+            (cons name (go (+ 1 offset) (cdr data))))))))
+    (map
+      (lambda (instruction)
+        (def label
+          (and (list? instruction)
+               (string-prefix? "PUSH" (symbol->string (car instruction)))
+               (hash-get labels (cadr instruction))))
+        (if label
+          (append instruction [label])
+          instruction))
+        (go 0 (u8vector->list bytes))))
 
 (def (&byte a b)
   (segment-push! (Assembler-segment a) b))
