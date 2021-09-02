@@ -109,20 +109,20 @@
       []
       (let*
         ((opcode (car data))
-         (name (vector-ref rev-opcodes opcode)))
+         (name (vector-ref rev-opcodes opcode))
+         (push-amt (push-code-amount opcode)))
         (cond
           ((not (symbol? name))
            (cons ['invalid opcode] (go (+ 1 offset) (cdr data))))
-          ((string-prefix? "PUSH" (symbol->string name))
+          (push-amt
            (let ()
              (def rest (cdr data))
-             (def push-len (- opcode (- (hash-ref opcodes 'PUSH1) 1)))
-             (def arg-bytes (take rest push-len))
+             (def arg-bytes (take rest push-amt))
              (def arg-hex (string-append "#x" (hex-encode (list->u8vector arg-bytes))))
              (def arg-decimal (with-input-from-string arg-hex read))
              (cons
                [name arg-decimal arg-hex]
-               (go (+ 1 offset push-len) (drop rest push-len)))))
+               (go (+ 1 offset push-amt) (drop rest push-amt)))))
           ((equal? 'JUMPDEST name)
            (let
              ((label-name
@@ -141,6 +141,16 @@
           (append instruction [label])
           instruction))
         (go 0 (u8vector->list bytes))))
+
+;; push-code-amount : Byte -> (Maybe Nat)
+;;
+;; Returns the length of the argument to the PUSH instruction with the provided
+;; opcode.
+(def (push-code-amount code)
+  (def PUSH1-code (hash-ref opcodes 'PUSH1))
+  (def PUSH32-code (hash-ref opcodes 'PUSH32))
+  (and (<= PUSH1-code code PUSH32-code)
+       (+ code 1 (- PUSH1-code))))
 
 (def (&byte a b)
   (segment-push! (Assembler-segment a) b))
