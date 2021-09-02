@@ -57,6 +57,18 @@
 ;; pair-flip : (cons a b) -> (cons b a)
 (def (pair-flip p) (with ((cons a b) p) (cons b a)))
 
+(def (check-disassemble input output)
+  (check-equal?
+    (disassemble (assemble/bytes input))
+    output))
+
 (def assembly-test
   (test-suite "test suite for ethereum/assembly"
-    (test-labels '((a . 13) (b . 8) (c . 21) (d . 0) (e . 34) (f . 3) (g . 5)))))
+    (test-labels '((a . 13) (b . 8) (c . 21) (d . 0) (e . 34) (f . 3) (g . 5)))
+    (test-case "Check that assemble & disassemble agree"
+      (for-each
+        (cut apply check-disassemble <>)
+        [[[ADD MUL 8 SUB]
+          '(ADD MUL (PUSH1 8 "#x08") SUB)]
+         [[SHR 520 1000000 SWAP1]
+          '(SHR (PUSH2 520 "#x0208") (PUSH3 1000000 "#x0f4240") SWAP1)]]))))
