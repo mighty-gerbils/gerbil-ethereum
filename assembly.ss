@@ -104,7 +104,7 @@
 
 (def (disassemble bytes)
   (def labels (make-hash-table))
-  (def (go offset data)
+  (let loop ((data (u8vector->list bytes)))
     (if (null? data)
       []
       (let*
@@ -113,7 +113,7 @@
          (push-amt (push-code-amount opcode)))
         (cond
           ((not (symbol? name))
-           (cons ['invalid opcode] (go (+ 1 offset) (cdr data))))
+           (cons ['invalid opcode] (loop (cdr data))))
           (push-amt
            (let ()
              (def rest (cdr data))
@@ -122,25 +122,9 @@
              (def arg-decimal (with-input-from-string arg-hex read))
              (cons
                [name arg-decimal arg-hex]
-               (go (+ 1 offset push-amt) (drop rest push-amt)))))
-          ((equal? 'JUMPDEST name)
-           (let
-             ((label-name
-                (string->symbol (format "label-~a" (hash-length labels)))))
-              (hash-put! labels offset label-name)
-              (cons [name label-name offset] (go (+ 1 offset) (cdr data)))))
+               (loop (drop rest push-amt)))))
           (else
-            (cons name (go (+ 1 offset) (cdr data))))))))
-    (map
-      (lambda (instruction)
-        (def label
-          (and (list? instruction)
-               (string-prefix? "PUSH" (symbol->string (car instruction)))
-               (hash-get labels (cadr instruction))))
-        (if label
-          (append instruction [label])
-          instruction))
-        (go 0 (u8vector->list bytes))))
+            (cons name (loop (cdr data)))))))))
 
 ;; push-code-amount : Byte -> (Maybe Nat)
 ;;
