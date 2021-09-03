@@ -113,6 +113,9 @@
 (def (disassemble bytes)
   (def labels (make-hash-table))
   (let loop ((data (u8vector->list bytes)))
+    ;; TODO(perf): use numeric indexing, instead of converting the whole
+    ;; program to a list of bytes. Not a big deal right now as there's a
+    ;; 24K limit on program size anyway.
     (if (null? data)
       []
       (let*
