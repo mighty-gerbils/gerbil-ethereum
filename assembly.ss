@@ -2,7 +2,9 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
-  :std/misc/bytes :std/misc/number :std/sugar
+  :std/srfi/1
+  :std/format :std/misc/bytes :std/misc/number :std/misc/hash :std/sugar
+  :std/text/hex
   :clan/base :clan/number :clan/syntax
   :clan/poo/object :clan/poo/io
   ./types ./ethereum ./network-config)
@@ -100,7 +102,50 @@
 
 (def (assemble/bytes directives) (first-value (assemble directives)))
 
+;; disassemble takes a u8vector and disassembles it, returning a list
+;; of instructions, of the form:
+;;
+;; - A symbol for the instruction mnemonic, for most instructions.
+;; - (PUSH* number string) for PUSH* instructions (where * is the size of the argument).
+;;   The (first) numeric argument is the actual value that is pushed. The second argument
+;;   is the same, but encoded as a hexideicmal scheme literal (e.g. "#x0ab1"); having
+;;   both forms readily available is sometimes helpful when debugging.
+(def (disassemble bytes)
+  (def labels (make-hash-table))
+  (let loop ((data (u8vector->list bytes)))
+    ;; TODO(perf): use numeric indexing, instead of converting the whole
+    ;; program to a list of bytes. Not a big deal right now as there's a
+    ;; 24K limit on program size anyway.
+    (if (null? data)
+      []
+      (let*
+        ((opcode (car data))
+         (name (vector-ref rev-opcodes opcode))
+         (push-amt (push-code-amount opcode)))
+        (cond
+          ((not (symbol? name))
+           (cons ['invalid opcode] (loop (cdr data))))
+          (push-amt
+           (let ()
+             (def rest (cdr data))
+             (def arg-bytes (take rest push-amt))
+             (def arg-hex (hex-encode (list->u8vector arg-bytes)))
+             (def arg-decimal (with-input-from-string (string-append "#x" arg-hex) read))
+             (cons
+               [name arg-decimal (string-append "0x" arg-hex)]
+               (loop (drop rest push-amt)))))
+          (else
+            (cons name (loop (cdr data)))))))))
 
+;; push-code-amount : Byte -> (Maybe Nat)
+;;
+;; Returns the length of the argument to the PUSH instruction with the provided
+;; opcode.
+(def (push-code-amount code)
+  (def PUSH1-code (hash-ref opcodes 'PUSH1))
+  (def PUSH32-code (hash-ref opcodes 'PUSH32))
+  (and (<= PUSH1-code code PUSH32-code)
+       (+ code 1 (- PUSH1-code))))
 
 (def (&byte a b)
   (segment-push! (Assembler-segment a) b))
