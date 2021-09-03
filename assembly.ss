@@ -102,6 +102,14 @@
 
 (def (assemble/bytes directives) (first-value (assemble directives)))
 
+;; disassemble takes a u8vector and disassembles it, returning a list
+;; of instructions, of the form:
+;;
+;; - A symbol for the instruction mnemonic, for most instructions.
+;; - (PUSH* number string) for PUSH* instructions (where * is the size of the argument).
+;;   The (first) numeric argument is the actual value that is pushed. The second argument
+;;   is the same, but encoded as a hexideicmal scheme literal (e.g. "#x0ab1"); having
+;;   both forms readily available is sometimes helpful when debugging.
 (def (disassemble bytes)
   (def labels (make-hash-table))
   (let loop ((data (u8vector->list bytes)))
