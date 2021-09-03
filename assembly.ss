@@ -129,10 +129,10 @@
            (let ()
              (def rest (cdr data))
              (def arg-bytes (take rest push-amt))
-             (def arg-hex (string-append "#x" (hex-encode (list->u8vector arg-bytes))))
-             (def arg-decimal (with-input-from-string arg-hex read))
+             (def arg-hex (hex-encode (list->u8vector arg-bytes)))
+             (def arg-decimal (with-input-from-string (string-append "#x" arg-hex) read))
              (cons
-               [name arg-decimal arg-hex]
+               [name arg-decimal (string-append "0x" arg-hex)]
                (loop (drop rest push-amt)))))
           (else
             (cons name (loop (cdr data)))))))))

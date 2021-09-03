@@ -69,10 +69,10 @@
       (for-each
         (cut apply check-disassemble <>)
         [[[ADD MUL 8 SUB]
-          '(ADD MUL (PUSH1 8 "#x08") SUB)]
+          '(ADD MUL (PUSH1 8 "0x08") SUB)]
          [[SHR 520 1000000 SWAP1]
-          '(SHR (PUSH2 520 "#x0208") (PUSH3 1000000 "#x0f4240") SWAP1)]]))
+          '(SHR (PUSH2 520 "0x0208") (PUSH3 1000000 "0x0f4240") SWAP1)]]))
     (test-case "Check disassemble on large pushes for small values."
       (check-equal?
         (disassemble (list->u8vector [(hash-ref opcodes 'PUSH3) 0 0 42]))
-        '((PUSH3 42 "#x00002a"))))))
+        '((PUSH3 42 "0x00002a"))))))
