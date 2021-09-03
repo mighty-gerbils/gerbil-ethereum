@@ -85,7 +85,11 @@
 (def (eval-fixup-expression labels expr)
   (match expr
     ((? number? x) x)
-    ((? symbol? s) (hash-get labels s))
+    ((? symbol? s)
+     (hash-ref/default labels s
+       (cut error (format "eval-fixup-expression: expr symbol ~r not found in labels ~r"
+                          s
+                          (hash-keys labels)))))
     ([f . l]
      (apply (hash-get fixup-functions f) (map (cut eval-fixup-expression labels <>) l)))))
 
