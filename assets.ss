@@ -36,6 +36,7 @@
   ;; Implementations should additionally define:
 
   ;; Query the current balance of this asset for an address.
+  ;;
   ;; .get-balance : UInt256 <- Address
 
   ;; (.transfer sender recipient amount) transfers 'amount' funds from 'sender' to
@@ -107,7 +108,7 @@
         gas: 400000))
   ;; NB: The above crucially depends on the end-of-transaction code including the below check,
   ;; that must be AND'ed with all other checks before [&require!]
-  .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-) UInt16
+  .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-)
   (lambda (amount)
     (&begin amount CALLVALUE EQ &require!))
   .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
@@ -134,7 +135,7 @@
   .transfer:
     (lambda (sender recipient amount)
       (erc20-transfer .contract-address sender recipient amount))
-  .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-) UInt16
+  .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-)
   (lambda (amount) ;; tmp@ is the constant offset to a 100-byte scratch buffer
     (&begin
      transferFrom-selector (&mstoreat/overwrite-after tmp100@ 4)

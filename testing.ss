@@ -70,6 +70,23 @@
       to: (addresses prefunded-addresses)
       min-balance: (min-balance one-ether-in-wei)
       target-balance: (target-balance (* 2 min-balance)))
+  ;; TODO: before we started supporting non-native tokens, we batched all of these
+  ;; transfers into a single transaction. We should go back to that to the extent
+  ;; possible, so pre-funding is O(1) transactions, instead of O(num assets * num addresses).
+  ;;
+  ;; Doing so for native tokens would be easy enough, but we can't naively batch
+  ;; transfers for ERC20 tokens into the same transaction, because then the calls
+  ;; to transfer would be coming from the address for the batch contract, not the
+  ;; owner of the tokens.
+  ;;
+  ;; Possible solutions:
+  ;;
+  ;; - Have croesus first transfer sufficient amounts of each asset to the batch
+  ;;   contract, then invoke the batch contract as before. This gets us down to
+  ;;   O(num assets) transactions, which is better than what we have now.
+  ;; - Better: have croesus own a batch contract, and when we initialize the ERC20
+  ;;   tokens, the tokens would be assigned to that batch contract rather than
+  ;;   croesus directly. This gets us back to O(1) transactions, as we had originally.
   (def prefunded-assets (find-network-assets))
   (for (asset prefunded-assets)
     (printf "Funder balance for asset ~a: ~a\n"
