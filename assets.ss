@@ -7,7 +7,8 @@
   :std/sugar :std/format :std/misc/list :std/misc/string :std/misc/hash :std/srfi/1 :std/srfi/13 :std/iter
   :clan/base :clan/basic-parsers :clan/decimal :clan/string
   :clan/poo/object
-  ./assembly ./types ./ethereum ./abi ./evm-runtime ./network-config ./json-rpc ./erc20 ./simple-apps)
+  ./assembly ./types ./ethereum ./abi ./evm-runtime ./network-config ./json-rpc ./erc20 ./simple-apps
+  ./transaction ./tx-tracker)
 
 ;; TODO: rename asset to resource
 ;; for ERC721s, multiple resources in a resource-directory or resource-collection?
@@ -102,10 +103,10 @@
     (eth_getBalance address 'latest))
   .transfer:
     (lambda (sender recipient amount)
-      (batch-txs
-        sender
-        [(batched-transfer amount recipient)]
-        gas: 400000))
+      (post-transaction (transfer-tokens
+                          from: sender
+                          to: recipient
+                          value: amount)))
   ;; NB: The above crucially depends on the end-of-transaction code including the below check,
   ;; that must be AND'ed with all other checks before [&require!]
   .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-)
