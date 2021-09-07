@@ -248,6 +248,16 @@
   (def gasPrice (with-catch void (cut .ref tx 'gasPrice)))
   {from to data value gas nonce gasPrice})
 
+;; Returns the `to` address for this transaction. If the recorded `to`
+;; field is empty, then this computes the address of the contract that
+;; this transaction will create. In this case, the nonce must be
+;; filled in.
+;;
+;; : Address <- Transaction
+(def (transaction-to tx)
+  (or (.@ tx to)
+      (address<-creator-nonce (.@ tx from) (.@ tx nonce))))
+
 ;; : TransactionReceipt <- SignedTransactionInfo
 (def (send-signed-transaction tx)
   (def-slots (hash) tx)

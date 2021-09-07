@@ -249,7 +249,7 @@
   (#x30 ADDRESS 2) ;; Get address of currently executing account
   (#x31 BALANCE 2600 #t) ;; Get balance of the given account. 2600 since EIP-2929
   (#x32 ORIGIN 2) ;; Get execution origination address
-  (#x33 CALLER 2) ;; Get caller address
+  (#x33 CALLER 2) ;; Get caller address (current message sender, Solidity: msg.sender)
   (#x34 CALLVALUE 2) ;; Get deposited value by the instruction/transaction responsible for this execution
   (#x35 CALLDATALOAD 3) ;; Get input data of current environment
   (#x36 CALLDATASIZE 2 #t) ;; Get size of input data in current environment

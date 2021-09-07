@@ -4,10 +4,11 @@
 
 (export #t)
 (import
-  :std/sugar :std/format :std/misc/list :std/misc/string :std/misc/hash :std/srfi/1 :std/srfi/13
-  :clan/basic-parsers :clan/decimal :clan/string
+  :std/sugar :std/format :std/misc/list :std/misc/string :std/misc/hash :std/srfi/1 :std/srfi/13 :std/iter
+  :clan/base :clan/basic-parsers :clan/decimal :clan/string
   :clan/poo/object
-  ./assembly ./types ./ethereum ./abi ./evm-runtime ./network-config)
+  ./assembly ./types ./ethereum ./abi ./evm-runtime ./network-config ./json-rpc ./erc20 ./simple-apps
+  ./transaction ./tx-tracker)
 
 ;; TODO: rename asset to resource
 ;; for ERC721s, multiple resources in a resource-directory or resource-collection?
@@ -21,6 +22,7 @@
 ;; register-asset! : AssetType -> Void
 (def (register-asset! a) (hash-put! asset-table (.@ a .symbol) a))
 
+;; Abstract interface for an asset type.
 (.def (Asset @ [Type.])
   .element?: (lambda (v)
                (and (object? v) (.has? v .symbol) (hash-key? asset-table (.@ v .symbol))))
@@ -30,7 +32,46 @@
   .string<-: (lambda (a) (symbol->string (.@ a .symbol)))
   .<-string: (lambda (s) (lookup-asset (string->symbol s)))
   .bytes<-: (lambda (a) (string->bytes (symbol->string (.@ a .symbol))))
-  .<-bytes: (lambda (b) (lookup-asset (string->symbol (bytes->string b)))))
+  .<-bytes: (lambda (b) (lookup-asset (string->symbol (bytes->string b))))
+
+  ;; Implementations should additionally define:
+
+  ;; Query the current balance of this asset for an address.
+  ;;
+  ;; .get-balance : UInt256 <- Address
+
+  ;; (.transfer sender recipient amount) transfers 'amount' funds from 'sender' to
+  ;; 'recipient'. Caller must be authorized to act on behalf of the sender.
+  ;;
+  ;; .transfer : <- Address Address UInt16
+
+  ;; (.commit-deposit! amount) generates EVM code to finalize/verify a deposit
+  ;; of 'amount' into the consensus. This will be called once per asset type
+  ;; at transaction commit.
+  ;;
+  ;; .commit-deposit! : (EVMThunk <-) <- (EVMThunk Amount <-)
+
+  ;; (.commit-withdraw! recipient amount balance-var) is generates EVM code to
+  ;; finalize/verify a withdrawal of 'amount' from the consensus. 'recipient' is the
+  ;; participant making the withdrawal, and balance-var is the static variable holding
+  ;; the balance for this (recipient, asset type) pair. called at transaction commit
+  ;; once for each such pair.
+  ;;
+  ;; .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) StaticVar
+
+  ;; .commit-withdraw-all! is like .commit-withdraw!, but:
+  ;;
+  ;; - Instead of taking the participant as a (scheme) parameter, it is expected
+  ;;   to be at the top of the stack.
+  ;; - It doesn't take an amount; instead, the entire balance is withdrawn.
+  ;;
+  ;; .commit-withdraw-all!: (EVMThunk <- .Address) <- StaticVar
+
+  ;; (.approve-deposit! sender recipient amount) pre-approves a deposit into 'recipient'
+  ;; from account 'sender', with the given amount, if necessary.
+  ;;
+  ;; .approve-deposit! : <- Address Address Unit256
+  )
 
 (.def (TokenAmount @ [] .decimals .validate .symbol)
   .denominator: (expt 10 .decimals)
@@ -57,22 +98,28 @@
   .symbol: 'ETH
   .decimals: 18
   .Address: Address
-  .deposit!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- Bool)
-  (lambda (sender amount _require! _tmp@)
-    (&begin
-     ;; sender CALLER EQ require!
-     ;; for ether tokens, we don't need to check the sender:
-     ;; it's the message sender, who is the active participant,
-     ;; (or the someone in whose name the sender is somehow acting?
-     ;; But then how did he pass the check on the current participant?)
-     deposit amount &safe-add deposit-set!)) ;; maybe just [ADD] or [(&safe-add/n-bits .length-in-bits)] ?
+  .get-balance:
+  (lambda (address) ;; UInt256 <- Address
+    (eth_getBalance address 'latest))
+  .transfer:
+    (lambda (sender recipient amount)
+      (post-transaction (transfer-tokens
+                          from: sender
+                          to: recipient
+                          value: amount)))
   ;; NB: The above crucially depends on the end-of-transaction code including the below check,
   ;; that must be AND'ed with all other checks before [&require!]
-  .commit-check?: ;; (EVMThunk Bool <-)
-  (&begin deposit CALLVALUE EQ)
-  withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- Bool)
-  (lambda (recipient amount require! _tmp@)
-    (&begin 0 DUP1 DUP1 DUP1 amount recipient GAS CALL require!))) ;; Transfer! -- gas address value 0 0 0 0
+  .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-)
+  (lambda (amount)
+    (&begin amount CALLVALUE EQ &require!))
+  .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
+  (lambda (recipient amount balance-var)
+    (&begin amount recipient DUP2 (&sub-var! balance-var) &send-ethers!)) ;; Transfer!
+  .commit-withdraw-all!:
+  (lambda (balance-var) ;; (EVMThunk <- .Address) <- StaticVar
+    (&begin (.@ balance-var get) SWAP1 &send-ethers! 0 (.@ balance-var set!)))
+  .approve-deposit!:
+  (lambda (sender recipient amount) (void)))
 
 (register-asset! Ether)
 
@@ -83,45 +130,58 @@
        .decimals) ;; : Nat ;; number of decimals by which to divide the integer amount to get token amount
   .asset-code: .contract-address
   .Address: Address
-  ;; function balanceOf(address _owner) public view returns (uint256 balance)
-  ;; function transfer(address _to, uint256 _value) public returns (bool success)
-  ;; function transferFrom(address _from, address _to, uint256 _value) public returns (bool success)
-  ;; function approve(address _spender, uint256 _value) public returns (bool success)
-  ;; NB: *always* reset the approval value to 0 then wait for confirmation
-  ;; before to set it again to a different non-zero value, or the recipient may race the change
-  ;; to extract the sum of the old and new authorizations.
-  ;; OR, first transfer to another account, and have *that* account approve the transfer.
-  ;; This all makes fast ERC20 payments "interesting".
-  ;; https://docs.google.com/document/d/1YLPtQxZu1UAvO9cZ1O2RPXBbT0mooh4DYKjA_jp-RLM/
-  ;; function allowance(address _owner, address _spender) public view returns (uint256 remaining)
-  ;; Events:
-  ;; event Transfer(address indexed _from, address indexed _to, uint256 _value)
-  ;; event Approval(address indexed _owner, address indexed _spender, uint256 _value)
-  .transferFrom-selector: (selector<-function-signature ["transferFrom" Address Address UInt256])
-  .deposit!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk Amount <-) UInt16
-  (lambda (sender amount require! tmp@) ;; tmp@ is the constant offset to a 100-byte scratch buffer
-    ;; instead of [brk] doing [brk@ MLOAD], cache it on stack and have
-    ;; a locals mechanism that binds brk to that?
-    ;; Or could/should we be using a fixed buffer for these things?
-    ;; Note that the transfer must have been preapproved by the sender.
-    ;; TODO: is that how we check the result? Or do we need to check the success from the RET area?
+  .get-balance:
+  (lambda (address) ;; UInt256 <- Address
+    (erc20-balance .contract-address address))
+  .transfer:
+    (lambda (sender recipient amount)
+      (erc20-transfer .contract-address sender recipient amount))
+  .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-)
+  (lambda (amount) ;; tmp@ is the constant offset to a 100-byte scratch buffer
     (&begin
-     .transferFrom-selector (&mstoreat/overwrite-after tmp@ 4)
-     sender (&mstoreat (+ tmp@ 4)) ;; TODO: should this be right-padded instead of left-padded??? TEST IT!
-     ADDRESS (&mstoreat (+ tmp@ 36))
-     amount (&mstoreat (+ tmp@ 68))
-     32 tmp@ 100 DUP2 0 .contract-address GAS CALL
-     (&mloadat tmp@) AND require!)) ;; check that both the was successful and its boolean result true
-  .commit-check?: #f ;; (OrFalse (EVMThunk Bool <-)) ;; the ERC20 already manages its accounting invariants
-  .approve-selector: (selector<-function-signature ["approve" Address UInt256]) ;; returns bool
-  withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- Bool) UInt16
-  (lambda (recipient amount require! tmp@) ;; tmp@ is a constant offset to a 68-byte scratch buffer
+     transferFrom-selector (&mstoreat/overwrite-after tmp100@ 4)
+     CALLER (&mstoreat (+ tmp100@ 4))
+     ADDRESS (&mstoreat (+ tmp100@ 36))
+     amount (&mstoreat (+ tmp100@ 68))
+     32 tmp100@ 100 DUP2 0 .contract-address GAS CALL
+     ;; check that both the was successful and its boolean result true:
+     (&mloadat tmp100@) AND &require!))
+  .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
+  (lambda (recipient amount balance-var)
     (&begin
-     .approve-selector (&mstoreat/overwrite-after tmp@ 4)
-     recipient (&mstoreat (+ tmp@ 4))
-     amount (&mstoreat (+ tmp@ 36))
-     32 tmp@ 68 DUP2 0 .contract-address GAS CALL
-     (&mloadat tmp@) AND require!))) ;; check that both the was successful and its boolean result true
+      recipient
+      (&erc20-commit-withdraw
+        .contract-address
+        amount
+        balance-var)))
+  .commit-withdraw-all!:
+  (lambda (balance-var) ;; (EVMThunk <- .Address) <- StaticVar
+    (&erc20-commit-withdraw
+      .contract-address
+      (.@ balance-var get)
+      balance-var))
+  .approve-deposit!:
+  (lambda (sender recipient amount)
+    (erc20-approve .contract-address sender recipient amount)))
+
+;; &erc20-commit-withdraw : (EVMThunk <- Address) <- Address (EVMThunk UInt256 <-) StaticVar
+;;
+;; Sends funds for an erc20 token to a participant. Parameters:
+;;
+;; * contract-address is the address of the erc20 contract.
+;; * amount pushes the amount to send
+;; * balance-var is the balance variable to update.
+;;
+;; The resulting EVMThunk expects the participant address at the top of the stack.
+(def (&erc20-commit-withdraw contract-address amount balance-var)
+  (&begin
+   transfer-selector (&mstoreat/overwrite-after tmp100@ 4)
+   ;; recipient is on top of the stack already.
+   (&mstoreat (+ tmp100@ 4))
+   amount DUP1 (&sub-var! balance-var) (&mstoreat (+ tmp100@ 36))
+   32 tmp100@ 68 DUP2 0 contract-address GAS CALL
+   ;; check that both the call was successful and that its boolean result was true:
+   (&mloadat tmp100@) AND &require!))
 
 (def (expect-asset-amount port)
   (def asset ((expect-one-or-more-of char-ascii-alphabetic?) port))
@@ -154,3 +214,9 @@
 ;; Produces the native asset of the network from (ethereum-config)
 (def (lookup-native-asset (ec (ethereum-config)))
   (lookup-asset (.@ ec nativeCurrency symbol)))
+
+;; find-network-assets : Network -> [Listof Asset]
+(def (find-network-assets (network (ethereum-config)))
+  (for/collect ((p (hash->list/sort asset-table symbol<?))
+                when (equal? (asset->network (cdr p)) network))
+    (cdr p)))
