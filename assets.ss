@@ -38,12 +38,12 @@
 
   ;; Query the current balance of this asset for an address.
   ;;
-  ;; .get-balance : UInt256 <- Address
+  ;; .get-balance : @ <- .Address
 
   ;; (.transfer sender recipient amount) transfers 'amount' funds from 'sender' to
   ;; 'recipient'. Caller must be authorized to act on behalf of the sender.
   ;;
-  ;; .transfer : <- Address Address UInt16
+  ;; .transfer : <- .Address .Address @
 
   ;; (.commit-deposit! amount) generates EVM code to finalize/verify a deposit
   ;; of 'amount' into the consensus. This will be called once per asset type
@@ -70,7 +70,7 @@
   ;; (.approve-deposit! sender recipient amount) pre-approves a deposit into 'recipient'
   ;; from account 'sender', with the given amount, if necessary.
   ;;
-  ;; .approve-deposit! : <- Address Address Unit256
+  ;; .approve-deposit! : <- .Address .Address @
   )
 
 (.def (TokenAmount @ [] .decimals .validate .symbol)
@@ -98,9 +98,8 @@
   .symbol: 'ETH
   .decimals: 18
   .Address: Address
-  .get-balance:
-  (lambda (address) ;; UInt256 <- Address
-    (eth_getBalance address 'latest))
+  .get-balance: ;; @ <- .Address
+  (lambda (address) (eth_getBalance address 'latest))
   .transfer:
     (lambda (sender recipient amount)
       (post-transaction (transfer-tokens
@@ -109,10 +108,10 @@
                           value: amount)))
   ;; NB: The above crucially depends on the end-of-transaction code including the below check,
   ;; that must be AND'ed with all other checks before [&require!]
-  .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-)
+  .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk @ <-)
   (lambda (amount)
     (&begin amount CALLVALUE EQ &require!))
-  .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
+  .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) StaticVar
   (lambda (recipient amount balance-var)
     (&begin amount recipient DUP2 (&sub-var! balance-var) &send-ethers!)) ;; Transfer!
   .commit-withdraw-all!:
@@ -130,13 +129,12 @@
        .decimals) ;; : Nat ;; number of decimals by which to divide the integer amount to get token amount
   .asset-code: .contract-address
   .Address: Address
-  .get-balance:
-  (lambda (address) ;; UInt256 <- Address
-    (erc20-balance .contract-address address))
+  .get-balance: ;; @ <- .Address
+  (lambda (address) (erc20-balance .contract-address address))
   .transfer:
     (lambda (sender recipient amount)
       (erc20-transfer .contract-address sender recipient amount))
-  .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk Amount <-)
+  .commit-deposit!: ;; (EVMThunk <-) <- (EVMThunk @ <-)
   (lambda (amount) ;; tmp@ is the constant offset to a 100-byte scratch buffer
     (&begin
      transferFrom-selector (&mstoreat/overwrite-after tmp100@ 4)
@@ -146,7 +144,7 @@
      32 tmp100@ 100 DUP2 0 .contract-address GAS CALL
      ;; check that both the was successful and its boolean result true:
      (&mloadat tmp100@) AND &require!))
-  .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) (EVMThunk <- @) UInt16
+  .commit-withdraw!: ;; (EVMThunk <-) <- (EVMThunk .Address <-) (EVMThunk @ <-) StaticVar
   (lambda (recipient amount balance-var)
     (&begin
       recipient
@@ -164,7 +162,14 @@
   (lambda (sender recipient amount)
     (erc20-approve .contract-address sender recipient amount)))
 
-;; &erc20-commit-withdraw : (EVMThunk <- Address) <- Address (EVMThunk UInt256 <-) StaticVar
+;; TODO: *if/when* we have a shared contract between multiple Glow interactions,
+;; without a consensus on which ERC20 contracts can be trusted not to be exploit vectors,
+;; then we need to add a flag to prevent re-entrancy (cost: ~5000 GAS) before we call out to
+;; token contracts for withdrawals. Alternatively, if there's only one state variable at stake,
+;; we can check that the state variable wasn't modified by a recursive call before we modify it,
+;; (cost: ~700 gas? 2100?) which is slightly cheaper.
+
+;; &erc20-commit-withdraw : (EVMThunk <- Address) <- Address (EVMThunk TokenAmount <-) StaticVar
 ;;
 ;; Sends funds for an erc20 token to a participant. Parameters:
 ;;
