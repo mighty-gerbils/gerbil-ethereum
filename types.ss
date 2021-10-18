@@ -143,6 +143,12 @@
    .ethabi-display-type: (cut display .ethabi-name <>)
    .ethabi-head-length: 32
    .element?: (λ (x) (and (bytes? x) (<= (bytes-length x) 65535)))
+   .validate: (λ (x (context '()))
+                (unless (bytes? x) (type-error context Type @ [value: x]))
+                (unless (<= (bytes-length x) 65535)
+                  (type-error context Type @ [value: x]
+                    (format "\n  length too long: expected <=65535, given ~a" (bytes-length x))))
+                x)
    .marshal: marshal-sized16-bytes
    .unmarshal: unmarshal-sized16-bytes
    .ethabi-tail-length: (lambda (x) (+ 32 (ceiling-align (bytes-length x) 32)))
