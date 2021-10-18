@@ -104,9 +104,7 @@
 (defUIntNs)
 
 ;; Bytes types
-(.def (BytesN. @ poo.BytesN. n .ethabi-name .validate)
-  sexp: `(BytesN ,n)
-  .ethabi-name: (format "bytes~d" n)
+(.def (methods.Bytes @ [methods.bytes Type.] .validate .ethabi-name)
   .ethabi-display-type: (cut display .ethabi-name <>)
   .ethabi-head-length: 32
   .sexp<-: (lambda (x) `(bytes<-0x ,(0x<-bytes x)))
@@ -114,7 +112,10 @@
   .<-json: (compose .validate bytes<-0x)
   .<-string: bytes<-0x
   .rlp<-: identity
-  .<-rlp: .validate
+  .<-rlp: .validate)
+(.def (BytesN. @ [methods.Bytes poo.BytesN.] n)
+  sexp: `(BytesN ,n)
+  .ethabi-name: (format "bytes~d" n)
   .ethabi-padding: (- 32 n)
   .ethabi-tail-length: (lambda (_) 0)
   .ethabi-encode-into:
@@ -137,11 +138,10 @@
         (register-simple-eth-type rid)...)))
 (defBytesNs)
 
-(define-type (BytesL16 @ [methods.bytes<-marshal BytesN.])
+(.def (BytesL16 @ [methods.Bytes methods.bytes<-marshal])
+   sexp: 'BytesL16
    .Length: UInt16
    .ethabi-name: "bytes"
-   .ethabi-display-type: (cut display .ethabi-name <>)
-   .ethabi-head-length: 32
    .element?: (λ (x) (and (bytes? x) (<= (bytes-length x) 65535)))
    .validate: (λ (x (context '()))
                 (unless (bytes? x) (type-error context Type @ [value: x]))
