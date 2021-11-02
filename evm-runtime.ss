@@ -127,6 +127,15 @@
         ((element? Type type-or-length) type-or-length)
         (else (invalid 'param-type type-or-length))))
 
+(define-type VarDesc
+  (Record
+   name: Symbol
+   type: Type
+   length: Nat
+   address: Address
+   get: Any ;; Actually a Directive, as per &directive
+   set!: Any)) ;; Actually a Directive, as per &directive
+
 ;; define-consecutive-addresses defines statically-allocated variables in the EVM address
 ;; space.
 ;;
@@ -679,13 +688,16 @@
 ;; BEWARE! This is for two-participant contracts only,
 ;; where all the money is on the table.
 ;; TESTING STATUS: Used by buy-sig. Incompletely untested.
-(def (&define-check-participant-or-timeout assets-and-vars debug: (debug #f))
+(def (&define-check-participant-or-timeout assets-and-vars
+                                           debug: (debug #f)
+                                           timeout: (timeout (ethereum-timeout-in-blocks)))
   (&begin ;; obliged-actor@ other-actor@ ret@C --> other-actor@
    [&jumpdest 'check-participant-or-timeout]
    (&mload 20) CALLER EQ #|-- ok? other@ ret@C|# SWAP1 SWAP2 #|-- ret@C ok? other@ |#
    JUMPI ;; if the caller matches, return to the program. Jump or not, the stack is: -- other-actor@
    ;; TODO: support some amount being in escrow for the obliged-actor and returned to him
-   (&check-timeout!) (&mload 20) (&interaction-selfdestruct assets-and-vars))) ;; give all the money to the other guy.
+   (&check-timeout! timeout: timeout)
+   (&mload 20) (&interaction-selfdestruct assets-and-vars))) ;; give all the money to the other guy.
 
 ;; BEWARE: this function passes the actors by address reference, not by address value
 ;; TESTING STATUS: Used by buy-sig.
