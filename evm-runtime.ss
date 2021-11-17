@@ -2,7 +2,7 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
   :std/misc/number :std/sugar :std/iter
-  :clan/base :clan/number :clan/with-id :clan/debug
+  :clan/base :clan/number :clan/with-id
   :clan/poo/brace
   :clan/poo/object (only-in :clan/poo/mop Type)
   :clan/crypto/secp256k1
@@ -671,20 +671,17 @@
 
 ;; abort unless saved data indicates a timeout
 ;; TESTING STATUS: Used by buy-sig. Incompletely untested.
-;; TODO: is (ethereum-timeout-in-blocks) the right default?
-(def (&check-timeout! timeout: (timeout (ethereum-timeout-in-blocks))) ;; -->
-  (DBG er676: timeout (ethereum-timeout-in-blocks))
+(def (&check-timeout! timeout: timeout) ;; -->
   (&begin
    timeout timer-start ADD ;; using &safe-add is probably redundant there.
-   ;; TODO: press X to doubt: GT require vs LT require-not
+   ;; TODO: should this be GT require or LT require-not?
    NUMBER GT &require!))
 
 ;; BEWARE! This is for two-participant contracts only,
 ;; where all the money is on the table.
 ;; TESTING STATUS: Used by buy-sig. Incompletely untested.
-;; TODO: is (ethereum-timeout-in-blocks) the right default?
 (def (&define-check-participant-or-timeout assets-and-vars
-                                           timeout: (timeout (ethereum-timeout-in-blocks))
+                                           timeout: timeout
                                            debug: (debug #f))
   (&begin ;; obliged-actor@ other-actor@ ret@C --> other-actor@
    [&jumpdest 'check-participant-or-timeout]
