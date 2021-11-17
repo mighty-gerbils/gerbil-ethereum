@@ -2,7 +2,7 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
   :std/misc/number :std/sugar :std/iter
-  :clan/base :clan/number :clan/with-id
+  :clan/base :clan/number :clan/with-id :clan/debug
   :clan/poo/brace
   :clan/poo/object (only-in :clan/poo/mop Type)
   :clan/crypto/secp256k1
@@ -671,21 +671,29 @@
 
 ;; abort unless saved data indicates a timeout
 ;; TESTING STATUS: Used by buy-sig. Incompletely untested.
+;; TODO: is (ethereum-timeout-in-blocks) the right default?
 (def (&check-timeout! timeout: (timeout (ethereum-timeout-in-blocks))) ;; -->
+  (DBG er676: timeout (ethereum-timeout-in-blocks))
   (&begin
    timeout timer-start ADD ;; using &safe-add is probably redundant there.
+   ;; TODO: press X to doubt: GT require vs LT require-not
    NUMBER GT &require!))
 
 ;; BEWARE! This is for two-participant contracts only,
 ;; where all the money is on the table.
 ;; TESTING STATUS: Used by buy-sig. Incompletely untested.
-(def (&define-check-participant-or-timeout assets-and-vars debug: (debug #f))
+;; TODO: is (ethereum-timeout-in-blocks) the right default?
+(def (&define-check-participant-or-timeout assets-and-vars
+                                           timeout: (timeout (ethereum-timeout-in-blocks))
+                                           debug: (debug #f))
   (&begin ;; obliged-actor@ other-actor@ ret@C --> other-actor@
    [&jumpdest 'check-participant-or-timeout]
+   ;; load obliged-actor@, who was supposed to be the active participant
    (&mload 20) CALLER EQ #|-- ok? other@ ret@C|# SWAP1 SWAP2 #|-- ret@C ok? other@ |#
    JUMPI ;; if the caller matches, return to the program. Jump or not, the stack is: -- other-actor@
    ;; TODO: support some amount being in escrow for the obliged-actor and returned to him
-   (&check-timeout!) (&mload 20) (&interaction-selfdestruct assets-and-vars))) ;; give all the money to the other guy.
+   (&check-timeout! timeout: timeout)
+   (&mload 20) (&interaction-selfdestruct assets-and-vars))) ;; give all the money to the other guy.
 
 ;; BEWARE: this function passes the actors by address reference, not by address value
 ;; TESTING STATUS: Used by buy-sig.

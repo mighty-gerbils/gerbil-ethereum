@@ -31,6 +31,7 @@
       confirmations: (confirmations (ethereum-confirmations-wanted-in-blocks)))
   (if (<= from-block to-block)
     (let ()
+      ;; TODO: press X to doubt
       (def current-block (wait-until-block (+ from-block confirmations)))
       (def confirmed-block (- current-block confirmations))
       ;; TODO: correctly process timeouts and/or overly long lists
@@ -50,6 +51,7 @@
   (while (<= from-block to-block)
     (let ()
       ;; Determine blocks to watch
+      ;; TODO: press X to doubt
       (def current-block (wait-until-block (+ from-block confirmations)))
       (def confirmed-block (- current-block confirmations))
       (def end-block (min to-block confirmed-block))
