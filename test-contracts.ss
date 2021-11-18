@@ -12,6 +12,8 @@
   ./types ./ethereum ./network-config ./json-rpc ./abi ./transaction ./tx-tracker
   ./testing ./meta-create2 ./assets ./cli ./testing)
 
+(def initial-supply (expt 10 27))
+
 ;; NB: based on creator, nonce
 (def QASPET@ (address<-0x "0x8e0BE69f202e245221B6D679B58faaBe1e463100"))
 (def RBTPET@ (address<-0x "0x9FC8935f73cf1481729FE787669c558a30E5B44B"))
@@ -46,13 +48,13 @@
     (ethabi-encode [String String UInt256 Address]
                    [(string-append "Quality Assurance Specie on " name)
                     (string-append "QAS" NET)
-                    (expt 10 18) owner]
+                    initial-supply owner] ;; one billion total tokens with 1e-18 precision
                    test-erc20-contract-bytes))
   (def (RBT-bytes)
     (ethabi-encode [String String UInt256 Address]
                    [(string-append "Random Barter Token on " name)
                     (string-append "RBT" NET)
-                    (expt 10 18) owner]
+                    initial-supply owner] ;; one billion total tokens with 1e-18 precision
                    test-erc20-contract-bytes))
   (def (HAM-bytes)
     (ethabi-encode [String String String]

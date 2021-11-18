@@ -197,12 +197,17 @@
                 [[UInt16 . 5]] result-in-memory?: #t result-start: 224))
 
     ;; TODO
-    ;; (test-case "&check-sufficient-deposit when deposit is GT"
-    ;; (evm-test-failure [] (&begin &check-sufficient-deposit)))
+    ;; (test-case "&check-sufficient-deposit0 when deposit0 is GT"
+    ;; (evm-test-failure [] (&begin &check-sufficient-deposit0)))
 
-    (test-case "&deposit!"
+    (test-case "&add-var!/deposit0"
       (evm-test [[UInt256 . 300]]
-                (&begin &deposit! deposit &deposit! deposit)
+                (&begin (&add-var! deposit0-var) deposit0 (&add-var! deposit0-var) deposit0)
+                [[UInt256 . 600]]))
+
+    (test-case "&add-var!/withdraw0"
+      (evm-test [[UInt256 . 300]]
+                (&begin (&add-var! withdraw0-var) withdraw0 (&add-var! withdraw0-var) withdraw0)
                 [[UInt256 . 600]]))
 
     (test-case "&brk-cons when n-bytes is 32"
@@ -270,4 +275,15 @@
 
     (test-case "&marshal UInt8"
       (evm-test [] (&begin brk DUP1 DUP1 (&marshal UInt16 7))
-                [[UInt16 . 2]]))))
+                [[UInt16 . 2]]))
+
+    (test-case "&mstore 1 byte"
+      (evm-test [] (&begin 42 0 (&mstore 1))
+                [[UInt8 . 42]]
+                result-in-memory?: #t))
+
+    (test-case "&mstore 32 bytes"
+      (def maxUInt256 (- (expt 2 256) 1))
+      (evm-test [] (&begin maxUInt256 0 (&mstore 32))
+                [[UInt256 . maxUInt256]]
+                result-in-memory?: #t))))

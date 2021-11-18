@@ -46,20 +46,20 @@
 (def (display-balance display address balance)
   (display (nicknamed-string<-address address) balance))
 
-(def (get-address-missing-amount min-balance target-balance address)
+(def (get-address-missing-amount min-balance target-balance address asset)
   (assert! (<= min-balance target-balance))
-  (def balance (eth_getBalance address 'latest))
+  (def balance (.call asset .get-balance address))
   (if (>= balance min-balance)
     (begin
       (printf "~a has ~a already. Good.\n"
               (nicknamed-string<-address address)
-              (.call Ether .string<- balance))
+              (.call asset .string<- balance))
       0)
     (begin
       (printf "~a has ~a ether only. Funding to ~a ether.\n"
               (nicknamed-string<-address address)
-              (.call Ether .string<- balance)
-              (.call Ether .string<- target-balance))
+              (.call asset .string<- balance)
+              (.call asset .string<- target-balance))
       (- target-balance balance))))
 
 (def prefunded-addresses [alice bob trent])
@@ -69,16 +69,34 @@
       from: (funder croesus)
       to: (addresses prefunded-addresses)
       min-balance: (min-balance one-ether-in-wei)
-      target-balance: (target-balance (* 2 min-balance))
-      batch-contract: (batch-contract #f))
-  (def needful-transfers
-    (with-list-builder (c)
-      (for (a addresses)
-        (unless (equal? a funder)
-          (let (v (get-address-missing-amount min-balance target-balance a))
-            (when (> v 0)
-              (c (batched-transfer v a))))))))
-  (batch-txs funder needful-transfers log: write-json-ln batch-contract: batch-contract gas: 400000))
+      target-balance: (target-balance (* 2 min-balance)))
+  ;; TODO: before we started supporting non-native tokens, we batched all of these
+  ;; transfers into a single transaction. We should go back to that to the extent
+  ;; possible, so pre-funding is O(1) transactions, instead of O(num assets * num addresses).
+  ;;
+  ;; Doing so for native tokens would be easy enough, but we can't naively batch
+  ;; transfers for ERC20 tokens into the same transaction, because then the calls
+  ;; to transfer would be coming from the address for the batch contract, not the
+  ;; owner of the tokens.
+  ;;
+  ;; Possible solutions:
+  ;;
+  ;; - Have croesus first transfer sufficient amounts of each asset to the batch
+  ;;   contract, then invoke the batch contract as before. This gets us down to
+  ;;   O(num assets) transactions, which is better than what we have now.
+  ;; - Better: have croesus own a batch contract, and when we initialize the ERC20
+  ;;   tokens, the tokens would be assigned to that batch contract rather than
+  ;;   croesus directly. This gets us back to O(1) transactions, as we had originally.
+  (def prefunded-assets (find-network-assets))
+  (for (asset prefunded-assets)
+    (printf "Funder balance for asset ~a: ~a\n"
+            (.@ asset .symbol)
+            (.call asset .string<- (.call asset .get-balance funder)))
+    (for (a addresses)
+      (unless (equal? a funder)
+         (let (v (get-address-missing-amount min-balance target-balance a asset))
+           (when (> v 0)
+             (.call asset .transfer funder a v)))))))
 
 ;; Send a tx, not robust, but useful for debugging
 ;; : SignedTransactionInfo TransactionReceipt <- PreTransaction confirmations:?Nat

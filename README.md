@@ -39,6 +39,10 @@ Notable modules include but are not limited to the below:
   for a universal CREATE2 wrapper, making Bitcoin-style MAST a reality across all EVM networks.
 
 * `json-rpc.ss` offers you a typechecked FFI to all the usual Ethereum JSON RPC APIs.
+  An API key is needed for networks using an infura RPC node. Get a key from their website
+  and configure it as part of your shell's environment variable:
+  `export INFURA_API_KEY=0123456789ABCDEF0123456789ABCDEF`
+  Or deploy your own node and define your own alternate network.
 
 There are plenty of other support files, and we'll keep working on this library
 as we build software on top of it.
