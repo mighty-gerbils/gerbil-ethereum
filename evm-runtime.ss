@@ -671,7 +671,7 @@
 
 ;; abort unless saved data indicates a timeout
 ;; TESTING STATUS: Used by buy-sig. Incompletely untested.
-(def (&check-timeout! timeout: timeout) ;; -->
+(def (&check-timeout! timeout) ;; -->
   (&begin
    timeout timer-start ADD ;; using &safe-add is probably redundant there.
    ;; TODO: should this be GT require or LT require-not?
@@ -680,8 +680,9 @@
 ;; BEWARE! This is for two-participant contracts only,
 ;; where all the money is on the table.
 ;; TESTING STATUS: Used by buy-sig. Incompletely untested.
+;; TODO: the timeout argument should be mandatory, the default is wrong
 (def (&define-check-participant-or-timeout assets-and-vars
-                                           timeout: timeout
+                                           timeout: (timeout (ethereum-timeout-in-blocks))
                                            debug: (debug #f))
   (&begin ;; obliged-actor@ other-actor@ ret@C --> other-actor@
    [&jumpdest 'check-participant-or-timeout]
@@ -689,7 +690,7 @@
    (&mload 20) CALLER EQ #|-- ok? other@ ret@C|# SWAP1 SWAP2 #|-- ret@C ok? other@ |#
    JUMPI ;; if the caller matches, return to the program. Jump or not, the stack is: -- other-actor@
    ;; TODO: support some amount being in escrow for the obliged-actor and returned to him
-   (&check-timeout! timeout: timeout)
+   (&check-timeout! timeout)
    (&mload 20) (&interaction-selfdestruct assets-and-vars))) ;; give all the money to the other guy.
 
 ;; BEWARE: this function passes the actors by address reference, not by address value
