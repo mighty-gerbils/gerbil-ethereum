@@ -105,7 +105,7 @@ All state is asynchronous, and the last byte identifies the asynchronous state s
 - The global state would be under ID 0.
 
 - State associated to a particular user's balance would be at id
-  `(bytes-append (make-bytes 11) user-address #u8(1))`
+  `(bytes-append (make-bytes 11 0) user-address #u8(1))`
 
 - State associated to a user's allowance for another would be at
   `(bytes-replace (digest (Tuple Address Address) (vector from to)) 31 2)`

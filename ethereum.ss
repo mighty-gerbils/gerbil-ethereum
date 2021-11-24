@@ -69,7 +69,7 @@
 
 ;; Null address
 ;; : Address
-(def null-address (make-address (make-bytes 20)))
+(def null-address (make-address (make-bytes 20 0)))
 
 (defmethod (@@method :wr address)
   (lambda (self we)
@@ -100,13 +100,13 @@
    .ethabi-padding: (- 32 .length-in-bytes)
    .ethabi-tail-length: (lambda (_) 0)
    ;; https://docs.soliditylang.org/en/develop/abi-spec.html
-   ;; address: equivalent to uint160, except for the assumed interpretation and language typing. 
+   ;; address: equivalent to uint160, except for the assumed interpretation and language typing.
    ;; The above means left-padding with 0s
    .ethabi-encode-into:
    (lambda (x bytes start head get-tail set-tail!)
       (subu8vector-move! (address-bytes x) 0 .length-in-bytes bytes (+ head .ethabi-padding)))
    ;; https://docs.soliditylang.org/en/develop/abi-spec.html
-   ;; address: equivalent to uint160, except for the assumed interpretation and language typing. 
+   ;; address: equivalent to uint160, except for the assumed interpretation and language typing.
    ;; The above means left-padding with 0s
    .ethabi-decode-from:
    (lambda (bytes start head get-tail set-tail!)

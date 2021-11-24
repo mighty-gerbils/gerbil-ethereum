@@ -14,7 +14,7 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes
   :std/srfi/1 :std/sugar :std/iter
-  :clan/base :clan/with-id
+  :clan/base :clan/with-id :clan/debug
   :clan/poo/object (only-in :clan/poo/mop) :clan/poo/io
   ./logger ./hex ./types ./ethereum ./known-addresses ./abi ./json-rpc
   ./assembly ./transaction ./tx-tracker ./contract-config ./evm-runtime)
@@ -179,14 +179,16 @@
   [contract
     [event-signature
       (ethabi-encode [Address] [sender])
-      (ethabi-encode [Address] [recipient])] 
+      (ethabi-encode [Address] [recipient])]
     (ethabi-encode [UInt256] [amount])])
 
 ;; : Void <- TransactionReceipt [Listof Any]
 (def (erc20-assert-log! receipt expectation)
   (def extracted-logs (map erc20-extracted-logger-log (.@ receipt logs)))
   (def expected (apply erc20-expected-logger-log expectation))
-  (assert! (member expected extracted-logs)))
+  (unless (member expected extracted-logs)
+    (DBG erc20al190: expected extracted-logs expectation)
+    (assert! (member expected extracted-logs))))
 
 ;; : Void <- Address Address Address Address
 ;;This function sets the allowance by first checking whether the current allowance is 0, and if not, sets it to 0 before to change it to something else

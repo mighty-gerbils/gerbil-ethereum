@@ -219,7 +219,7 @@
    (bytes->string (.@ log data))])
 (def (expected-logger-log logger caller message)
   [(0x<-address logger)
-   [(json<- Bytes32 (bytes-append (make-bytes 12) (bytes<- Address caller)))]
+   [(json<- Bytes32 (bytes-append (make-bytes 12 0) (bytes<- Address caller)))]
    message])
 
 (def (expect-logger-logs receipt . expectations)
