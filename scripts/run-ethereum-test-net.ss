@@ -146,7 +146,7 @@
 
 (def (geth-command . args)
   (def cmd (escape-shell-tokens ["geth" geth-arguments ... args ...]))
-  (format "(echo ~a ; ~a) < /dev/null >> ~a/geth.log 2>&1"
+  (format "{ echo ~a ; exec ~a ; } < /dev/null >> ~a/geth.log 2>&1"
           cmd cmd geth-logs-directory))
 (def (run-geth . args)
   (displayln "Running: " (apply geth-command args))
