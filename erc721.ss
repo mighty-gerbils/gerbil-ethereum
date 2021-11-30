@@ -6,7 +6,7 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes
   :std/srfi/1 :std/sugar
-  :clan/base :clan/with-id :clan/assert
+  :clan/base :clan/with-id
   :clan/poo/object (only-in :clan/poo/mop) :clan/poo/io
   ./logger ./hex ./types ./ethereum ./known-addresses ./abi ./json-rpc
   ./assembly ./transaction ./tx-tracker ./contract-config ./evm-runtime ./erc20)
@@ -75,7 +75,7 @@
 (def (erc721-assert-log! receipt expectation)
   (def extracted-logs (map erc721-extracted-logger-log (.@ receipt logs)))
   (def expected (apply erc721-expected-logger-log expectation))
-  (assert!! (member expected extracted-logs)))
+  (assert! (member expected extracted-logs)))
 
 ;; : Bool <- Address Address Address Bool
 (def (erc721-setApprovalForAll-expected-logger-log event-signature contract sender recipient approved)
@@ -89,7 +89,7 @@
 (def (erc721-setApprovalForAll-assert-log! receipt expectation)
   (def extracted-logs (map erc20-extracted-logger-log (.@ receipt logs)))
   (def expected (apply erc721-setApprovalForAll-expected-logger-log expectation))
-  (assert!! (member expected extracted-logs)))
+  (assert! (member expected extracted-logs)))
 
 ;;; Functions to interact with an ERC721 contract as a client
 
