@@ -5,7 +5,7 @@
 (import
   (for-syntax :std/misc/ports :std/text/hex :clan/path :clan/source)
   :gerbil/gambit/exceptions
-  :std/format :std/iter :std/sugar :std/srfi/13
+  :std/format :std/iter :std/sugar :std/assert :std/srfi/13
   :clan/exception :clan/multicall :clan/path-config :clan/syntax
   :clan/poo/object :clan/poo/cli :clan/poo/debug
   :clan/persist/db

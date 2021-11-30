@@ -3,7 +3,7 @@
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
   :std/srfi/1
-  :std/format :std/misc/bytes :std/misc/number :std/misc/hash :std/sugar
+  :std/format :std/misc/bytes :std/misc/number :std/misc/hash :std/sugar :std/assert
   :std/text/hex
   :clan/base :clan/number :clan/syntax
   :clan/poo/object :clan/poo/io
