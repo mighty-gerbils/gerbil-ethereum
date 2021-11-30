@@ -61,7 +61,7 @@
   (def len (string-length prefix))
   (unless (and (<= len 40) (string-every unhex* prefix))
     (error "Invalid keypair prefix" prefix))
-  (def p (make-bytes len))
+  (def p (make-bytes len 0))
   (for ((i (in-range len))) (bytes-set! p i (unhex (string-ref prefix i))))
   [(lambda (b)
      (let/cc return

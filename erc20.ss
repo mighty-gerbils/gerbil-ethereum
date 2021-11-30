@@ -179,7 +179,7 @@
   [contract
     [event-signature
       (ethabi-encode [Address] [sender])
-      (ethabi-encode [Address] [recipient])] 
+      (ethabi-encode [Address] [recipient])]
     (ethabi-encode [UInt256] [amount])])
 
 ;; : Void <- TransactionReceipt [Listof Any]

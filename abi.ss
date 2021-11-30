@@ -98,7 +98,7 @@
   (def (set-tail! new-tail)
     (assert! (<= tail new-tail end))
     (set! tail new-tail))
-  (def bytes (make-bytes end))
+  (def bytes (make-bytes end 0))
   (subu8vector-move! prefix 0 prefix-length bytes 0)
   (ethabi-encode-into types xs bytes prefix-length prefix-length get-tail set-tail!)
   bytes)

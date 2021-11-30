@@ -40,7 +40,7 @@
   transparent: #t)
 
 (def (new-segment (size max-segment-size))
-  (make-Segment (make-bytes size) 0))
+  (make-Segment (make-bytes size 0) 0))
 
 (def (segment-full? s)
   (>= (Segment-fill-pointer s) (bytes-length (Segment-bytes s))))
