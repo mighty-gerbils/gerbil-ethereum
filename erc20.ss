@@ -13,7 +13,9 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes
-  :std/srfi/1 :std/sugar :std/assert :std/iter
+  :std/assert :std/iter
+  :std/srfi/1
+  :std/sugar
   :clan/base :clan/with-id
   :clan/poo/object (only-in :clan/poo/mop) :clan/poo/io
   ./logger ./hex ./types ./ethereum ./known-addresses ./abi ./json-rpc

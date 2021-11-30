@@ -33,7 +33,10 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/misc
-  :std/iter :std/text/hex :std/srfi/1 :std/sugar :std/assert
+  :std/assert :std/iter
+  :std/srfi/1
+  :std/sugar
+  :std/text/hex
   :clan/base :clan/number
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/crypto/secp256k1

@@ -2,7 +2,12 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/random
-  :std/format :std/iter :std/misc/list :std/sort :std/srfi/13 :std/sugar :std/assert :std/text/hex
+  :std/assert :std/format :std/iter
+  :std/misc/list
+  :std/sort
+  :std/srfi/13
+  :std/sugar
+  :std/text/hex
   :clan/base :clan/json :clan/list :clan/number :clan/ports
   :clan/crypto/keccak
   :clan/poo/io :clan/poo/brace :clan/poo/object :clan/poo/debug
