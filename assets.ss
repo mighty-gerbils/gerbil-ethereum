@@ -4,7 +4,10 @@
 
 (export #t)
 (import
-  :std/sugar :std/format :std/misc/list :std/misc/string :std/misc/hash :std/srfi/1 :std/srfi/13 :std/iter
+  :std/assert :std/format :std/iter
+  :std/misc/hash :std/misc/list :std/misc/string
+  :std/srfi/1 :std/srfi/13
+  :std/sugar
   :clan/base :clan/basic-parsers :clan/decimal :clan/string
   :clan/poo/object
   ./assembly ./types ./ethereum ./abi ./evm-runtime ./network-config ./json-rpc ./erc20 ./simple-apps

@@ -2,7 +2,10 @@
 
 (import
   :gerbil/gambit/bytes :gerbil/gambit/threads
-  :std/format :std/iter :std/misc/list :std/srfi/1 :std/srfi/13 :std/sugar :std/test
+  :std/assert :std/format :std/iter
+  :std/misc/list
+  :std/srfi/1 :std/srfi/13
+  :std/sugar :std/test
   :clan/base :clan/json :clan/multicall :clan/path-config :clan/syntax :clan/with-id
   :clan/poo/object :clan/poo/debug :clan/poo/brace :clan/poo/io
   ./types ./ethereum ./known-addresses ./abi ./logger

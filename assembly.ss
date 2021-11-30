@@ -2,8 +2,10 @@
 
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
+  :std/assert :std/format
+  :std/misc/bytes :std/misc/hash :std/misc/number
   :std/srfi/1
-  :std/format :std/misc/bytes :std/misc/number :std/misc/hash :std/sugar
+  :std/sugar
   :std/text/hex
   :clan/base :clan/number :clan/syntax
   :clan/poo/object :clan/poo/io

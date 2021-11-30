@@ -1,7 +1,9 @@
 (export #t)
 (import
   :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
-  :std/misc/number :std/sugar :std/iter
+  :std/assert :std/iter
+  :std/misc/number
+  :std/sugar
   :clan/base :clan/number :clan/with-id
   :clan/poo/brace
   :clan/poo/object (only-in :clan/poo/mop Type)
