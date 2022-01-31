@@ -1,6 +1,6 @@
 #!/usr/bin/env gxi
 ;; Run your own local private copy of an Ethereum as a node on localhost, for testing purposes,
-;; with either Geth  or Mantis
+;; with either Geth or Mantis
 ;;
 ;; To setup Geth
 ;; =============
@@ -229,8 +229,8 @@
 
 (define-entry-point (stop-geth)
   (help: "Stop any currently running geth server" getopt: [])
-  (ignore-errors (run-process/batch
-                  ["killall" (cond-expand (linux ["-q"]) (else []))... "geth"])))
+  (void (ignore-errors (run-process/batch
+                        ["killall" (cond-expand (linux ["-q"]) (else []))... "geth"]))))
 
 (define-entry-point (geth)
   (help: "alias for start-geth" getopt: [])
@@ -264,12 +264,13 @@
 
 (define-entry-point (stop-mantis)
   (help: "Stop any currently running Mantis docker container" getopt: [])
-  (ignore-errors
-    (def containers (mantis-containers))
-    (unless (null? containers)
-      (printf "Killing container ~a\n" (string-join containers " "))
-      (run-process/batch ["docker" "stop" containers ...])
-      (run-process/batch ["docker" "wait" containers ...]))))
+  (void
+   (ignore-errors
+     (def containers (mantis-containers))
+     (unless (null? containers)
+       (printf "Killing container ~a\n" (string-join containers " "))
+       (run-process/batch ["docker" "stop" containers ...])
+       (run-process/batch ["docker" "wait" containers ...])))))
 
 ;;; NB: We could have a log directory outside it and symlink the builtin path to it, but oh well.
 
