@@ -1,7 +1,7 @@
 (export #t)
 
 (import
-  :std/sugar
+  :std/format :std/sugar
   :clan/exception :clan/json :clan/path-config
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/persist/db
@@ -53,11 +53,16 @@
   ;; TODO: automatically implement equality for records, better than that.
   (unless (equal? (bytes<- ContractConfig config)
                   (bytes<- ContractConfig chain-config))
-    (error "Contract configuration not matched by on-chain transaction"
-      (sexp<- ContractConfig config) (sexp<- ContractConfig chain-config)))
+    (error
+      (format
+        "Contract configuration not matched by on-chain transaction\n~y~y"
+        (sexp<- ContractConfig config)
+        (sexp<- ContractConfig chain-config))))
   (unless (equal? (code-hash<-create-contract pretx) (.@ chain-config code-hash))
-    (error "Contract configuration doesn't match expected transaction"
-      (sexp<- ContractConfig config) (sexp<- PreTransaction pretx))))
+    (error
+      (format "Contract configuration doesn't match expected transaction code-hash\n~y~y"
+        (sexp<- ContractConfig config)
+        (sexp<- PreTransaction pretx)))))
 
 ;; : ContractConfig <-
 ;;     (ContractConfig <- 'a) (Unit <- 'a ContractConfig) 'a
