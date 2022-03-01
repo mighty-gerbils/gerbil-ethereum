@@ -132,6 +132,14 @@
   .decimals: 18
   .network: 'ced)
 
+(.def (RIN @ Ether)
+      .name: "RIN Ether"
+      .symbol: 'RIN
+      .decimals: 18
+      .network: 'rin)
+
+
+
 (for-each register-asset!
           [PET QASPET RBTPET
-           CED QASCED RBTCED])
+           CED QASCED RBTCED RIN])
