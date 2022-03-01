@@ -142,4 +142,5 @@
 
 (for-each register-asset!
           [PET QASPET RBTPET
-           CED QASCED RBTCED RIN])
+           CED QASCED RBTCED
+           RIN])
