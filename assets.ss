@@ -8,7 +8,7 @@
   :std/misc/hash :std/misc/list :std/misc/string
   :std/srfi/1 :std/srfi/13
   :std/sugar
-  :clan/base :clan/basic-parsers :clan/decimal :clan/string
+  :clan/base :clan/basic-parsers :clan/decimal :clan/string :clan/syntax
   :clan/poo/object
   ./assembly ./types ./ethereum ./abi ./evm-runtime ./network-config ./json-rpc ./erc20 ./simple-apps
   ./transaction ./tx-tracker)
@@ -228,3 +228,23 @@
   (for/collect ((p (hash->list/sort asset-table symbol<?))
                 when (equal? (asset->network (cdr p)) network))
     (cdr p)))
+
+
+
+
+
+;;~~~~~~~~~~~~~~~~~~~~~~ Add Native Currencies of ethereum-networks
+;;~~~~~~~~~~~~~~~~~~~~~~ to asset table.
+;;
+(def (register-native-asset _ network)
+  (hash-ensure-ref asset-table
+                   (.@ (.@ network nativeCurrency) symbol)
+                   (lambda ()
+                     (.def (nativeAsset @ Ether)
+                           .name: (.@ (.@ network nativeCurrency) name)
+                           .symbol: (.@ (.@ network nativeCurrency) symbol)
+                           .decimals: (.@ (.@ network nativeCurrency) decimals)
+                           .network: (symbolify (.@ network shortName)))
+                     nativeAsset)))
+
+(hash-for-each register-native-asset ethereum-networks)
