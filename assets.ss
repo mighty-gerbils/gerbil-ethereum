@@ -8,8 +8,8 @@
   :std/misc/hash :std/misc/list :std/misc/string
   :std/srfi/1 :std/srfi/13
   :std/sugar
-  :clan/base :clan/basic-parsers :clan/decimal :clan/string :clan/syntax
-  :clan/poo/object
+  :clan/base :clan/basic-parsers :clan/decimal :clan/string
+  :clan/poo/object :clan/poo/brace
   ./assembly ./types ./ethereum ./abi ./evm-runtime ./network-config ./json-rpc ./erc20 ./simple-apps
   ./transaction ./tx-tracker)
 
@@ -240,11 +240,10 @@
   (hash-ensure-ref asset-table
                    (.@ (.@ network nativeCurrency) symbol)
                    (lambda ()
-                     (.def (nativeAsset @ Ether)
+                     {(:: @ Ether)
                            .name: (.@ (.@ network nativeCurrency) name)
                            .symbol: (.@ (.@ network nativeCurrency) symbol)
                            .decimals: (.@ (.@ network nativeCurrency) decimals)
-                           .network: (symbolify (.@ network shortName)))
-                     nativeAsset)))
+                           .network: (string->symbol (.@ network shortName))})))
 
 (hash-for-each register-native-asset ethereum-networks)
