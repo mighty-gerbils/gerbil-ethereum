@@ -237,13 +237,14 @@
 ;;~~~~~~~~~~~~~~~~~~~~~~ to asset table.
 ;;
 (def (register-native-asset _ network)
+  (def nativeCurrency (.@ network nativeCurrency))
   (hash-ensure-ref asset-table
-                   (.@ (.@ network nativeCurrency) symbol)
+                   (.@ nativeCurrency symbol)
                    (lambda ()
                      {(:: @ Ether)
-                           .name: (.@ (.@ network nativeCurrency) name)
-                           .symbol: (.@ (.@ network nativeCurrency) symbol)
-                           .decimals: (.@ (.@ network nativeCurrency) decimals)
+                           .name: (.@ nativeCurrency name)
+                           .symbol: (.@ nativeCurrency symbol)
+                           .decimals: (.@ nativeCurrency decimals)
                            .network: (string->symbol (.@ network shortName))})))
 
 (hash-for-each register-native-asset ethereum-networks)
