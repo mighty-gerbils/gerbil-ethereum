@@ -166,7 +166,7 @@
 (def-eth-net (ropsten @ [shared-test-network has-etherscan has-infura])
   name: "Ethereum Testnet Ropsten"
   shortName: "rop" chain: "ETH" network: "ropsten" chainId: 3 networkId: 3
-  nativeCurrency: {name: "Ropsten Ether" symbol: "ROP" decimals: 18}
+  nativeCurrency: {name: "Ropsten Ether" symbol: 'ROP decimals: 18}
   faucets: ["https://faucet.ropsten.be/"
             "https://faucet.ropsten.be/donate/${ADDRESS}"]
   infoUrl: "https://github.com/ethereum/ropsten")

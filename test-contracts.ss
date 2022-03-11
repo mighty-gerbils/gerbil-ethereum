@@ -92,11 +92,6 @@
      (error "fail!")))
   (assert! (equal? (eth_getTransactionCount initializer) 3)))
 
-(.def (PET @ Ether)
-  .name: "PET Ether"
-  .symbol: 'PET
-  .decimals: 18
-  .network: 'pet)
 
 (.def (QASPET @ ERC20)
   .contract-address: QASPET@
@@ -112,12 +107,6 @@
   .decimals: 18
   .network: 'pet)
 
-(.def (CED @ Ether)
-  .name: "CED Ether"
-  .symbol: 'CED
-  .decimals: 18
-  .network: 'ced)
-
 (.def (QASCED @ ERC20)
   .contract-address: QASCED@
   .name: "Quality Assurance Specie on Private Ethereum Testnet"
@@ -132,6 +121,7 @@
   .decimals: 18
   .network: 'ced)
 
+
 (for-each register-asset!
-          [PET QASPET RBTPET
-           CED QASCED RBTCED])
+          [QASPET RBTPET
+           QASCED RBTCED])
