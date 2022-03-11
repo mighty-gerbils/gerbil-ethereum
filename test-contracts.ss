@@ -93,6 +93,9 @@
   (assert! (equal? (eth_getTransactionCount initializer) 3)))
 
 
+(def PET (lookup-asset 'PET))
+(def CED (lookup-asset 'CED))
+
 (.def (QASPET @ ERC20)
   .contract-address: QASPET@
   .name: "Quality Assurance Specie on Private Ethereum Testnet"
