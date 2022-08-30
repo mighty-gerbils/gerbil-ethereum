@@ -3,13 +3,12 @@
 (export #t)
 
 (import
-  (for-syntax :std/misc/ports :std/text/hex :clan/path :clan/source)
+  (for-syntax :std/text/hex :clan/syntax)
   :gerbil/gambit/exceptions
   :std/assert :std/format :std/iter
-  :std/srfi/13
-  :std/sugar
-  :clan/exception :clan/multicall :clan/path-config :clan/syntax
-  :clan/poo/object :clan/poo/cli :clan/poo/debug
+  :std/srfi/13 :std/sugar
+  :clan/exception :clan/multicall :clan/source :clan/syntax
+  :clan/poo/object :clan/poo/cli
   :clan/persist/db
   ./types ./ethereum ./network-config ./json-rpc ./abi ./transaction ./tx-tracker
   ./testing ./meta-create2 ./assets ./cli ./testing)
@@ -27,14 +26,16 @@
 (def RBTCED@ RBTPET@)
 (def HAMCED@ HAMPET@)
 
-(defvalues (test-erc20-contract-bytes test-erc721-contract-bytes)
-  (syntax-call
-   (lambda (ctx)
-     (def here (path-parent (vector-ref (stx-source ctx) 0)))
-     (def test-erc20-contract-bin (subpath here "t/precompiled/ERC20PresetFixedSupply.bin"))
-     (def test-erc721-contract-bin (subpath here "t/precompiled/ERC721PresetMinterPauserAutoId.bin"))
-     `(values ,(hex-decode (read-file-string test-erc20-contract-bin))
-              ,(hex-decode (read-file-string test-erc721-contract-bin))))))
+;; NB: We wire-in those contracts into the binary, so run-ethereum-test-net does not depend on
+;; the source code being available at runtime to locate the test files.
+(begin-syntax
+  (def (stx-source-hex stx relpath) (hex-decode (bytes->string (stx-source-content stx relpath)))))
+(def-syntax-call (this-source-hex x relpath) (stx-source-hex x relpath))
+
+(def (test-erc20-contract-bytes)
+  (this-source-hex "t/precompiled/ERC20PresetFixedSupply.bin"))
+(def (test-erc721-contract-bytes)
+  (this-source-hex "t/precompiled//ERC721PresetMinterPauserAutoId.bin"))
 
 (defkeys ensure-test-contracts
   (initializer "0x9a0685cf801c0b16a839ec9c28b7dc7f461e70f3d33307f3a15da1d68c7f9d83"))
@@ -51,19 +52,19 @@
                    [(string-append "Quality Assurance Specie on " name)
                     (string-append "QAS" NET)
                     initial-supply owner] ;; one billion total tokens with 1e-18 precision
-                   test-erc20-contract-bytes))
+                   (test-erc20-contract-bytes)))
   (def (RBT-bytes)
     (ethabi-encode [String String UInt256 Address]
                    [(string-append "Random Barter Token on " name)
                     (string-append "RBT" NET)
                     initial-supply owner] ;; one billion total tokens with 1e-18 precision
-                   test-erc20-contract-bytes))
+                   (test-erc20-contract-bytes)))
   (def (HAM-bytes)
     (ethabi-encode [String String String]
                    [(string-append "Crypto-Hamsters on " name)
                     (string-append "HAM" NET)
                     (format "https://ham~a.mukn.io/" net)]
-                   test-erc721-contract-bytes))
+                   (test-erc721-contract-bytes)))
 
   (displayln "Creating Universal CREATE2 wrapper...")
   (ensure-presigned-create2-wrapper)

@@ -3,16 +3,14 @@
 (import
   :gerbil/gambit/os
   :std/misc/list :std/misc/ports :std/srfi/1 :std/sugar :std/test :std/text/hex
-  :clan/debug :clan/filesystem :clan/list :clan/path :clan/path-config
+  :clan/debug :clan/filesystem :clan/list :clan/path :clan/path-config :clan/source
   :clan/poo/object
   ../hex ../types ../network-config
-  ../json-rpc ../nonce-tracker ../transaction ../abi ../tx-tracker ../testing
+  ../json-rpc ../nonce-tracker ../transaction ../abi ../tx-tracker ../testing ../test-contracts
   ./30-transaction-integrationtest)
 
-(def test-hello-contract-bin (source-path "t/precompiled/HelloWorld.bin"))
-
 (def (test-hello-contract-bytes)
-  (hex-decode (read-file-string test-hello-contract-bin)))
+  (this-source-hex "precompiled/HelloWorld.bin"))
 
 (def hello-contract #f)
 

@@ -26,7 +26,7 @@
     (def name "Alice")
     (def symbol "ALI")
     (def contract (abi-create croesus
-                              test-erc20-contract-bytes
+                              (test-erc20-contract-bytes)
                               [String String UInt256 Address]
                               [name symbol initial-supply alice]))
 

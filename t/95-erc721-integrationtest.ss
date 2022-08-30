@@ -35,7 +35,7 @@
     (def contract (deploy-contract croesus
                                    [String String String]
                                    [name symbol base-token-uri]
-                                   test-erc721-contract-bytes))
+                                   (test-erc721-contract-bytes)))
 
     (check-equal? (erc721-balance contract alice requester: croesus) initial-supply)
 
