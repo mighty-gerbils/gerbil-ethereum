@@ -722,3 +722,6 @@
    (&begin* (map (match <> ([t . v] (&marshal t v))) tvps))
    SUB SWAP1 ;; -- bufstart bufwidth
    SHA3))
+
+;; TODO: subroutine to call an address, fail if only 21000 gas was used (which implies that despite apparent "success", there was no contract at said address) --- or will calling with arguments fail in that case?
+;; Or is that why the convention to check success is to not merely to check the absence of error, but also to verify that a boolean true was returned?
