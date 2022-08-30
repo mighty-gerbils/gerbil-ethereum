@@ -59,7 +59,7 @@
               (.call asset .string<- balance))
       0)
     (begin
-      (printf "~a has ~a ether only. Funding to ~a ether.\n"
+      (printf "~a has ~a only. Funding to ~a.\n"
               (nicknamed-string<-address address)
               (.call asset .string<- balance)
               (.call asset .string<- target-balance))

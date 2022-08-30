@@ -78,20 +78,20 @@
 
 (.def (TokenAmount @ [] .decimals .validate .symbol)
   .denominator: (expt 10 .decimals)
-  ;; TODO: should we be including the name of the token in the string? after the number?
-  .string<-: (lambda (x) (format "~a ~a"
-                            (string<-decimal (/ x .denominator))
-                            .symbol))
+  ;; NB: we use the US convention of currency symbol first, decimal amount second.
+  .string<-: (lambda (x) (format "~a ~a" .symbol (string<-decimal (/ x .denominator))))
   .<-string: (lambda (s)
-               (assert! (string-suffix? (format " ~a" .symbol) s))
+               (assert! (string-prefix? (format "~a " .symbol) s))
                (.validate (*
                            .denominator
                            (decimal<-string
                             s
                             sign-allowed?: #t
                             exponent-allowed: #t
-                            start: 0
-                            end: (- (string-length s) (string-length (symbol->string .symbol)) 1))))))
+                            ;; TODO: should separators be taken from the user language environment?
+                            group-separator: #\,
+                            decimal-mark: #\.
+                            start: (1+ (string-length (symbol->string .symbol))))))))
 
 (.def (Ether @ [TokenAmount UInt256] ;; or should it just be UInt96 ???
        .length-in-bytes .length-in-bits)
@@ -194,7 +194,7 @@
 (def (expect-asset-amount port)
   (def asset ((expect-one-or-more-of char-ascii-alphabetic?) port))
   (expect-and-skip-any-whitespace port)
-  (def amount (expect-decimal port))
+  (def amount (expect-decimal port group-separator: #\,)) ;; TODO: programmable group-separator?
   (cons asset amount))
 
 (def (asset-amount<-string string trim-spaces?: (trim-spaces? #t))
@@ -229,13 +229,7 @@
                 when (equal? (asset->network (cdr p)) network))
     (cdr p)))
 
-
-
-
-
-;;~~~~~~~~~~~~~~~~~~~~~~ Add Native Currencies of ethereum-networks
-;;~~~~~~~~~~~~~~~~~~~~~~ to asset table.
-;;
+;; Add Native Currencies of ethereum-networks to asset table.
 (def (register-native-asset _ network)
   (def nativeCurrency (.@ network nativeCurrency))
   (hash-ensure-ref asset-table

@@ -85,4 +85,5 @@
    [options/from options/to]))
 
 (def (parse-currency-value string currency)
-  (* (decimal<-string string) (expt 10 (.@ currency decimals))))
+  (* (decimal<-string string group-separator: #\,)
+     (expt 10 (.@ currency decimals))))
