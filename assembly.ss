@@ -217,6 +217,7 @@
            (export symbol)) ...))
 
 ;; For precise semantics, see evm.md in https://github.com/kframework/evm-semantics
+;; Note: posting data is 16 gas / byte (4 if zero), used to be 68 for non-zero, might be 3 after EIP-4488.
 (define-ethereum-bytecodes
   (#x00 STOP 0) ;; Halts execution (success, same as 0 0 RETURN)
   (#x01 ADD 3) ;; Addition operation.
@@ -255,7 +256,7 @@
   (#x34 CALLVALUE 2) ;; Get deposited value by the instruction/transaction responsible for this execution
   (#x35 CALLDATALOAD 3) ;; Get input data of current environment
   (#x36 CALLDATASIZE 2 #t) ;; Get size of input data in current environment
-  (#x37 CALLDATACOPY 3) ;; Copy input data in current environment to memory
+  (#x37 CALLDATACOPY 3 #t) ;; Copy input data in current environment to memory 3*#word
   (#x38 CODESIZE 2) ;; Get size of code running in current environment
   (#x39 CODECOPY 3 #t) ;; Copy code running in current environment to memory
   (#x3a GASPRICE 2) ;; Get price of gas in current environment
@@ -278,7 +279,7 @@
   (#x52 MSTORE 3 #t) ;; Save word to memory
   (#x53 MSTORE8 3) ;; Save byte to memory
   (#x54 SLOAD 2100) ;; Load word from storage 200, then 700 now 2100 in EIP-2929.
-  (#x55 SSTORE 20000 #t #t) ;; Save word to storage. After refund, "only" 5000 per non-zero write.
+  (#x55 SSTORE 20000 #t #t) ;; Save word to storage. 5000 per write, 15000 extra for setting from 0 to non-0, 15000 refund resetting from non-0 to 0.
   (#x56 JUMP 8) ;; Alter the program counter
   (#x57 JUMPI 10) ;; Conditionally alter the program counter
   (#x58 GETPC 2) ;; Get the value of the program counter prior to the increment
