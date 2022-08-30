@@ -6,7 +6,7 @@
 ;; =============
 ;; If you use Nix to install Glow and its Gerbil dependencies, you can also use it to install geth:
 ;;
-;; nixpkgs=https://github.com/muknio/nixpkgs/archive/alpha.tar.gz # Or whichever nixpkgs you use
+;; nixpkgs=https://github.com/muknio/nixpkgs/archive/devel.tar.gz # Or whichever nixpkgs you use
 ;; nix-env -f $nixpkgs -iA go-ethereum
 ;;
 ;; Otherwise, see your distribution, e.g. apt install geth or brew install ethereum, or
@@ -161,7 +161,7 @@
     show-console: #f]))
 
 (def (get-geth-version)
-  (def version (cadr (run-process ["geth" "version"] 
+  (def version (cadr (run-process ["geth" "version"]
                                   stdin-redirection: #t stdout-redirection: #t stderr-redirection: #t
                                   coprocess: read-all-as-lines)))
   (string-trim-prefix "Version: " version))
@@ -170,8 +170,8 @@
   (def major 1)
   (def minor 10)
   (def splitted (string-split (get-geth-version) #\.))
-  (if (or (< (string->number (car splitted)) major) 
-          (< (string->number (cadr  splitted)) minor))
+  (if (or (< (string->number (car splitted)) major)
+          (< (string->number (cadr splitted)) minor))
       ""
       "--rpc.allow-unprotected-txs=true"))
 
