@@ -170,7 +170,7 @@
         '=> (json<- ContractConfig config)])
   config)
 
-;; Functions that process and match logs
+;; Functions that process and match logs, as per the specific ERC20 contract we use for testing.
 
 ;; : [Listof Any] <- Log
 (def (erc20-extracted-logger-log log)
