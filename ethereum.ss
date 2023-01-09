@@ -97,22 +97,18 @@
    .ethabi-name: "address"
    .ethabi-display-type: (cut display .ethabi-name <>)
    .ethabi-head-length: 32
-   .ethabi-padding: (- 32 .length-in-bytes)
+   .ethabi-padding: 12
    .ethabi-tail-length: (lambda (_) 0)
    ;; https://docs.soliditylang.org/en/develop/abi-spec.html
    ;; address: equivalent to uint160, except for the assumed interpretation and language typing.
    ;; The above means left-padding with 0s
    .ethabi-encode-into:
-   (lambda (x bytes start head get-tail set-tail!)
-      (subu8vector-move! (address-bytes x) 0 .length-in-bytes bytes (+ head .ethabi-padding)))
-   ;; https://docs.soliditylang.org/en/develop/abi-spec.html
-   ;; address: equivalent to uint160, except for the assumed interpretation and language typing.
-   ;; The above means left-padding with 0s
+   (lambda (x bytes _start head _get-tail _set-tail!)
+      (subu8vector-move! (address-bytes x) 0 20 bytes (+ head 12)))
    .ethabi-decode-from:
-   (lambda (bytes start head get-tail set-tail!)
-      (def end (+ head .ethabi-padding))
-      (ensure-zeroes bytes head end)
-      (make-address (subu8vector bytes end .length-in-bytes)))
+   (lambda (bytes _start head _get-tail _set-tail!)
+      (ensure-zeroes bytes head 12)
+      (make-address (subu8vector bytes (+ head 12) (+ head 32))))
    })
 (register-simple-eth-type Address)
 
