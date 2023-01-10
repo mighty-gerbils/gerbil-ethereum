@@ -1,5 +1,6 @@
 ;; TODO: import test vectors from Rust and JS libraries, e.g.
-;; https://github.com/ethereum/web3.js/blob/master/test/coder.encodeParam.js
+;; https://github.com/web3/web3.js/blob/1.x/test/abi.decodeParameter.js
+;; https://github.com/web3/web3.js/blob/1.x/test/abi.encodeParameter.js
 
 (export #t)
 

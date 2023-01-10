@@ -329,7 +329,7 @@
 
 ;; : Transaction <- Address Quantity
 (def (transfer-tokens from: from to: to value: value
-        gasPrice: (gasPrice (void)) nonce: (nonce (void)))
+      gasPrice: (gasPrice (void)) nonce: (nonce (void)))
   {from value to data: (void) gas: transfer-gas-used gasPrice nonce})
 
 ;; : Transaction <- Address Bytes value: ?Quantity gas: ?(Maybe Quantity) gasPrice: ?(Maybe Quantity) nonce: ?(Maybe Quantity)
@@ -339,5 +339,5 @@
 
 ;; : Transaction <- Address Address Bytes value: ?Quantity gas: ?(Maybe Quantity) gasPrice: ?(Maybe Quantity) nonce: ?(Maybe Quantity)
 (def (call-function caller contract calldata
-       value: (value 0) gas: (gas (void)) gasPrice: (gasPrice (void)) nonce: (nonce (void)))
+      value: (value 0) gas: (gas (void)) gasPrice: (gasPrice (void)) nonce: (nonce (void)))
   (complete-pre-transaction {from: caller to: contract data: calldata value gas gasPrice nonce}))

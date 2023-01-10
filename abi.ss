@@ -7,6 +7,8 @@
 ;; See also in Rust: https://github.com/openethereum/ethabi
 ;; Finally, external representation of the abi is in abi-
 
+;; TODO: parse and unparse abi types as string or json.
+
 (export #t)
 
 (import
