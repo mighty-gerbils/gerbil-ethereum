@@ -16,4 +16,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v1
-      - run: ./unit-tests.ss build-and-test
+      - name: Configure git on docker
+        # See https://github.com/actions/runner/issues/2033
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+      - name: Build and run the unit-tests
+        run: ./unit-tests.ss build-and-test
