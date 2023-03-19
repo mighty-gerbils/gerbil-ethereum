@@ -254,30 +254,3 @@
 (def (register-test-keys)
   ;; Register test keypairs
   (for-each (cut apply register-keypair <>) test-keys))
-
-
-;; Used to test `watch` with multiple ordered logs.
-(def (pc-logger-runtime)
-  (assemble/bytes
-   [GETPC 0 MSTORE
-    CALLER 32 0 LOG1
-    (- (expt 2 8) 1)  POP
-    GETPC 0 MSTORE
-    CALLER 32 0 LOG1
-    (- (expt 2 16) 1) POP
-    GETPC 0 MSTORE
-    CALLER 32 0 LOG1
-    STOP]))
-
-;; : Bytes <-
-(def pc-logger-init (compose stateless-contract-init pc-logger-runtime))
-
-;; : Bytes <-
-(def (ensure-pc-logger-contract owner log: (log eth-log))
-  (def config (ensure-contract-config/db
-               (string->bytes "pc-logger-contract")
-               (create-contract owner (pc-logger-init))
-               log: log))
-  (log ['ensure-pc-logger-contract (0x<-address owner) (nickname<-address owner)
-                                               '=> (json<- ContractConfig config)])
-  config)
