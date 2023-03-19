@@ -231,8 +231,9 @@
    stateDiff: [(Map Bytes32 <- Quantity) optional: #t])) ;; override individual slots in account storage
 
 ;; TODO: Geth has an optional third parameter StateOverrideSet
-(define-ethereum-api eth (call params (block 'latest))
-  Data <- CallParameters BlockParameter)
+;; TODO: Make sure this function works both on geth vs mantis, or provide two functions?
+(define-ethereum-api eth (call params (block 'latest) (state-override-set (void)))
+  Data <- CallParameters BlockParameter (Maybe StateOverrideSet))
 
 (define-ethereum-api eth chainId
   (Maybe UInt256) <-)
