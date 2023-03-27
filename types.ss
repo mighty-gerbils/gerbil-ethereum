@@ -94,7 +94,7 @@
 (def UInt<-length-in-bits (make-hash-table))
 (def (UIntN .length-in-bits)
   (hash-ensure-ref UInt<-length-in-bits .length-in-bits
-                   (lambda () {(:: @ UInt.) (.length-in-bits)})))
+                   (lambda () (.mix UInt. (poo.UInt .length-in-bits)))))
 
 (.def (Int. @ [poo.Int.] .length-in-bits .length-in-bytes .normalize)
   sexp: (symbolify "Int" .length-in-bits)
@@ -119,7 +119,7 @@
 (def Int<-length-in-bits (make-hash-table))
 (def (IntN .length-in-bits)
   (hash-ensure-ref Int<-length-in-bits .length-in-bits
-                   (lambda () {(:: @ Int.) (.length-in-bits)})))
+                   (lambda () (.mix Int. (poo.Int .length-in-bits)))))
 
 (defsyntax (defXIntNs stx)
   (with-syntax ((((UIntX IntX x)...)
