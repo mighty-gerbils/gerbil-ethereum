@@ -17,8 +17,8 @@
   :clan/poo/object :clan/poo/io :clan/poo/rationaldict
   (except-in :clan/poo/mop Bool)
   (prefix-in (only-in :clan/poo/mop Bool) poo.)
-  (except-in :clan/poo/number Nat UInt. UInt IntSet)
-  (prefix-in (only-in :clan/poo/number Nat UInt. UInt IntSet) poo.)
+  (except-in :clan/poo/number Nat UInt. UInt)
+  (prefix-in (only-in :clan/poo/number Nat UInt. UInt Int. Int) poo.)
   (except-in :clan/poo/type Maybe. BytesN. Symbol String Record Tuple. Enum.)
   (prefix-in (only-in :clan/poo/type Maybe. BytesN. Symbol String Record Tuple. Enum.) poo.)
   :clan/poo/brace
@@ -74,10 +74,9 @@
 
 ;; Integer types
 (.def (UInt. @ [poo.UInt.] .length-in-bits .length-in-bytes .validate)
+  sexp: (symbolify "UInt" .length-in-bits)
   .json<-: 0x<-nat
   .<-json: (compose .validate number<-json)
-  .string<-: number->string
-  .<-string: string->number
   .rlp<-: rlp<-nat
   .<-rlp: (compose .validate nat<-rlp)
   .ethabi-name: (format "uint~d" .length-in-bits)
@@ -95,17 +94,51 @@
 (def UInt<-length-in-bits (make-hash-table))
 (def (UIntN .length-in-bits)
   (hash-ensure-ref UInt<-length-in-bits .length-in-bits
-                   (lambda () (def sexp (symbolify "UInt" .length-in-bits))
-                           {(:: @ UInt.) (.length-in-bits) (sexp)})))
-(defsyntax (defUIntNs stx)
-  (with-syntax ((((id i)...)
-                 (for/collect (j [(iota 32 8 8)... 63])
-                   [(datum->syntax (stx-car stx) (symbolify "UInt" j)) j])))
+                   (lambda () {(:: @ UInt.) (.length-in-bits)})))
+
+(.def (Int. @ [poo.Int.] .length-in-bits .length-in-bytes .normalize)
+  sexp: (symbolify "Int" .length-in-bits)
+  .nat<-: (cut normalize-uint <> .length-in-bits)
+  .<-nat: .normalize
+  .json<-: (compose 0x<-nat .nat<-)
+  .<-json: (compose .normalize number<-json)
+  .rlp<-: (compose rlp<-nat .nat<-)
+  .<-rlp: (compose .normalize nat<-rlp)
+  .ethabi-name: (format "int~d" .length-in-bits)
+  .ethabi-display-type: (cut display .ethabi-name <>)
+  .ethabi-head-length: 32
+  .ethabi-padding: (- 32 .length-in-bytes)
+  .ethabi-tail-length: (lambda (_) 0)
+  .ethabi-encode-into:
+  (lambda (x bytes start head get-tail set-tail!)
+    (u8vector-sint-set! bytes (+ head .ethabi-padding) x big .length-in-bytes))
+  .ethabi-decode-from:
+  (lambda (bytes start head get-tail set-tail!)
+    (ensure-zeroes bytes head .ethabi-padding)
+    (u8vector-sint-ref bytes (+ head .ethabi-padding) big .length-in-bytes)))
+(def Int<-length-in-bits (make-hash-table))
+(def (IntN .length-in-bits)
+  (hash-ensure-ref Int<-length-in-bits .length-in-bits
+                   (lambda () {(:: @ Int.) (.length-in-bits)})))
+
+(defsyntax (defXIntNs stx)
+  (with-syntax ((((UIntX IntX x)...)
+                 (for/collect (x (iota 32 8 8))
+                   [(datum->syntax (stx-car stx) (symbolify "UInt" x))
+                    (datum->syntax (stx-car stx) (symbolify "Int" x))
+                    x])))
     #'(begin
-        (def id (UIntN i))...
-        (register-simple-eth-type id)...
-        (register-simple-eth-type UInt256 "uint"))))
-(defUIntNs)
+        (begin
+          (def UIntX (UIntN x))
+          (register-simple-eth-type UIntX)
+          (def IntX (IntN x))
+          (register-simple-eth-type IntX))...)))
+(defXIntNs)
+(def UInt63 (UIntN 63))
+(register-simple-eth-type UInt63)
+(register-simple-eth-type Int256 "int")
+(register-simple-eth-type UInt256 "uint")
+
 
 ;; Bytes types
 (.def (methods.Bytes @ [methods.bytes Type.] .validate .ethabi-name)
