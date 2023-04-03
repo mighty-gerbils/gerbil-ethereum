@@ -20,7 +20,7 @@
    z: (Tuple)
    o: (Tuple UInt8)
    t: (Tuple UInt8 UInt8)
-   h: (Tuple UInt8 UInt8 UInt8)))
+   h: (Tuple UInt8 UInt8 Int8)))
 (define-sum-constructors Zoth z o t h)
 
 (define-type LOU8
@@ -77,6 +77,8 @@
       (check-equal? (element? Zoth (Zoth-h #(5 8 13))) #t)
       (check-equal? (element? Zoth (Zoth-h #(5 8 13 14))) #f)
       (check-equal? (element? Zoth (Zoth-h #(5 -1 13))) #f)
+      (check-equal? (element? Zoth (Zoth-h #(5 1 -13))) #t)
+      (check-equal? (element? Zoth (Zoth-h #(5 1 130))) #f)
       (check-equal? (element? Zoth (<-json Zoth (json<-string "{\"tag\": \"z\", \"value\": []}"))) #t)
       (check-equal? (hash->list/sort (json<- Zoth (Zoth-z #())) string<?)
                     '(("tag" . "z") ("value" . ())))
