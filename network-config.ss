@@ -227,11 +227,3 @@
   nativeCurrency: {name: "Private Ether Test" symbol: 'PET decimals: 18}
   targetBlockTime: 1
   rpc: ["http://localhost:8545"])
-
-(def-eth-net (dev @ private-test-network)
-  name: "Private Ethereum Devnet"
-  description: "Laconic PoA devnet"
-  shortName: "dev" chain: "ETH" network: "petnet" networkId: 17 chainId: 1212
-  nativeCurrency: {name: "Private Ether Test" symbol: 'PET decimals: 18}
-  targetBlockTime: 1
-  rpc: ["http://devnet-1.laconic.com:32777"])
