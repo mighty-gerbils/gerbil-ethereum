@@ -223,7 +223,7 @@
 (def-eth-net (pet @ private-test-network)
   name: "Private Ethereum Testnet"
   description: "Local PoA testnet"
-  shortName: "pet" chain: "ETH" network: "petnet" networkId: 17 chainId: 1337
+  shortName: "pet" chain: "ETH" network: "petnet" networkId: 17 chainId: 1212
   nativeCurrency: {name: "Private Ether Test" symbol: 'PET decimals: 18}
   targetBlockTime: 1
   rpc: [(getenv "PET_RPC_URL" "http://localhost:8545")])
