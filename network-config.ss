@@ -220,10 +220,15 @@
   web-faucets: ["https://faucet-web-evm.portal.dev.cardano.org/"]
   infoUrl: "https://developers.cardano.org/en/virtual-machines/kevm/getting-started/using-the-kevm-devnet/")
 
-(def-eth-net (pet @ private-test-network)
-  name: "Private Ethereum Testnet"
-  description: "Local PoA testnet"
-  shortName: "pet" chain: "ETH" network: "petnet" networkId: 17 chainId: 1337
-  nativeCurrency: {name: "Private Ether Test" symbol: 'PET decimals: 18}
-  targetBlockTime: 1
-  rpc: ["http://localhost:8545"])
+(let* ((port (open-input-file "config.txt"))
+       (url (read-line port)))
+  (close-input-port port)
+  (def-eth-net (pet @ private-test-network)
+    name: "Private Ethereum Testnet"
+    description: "Local PoA testnet"
+    shortName: "pet" chain: "ETH" network: "petnet" networkId: 17 chainId: 1337
+    nativeCurrency: {name: "Private Ether Test" symbol: 'PET decimals: 18}
+    targetBlockTime: 1
+    ;;rpc: ["http://localhost:8545"]
+    rpc: [url]
+    ))
