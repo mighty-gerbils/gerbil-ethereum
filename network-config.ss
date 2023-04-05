@@ -224,7 +224,7 @@
   name: "Private Ethereum Testnet"
   description: "Local PoA testnet"
   shortName: "pet" chain: "ETH" network: "petnet"
-  networkId: (string->number (getenv "PET_NETWORK_ID" "17")
+  networkId: (string->number (getenv "PET_NETWORK_ID" "17"))
   chainId: (string->number (getenv "PET_CHAIN_ID" "1337"))
   nativeCurrency: {name: "Private Ether Test" symbol: 'PET decimals: 18}
   targetBlockTime: 1
