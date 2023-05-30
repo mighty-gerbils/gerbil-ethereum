@@ -198,7 +198,8 @@
   (cons asset amount))
 
 (def (asset-amount<-string string trim-spaces?: (trim-spaces? #t))
-  (parse-string (if trim-spaces? (string-trim-spaces string) string) expect-asset-amount
+  (parse-string expect-asset-amount
+                (if trim-spaces? (string-trim-spaces string) string)
                 "asset-amount"))
 
 (def (display-asset-amount asset-amount port)
