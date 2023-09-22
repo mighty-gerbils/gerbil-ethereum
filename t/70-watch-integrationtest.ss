@@ -1,7 +1,7 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes
+  :gerbil/gambit
   :std/assert :std/misc/list :std/srfi/1 :std/test
   :clan/base :clan/debug :clan/order :clan/poo/object :clan/poo/mop
   ../watch ../json-rpc ../known-addresses ../transaction ../nonce-tracker ../contract-config

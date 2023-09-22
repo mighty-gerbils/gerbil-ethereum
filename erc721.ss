@@ -4,11 +4,11 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes
+  :gerbil/gambit
   :std/assert
   :std/srfi/1
   :std/sugar
-  :clan/base :clan/with-id
+  :clan/base
   :clan/poo/object (only-in :clan/poo/mop) :clan/poo/io
   ./logger ./hex ./types ./ethereum ./known-addresses ./abi ./json-rpc
   ./assembly ./transaction ./tx-tracker ./contract-config ./evm-runtime ./erc20)

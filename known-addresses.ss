@@ -1,14 +1,14 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/random
+  :gerbil/gambit
   :std/assert :std/format :std/iter
-  :std/misc/list
+  :std/misc/bytes :std/misc/list :std/misc/number
   :std/sort
   :std/srfi/13
   :std/sugar
   :std/text/hex
-  :clan/base :clan/json :clan/list :clan/number :clan/ports
+  :clan/base :clan/json :clan/list :clan/ports
   :clan/crypto/keccak
   :clan/poo/io :clan/poo/brace :clan/poo/object :clan/poo/debug
   :clan/crypto/secp256k1 :clan/crypto/secp256k1-ffi
@@ -92,7 +92,7 @@
            (h (keccak256<-bytes (bytes<- PublicKey pubkey)))
            (address-bytes (subu8vector h 12 32))
            (s (score-function address-bytes)))
-      (set! seed (modulo (+ seed (nat<-bytes h)) secp256k1-order)))
+      (set! seed (modulo (+ seed (u8vector->nat h)) secp256k1-order)))
     (when (<= best-score-so-far s))
     (let (kp (keypair (make-address address-bytes) pubkey seckey))
       (when print-candidates

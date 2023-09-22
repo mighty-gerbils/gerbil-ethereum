@@ -12,7 +12,7 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes
+  :gerbil/gambit
   :std/assert :std/misc/number :std/misc/process :std/misc/repr :std/srfi/1 :std/sugar
   :clan/io :clan/poo/object :clan/poo/mop
   :clan/crypto/keccak)

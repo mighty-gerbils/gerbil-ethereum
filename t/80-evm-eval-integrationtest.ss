@@ -1,9 +1,10 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/ports
-  :std/format :std/iter :std/pregexp :std/misc/bytes :std/srfi/1 :std/sugar :std/test
-  :clan/debug :clan/number
+  :gerbil/gambit
+  :std/format :std/iter :std/pregexp :std/misc/bytes :std/misc/number
+  :std/srfi/1 :std/sugar :std/test
+  :clan/debug
   :clan/crypto/keccak
   :clan/poo/object :clan/poo/io :clan/poo/debug :clan/poo/brace
   :clan/crypto/secp256k1

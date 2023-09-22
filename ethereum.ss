@@ -1,9 +1,9 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes :gerbil/gambit/hash
-  :std/format :std/sugar
-  :clan/base :clan/maybe :clan/number :clan/decimal
+  :gerbil/gambit
+  :std/format :std/misc/number :std/misc/decimal :std/sugar
+  :clan/base :clan/maybe
   :clan/crypto/keccak :clan/crypto/secp256k1
   :clan/poo/object :clan/poo/io :clan/poo/brace
   (only-in :clan/poo/mop sexp<-)
@@ -45,11 +45,11 @@
 
 ;; : String <- Nat
 (def (decimal-string-ether<-wei wei-amount)
-  (string<-decimal (ether<-wei wei-amount)))
+  (decimal->string (ether<-wei wei-amount)))
 
 ;; : String <- Nat
 (def (decimal-string-gwei<-wei wei-amount)
-  (string<-decimal (gwei<-wei wei-amount)))
+  (decimal->string (gwei<-wei wei-amount)))
 
 
 ;;; Addresses
@@ -59,6 +59,7 @@
 
 ;; : 0xString <- Address
 (def 0x<-address (compose 0x<-address-bytes address-bytes))
+(defmethod (@@method :json address) 0x<-address)
 
 ;; : Address <- 0xString
 (def address<-0x (compose make-address (.@ Bytes20 .validate) bytes<-0x))
@@ -80,6 +81,7 @@
         (##wr-str we "#;")
         (##wr we `(address<-0x ,(0x<-address self)))))))
 
+;; Address on the specified network, e.g. (address<-0x "0xb0bb1ed229f5Ed588495AC9739eD1555f5c3aabD")
 (define-type Address
   {(:: @ [methods.marshal<-bytes Type.])
    .Bytes: Bytes20

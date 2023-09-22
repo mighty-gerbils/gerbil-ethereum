@@ -26,12 +26,11 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes :gerbil/gambit/ports :gerbil/gambit/threads
+  :gerbil/gambit
   (for-syntax :std/format)
-  :std/format :std/lazy :std/sugar
+  :std/format :std/lazy :std/net/json-rpc :std/sugar
   :clan/base :clan/concurrency :clan/json :clan/logger :clan/failure :clan/hash
   :clan/maybe :clan/option :clan/string :clan/syntax
-  :clan/net/json-rpc
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/crypto/secp256k1
   ./types ./ethereum ./network-config ./logger)
@@ -41,13 +40,13 @@
 (def ethereum-mutex (make-mutex 'ethereum))
 
 (def (ethereum-json-rpc method-name result-decoder param-encoder
-                        timeout: (timeout #f) log: (log eth-log) url: (url (ethereum-url))
+                        log: (log eth-log) url: (url (ethereum-url))
                         params)
   (with-lock ethereum-mutex
              (cut json-rpc url method-name params
                   result-decoder: result-decoder
                   param-encoder: param-encoder
-                  timeout: timeout log: log)))
+                  log: log)))
 
 (defsyntax (define-ethereum-api stx)
   (syntax-case stx (<-)
@@ -69,11 +68,11 @@
                      (fun-id fun-id))
          #'(begin
              (def params-type (Tuple argument-type ...))
-             (def (fun-id timeout: (timeout #f) log: (log eth-log) url: (url (ethereum-url)) formals ...)
+             (def (fun-id log: (log eth-log) url: (url (ethereum-url)) formals ...)
                  (ethereum-json-rpc method-string
                                     (.@ result-type .<-json)
                                     (.@ params-type .json<-) args-vector
-                                    timeout: timeout log: log url: url))))))))
+                                    log: log url: url))))))))
 
 (define-ethereum-api web3 clientVersion
   String <-)
@@ -545,7 +544,7 @@
       max-window: (max-window 1.0)
       max-retries: (max-retries 10))
   (retry retry-window: retry-window max-window: max-window max-retries: max-retries
-         (lambda () (display message) (eth_blockNumber url: url timeout: 1.0))))
+         (lambda () (display message) (eth_blockNumber url: url))))
 
 ;; Set of allowed environment variables in URL substitutions
 ;; (Table '#t <- String)

@@ -5,10 +5,10 @@
 (export #t)
 (import
   :std/assert :std/format :std/iter
-  :std/misc/hash :std/misc/list :std/misc/string
+  :std/misc/decimal :std/misc/hash :std/misc/list :std/misc/string
   :std/srfi/1 :std/srfi/13
-  :std/sugar
-  :clan/base :clan/basic-parsers :clan/decimal :clan/string
+  :std/sugar :std/text/basic-parsers :std/text/char-set
+  :clan/base :clan/string
   :clan/poo/object :clan/poo/brace
   ./assembly ./types ./ethereum ./abi ./evm-runtime ./network-config ./json-rpc ./erc20 ./simple-apps
   ./transaction ./tx-tracker)
@@ -79,12 +79,12 @@
 (.def (TokenAmount @ [] .decimals .validate .symbol)
   .denominator: (expt 10 .decimals)
   ;; NB: we use the US convention of currency symbol first, decimal amount second.
-  .string<-: (lambda (x) (format "~a ~a" .symbol (string<-decimal (/ x .denominator))))
+  .string<-: (lambda (x) (format "~a ~a" .symbol (decimal->string (/ x .denominator))))
   .<-string: (lambda (s)
                (assert! (string-prefix? (format "~a " .symbol) s))
                (.validate (*
                            .denominator
-                           (decimal<-string
+                           (string->decimal
                             s
                             sign-allowed?: #t
                             exponent-allowed: #t
@@ -191,14 +191,14 @@
    ;; check that both the call was successful and that its boolean result was true:
    (&mloadat tmp100@) AND &require!))
 
-(def (expect-asset-amount port)
-  (def asset ((expect-one-or-more-of char-ascii-alphabetic?) port))
-  (expect-and-skip-any-whitespace port)
-  (def amount (expect-decimal port group-separator: #\,)) ;; TODO: programmable group-separator?
+(def (parse-asset-amount reader)
+  (def asset ((parse-one-or-more-of char-ascii-alphabetic?) reader))
+  (parse-and-skip-any-whitespace reader)
+  (def amount (parse-decimal reader group-separator: #\,)) ;; TODO: programmable group-separator?
   (cons asset amount))
 
 (def (asset-amount<-string string trim-spaces?: (trim-spaces? #t))
-  (parse-string expect-asset-amount
+  (parse-string parse-asset-amount
                 (if trim-spaces? (string-trim-spaces string) string)
                 "asset-amount"))
 

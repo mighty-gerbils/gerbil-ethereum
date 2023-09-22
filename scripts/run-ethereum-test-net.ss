@@ -29,12 +29,11 @@
 (import
   (for-syntax :std/misc/ports :clan/syntax)
   :gerbil/expander
-  :gerbil/gambit/exceptions :gerbil/gambit/os :gerbil/gambit/ports :gerbil/gambit/threads
+  :gerbil/gambit
   :std/format :std/getopt :std/misc/list :std/misc/ports :std/misc/process :std/misc/string
-  :std/pregexp :std/srfi/1 :std/srfi/13 :std/sugar :std/text/hex
+  :std/net/json-rpc :std/pregexp :std/srfi/1 :std/srfi/13 :std/sugar :std/text/hex
   :clan/base :clan/files :clan/json :clan/maybe :clan/multicall
   :clan/path :clan/path-config :clan/shell :clan/syntax :clan/temporary-files
-  :clan/net/json-rpc
   :clan/crypto/secp256k1
   :clan/persist/db
   :mukn/ethereum/hex :mukn/ethereum/ethereum :mukn/ethereum/known-addresses

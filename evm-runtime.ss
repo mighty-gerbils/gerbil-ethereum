@@ -1,10 +1,10 @@
 (export #t)
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
+  :gerbil/gambit
   :std/assert :std/iter
   :std/misc/number
   :std/sugar
-  :clan/base :clan/number :clan/with-id
+  :clan/base
   :clan/poo/brace
   :clan/poo/object (only-in :clan/poo/mop Type)
   :clan/crypto/secp256k1

@@ -2,10 +2,9 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/threads
-  :std/sugar :std/srfi/1
+  :gerbil/gambit
+  :std/net/json-rpc :std/sugar :std/srfi/1
   :clan/concurrency :clan/exception :clan/failure :clan/option :clan/timestamp
-  :clan/net/json-rpc
   :clan/poo/object :clan/poo/brace
   :clan/persist/persist
   ./types ./ethereum ./network-config ./json-rpc)

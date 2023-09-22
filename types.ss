@@ -3,17 +3,16 @@
 (export (import: :clan/poo/mop) (import: :clan/poo/type) (import: :clan/poo/number))
 
 (import
-  (for-syntax :gerbil/gambit/exact :std/iter :std/stxutil :clan/syntax)
-  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
-  :gerbil/gambit/hash :gerbil/gambit/ports
+  (for-syntax :gerbil/gambit :std/iter :std/stxutil :clan/syntax)
+  :gerbil/gambit
   :std/assert :std/format :std/iter
-  :std/misc/bytes :std/misc/completion :std/misc/hash :std/misc/list
+  :std/misc/bytes :std/misc/completion :std/misc/hash :std/misc/list :std/misc/number
   :std/sort
   :std/srfi/1 :std/srfi/13 :std/srfi/43
   :std/sugar
   :std/text/json
   :clan/base :clan/io :clan/json :clan/list
-  :clan/maybe :clan/number :clan/syntax
+  :clan/maybe :std/stxutil
   :clan/poo/object :clan/poo/io :clan/poo/rationaldict
   (except-in :clan/poo/mop Bool)
   (prefix-in (only-in :clan/poo/mop Bool) poo.)
@@ -98,7 +97,7 @@
 
 (.def (Int. @ [poo.Int.] .length-in-bits .length-in-bytes .normalize)
   sexp: (symbolify "Int" .length-in-bits)
-  .nat<-: (cut normalize-uint <> .length-in-bits)
+  .nat<-: (cut normalize-nat <> .length-in-bits)
   .<-nat: .normalize
   .json<-: (compose 0x<-nat .nat<-)
   .<-json: (compose .normalize number<-json)
@@ -186,8 +185,8 @@
                   (type-error context Type @ [value: x]
                     (format "\n  length too long: expected <=65535, given ~a" (bytes-length x))))
                 x)
-   .marshal: marshal-sized16-bytes
-   .unmarshal: unmarshal-sized16-bytes
+   .marshal: marshal-sized16-u8vector
+   .unmarshal: unmarshal-sized16-u8vector
    .ethabi-tail-length: (lambda (x) (+ 32 (ceiling-align (bytes-length x) 32)))
    .ethabi-encode-into:
    (lambda (x bytes start head get-tail set-tail!)

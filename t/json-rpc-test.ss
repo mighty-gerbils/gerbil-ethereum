@@ -1,7 +1,7 @@
 (export json-rpc-test)
 
 (import
-  :gerbil/gambit/bytes :gerbil/gambit/exceptions
+  :gerbil/gambit
   :std/sugar :std/test
   :clan/poo/object :clan/poo/io
   ../json-rpc)

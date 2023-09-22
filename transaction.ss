@@ -2,10 +2,10 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes
+  :gerbil/gambit
   :std/error :std/iter :std/misc/list :std/misc/number :std/sugar :std/text/hex
-  :clan/assert :clan/base :clan/failure :clan/number :clan/option :clan/with-id
-  :clan/net/json-rpc
+  :std/net/json-rpc
+  :clan/assert :clan/base :clan/failure :clan/option
   :clan/poo/object :clan/poo/io :clan/poo/brace
   :clan/crypto/keccak :clan/crypto/secp256k1
   :clan/persist/db
@@ -71,11 +71,11 @@
   (defvalues (v r s) (vrs<-signature signature))
   (values (eip155-v v chainid) r s))
 
-(defstruct (TransactionRejected Exception) (receipt) transparent: #t) ;; (Or TransactionReceipt String)
-(defstruct (StillPending Exception) () transparent: #t)
-(defstruct (ReplacementTransactionUnderpriced Exception) () transparent: #t)
-(defstruct (IntrinsicGasTooLow Exception) () transparent: #t)
-(defstruct (NonceTooLow Exception) () transparent: #t)
+(defclass (TransactionRejected Exception) (receipt) transparent: #t) ;; (Or TransactionReceipt String)
+(defclass (StillPending Exception) () transparent: #t)
+(defclass (ReplacementTransactionUnderpriced Exception) () transparent: #t)
+(defclass (IntrinsicGasTooLow Exception) () transparent: #t)
+(defclass (NonceTooLow Exception) () transparent: #t)
 
 ;; TODO: Send Notification to end-user via UI!
 ;; : Bottom <- Address
@@ -84,16 +84,16 @@
   (raise (NonceTooLow)))
 
 ;; : Unit <- Address timeout:?(OrFalse Real) log:?(Fun Unit <- Json)
-(def (ensure-eth-signing-key timeout: (timeout #f) log: (log #f) address password)
+(def (ensure-eth-signing-key log: (log #f) address password)
   (when log (log ['ensure-eth-signing-key (0x<-address address)]))
   (def keypair (keypair<-address address))
   (unless keypair
     (error "No registered keypair for address" 'ensure-eth-signing-key address))
   (try
    (personal_importRawKey (hex-encode (export-secret-key/bytes (keypair-secret-key keypair))) password
-                          timeout: timeout log: log)
+                          log: log)
    (catch (json-rpc-error? e)
-     (unless (equal? (json-rpc-error-message e) "account already exists")
+     (unless (equal? (Error-message e) "account already exists")
        (raise e)))))
 
 ;; : Bool <- TransactionReceipt
@@ -129,7 +129,7 @@
         (raise (StillPending)))
       receipt))
    ((object? receipt)
-    (raise (TransactionRejected receipt)))
+    (raise (TransactionRejected receipt: receipt)))
    (else
     (with-slots (from nonce) tx
       (def sender-nonce (eth_getTransactionCount from 'latest))
@@ -137,7 +137,8 @@
        ((>= sender-nonce nonce)
         (if nonce-too-low? (nonce-too-low from) (raise (StillPending))))
        ((< sender-nonce nonce)
-        (error (TransactionRejected "BEWARE: nonce too high. Are you queueing transactions? Did you reset a test network?"))))))))
+        (error (TransactionRejected receipt: receipt
+                #|message: "BEWARE: nonce too high. Are you queueing transactions? Did you reset a test network?"|#))))))))
 
 ;; Count the number of confirmations for a transaction given by its hash.
 ;; Return -1 if the transaction is (yet) unconfirmed, -2 if it is failed.
@@ -267,13 +268,13 @@
      (unless (equal? transaction-hash hash)
        (error "eth-send-raw-transaction: invalid hash" transaction-hash hash))
      (confirmed-receipt<-transaction tx confirmations: #f))
-    ((failure (json-rpc-error code: -32000 message: "nonce too low"))
+    ((failure (JSON-RPCError code: -32000 message: "nonce too low"))
      (confirmed-receipt<-transaction tx confirmations: #f nonce-too-low?: #t))
-    ((failure (json-rpc-error code: -32000 message: "replacement transaction underpriced"))
+    ((failure (JSON-RPCError code: -32000 message: "replacement transaction underpriced"))
      (raise (ReplacementTransactionUnderpriced)))
-    ((failure (json-rpc-error code: -32000 message: "intrinsic gas too low"))
+    ((failure (JSON-RPCError code: -32000 message: "intrinsic gas too low"))
      (raise (IntrinsicGasTooLow)))
-    ((failure (json-rpc-error code: -32000 message:
+    ((failure (JSON-RPCError code: -32000 message:
                               (? (let (m (string-append "known transaction: " (hex-encode hash)))
                                    (cut equal? <> m)))))
      (confirmed-receipt<-transaction tx confirmations: #f))

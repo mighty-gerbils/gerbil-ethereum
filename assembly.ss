@@ -1,13 +1,13 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
-  :std/assert :std/format
+  :gerbil/gambit
+  :std/error :std/format
   :std/misc/bytes :std/misc/hash :std/misc/number
-  :std/srfi/1
+  :std/srfi/1 :std/stxutil
   :std/sugar
-  :std/text/hex
-  :clan/base :clan/number :clan/syntax
+  :std/text/hex :std/values
+  :clan/base
   :clan/poo/object :clan/poo/io
   ./types ./ethereum ./network-config)
 
@@ -159,15 +159,16 @@
   (segment-push-bytes! (Assembler-segment a) b))
 (def (&type a type x)
   (&bytes a ((.@ type .bytes<-) x)))
-(def (&int a i (n-bytes (n-bytes<-n-bits (integer-length i))))
-  (assert! (<= (integer-length i) (* 8 n-bytes)))
-  (segment-push-bytes! (Assembler-segment a) (bytes<-nat i n-bytes)))
-(def (&push a i (n-bytes (max 1 (n-bytes<-n-bits (integer-length i)))))
-  (assert! (<= 1 n-bytes 32))
+(def (&uint a u (n-bytes (nat-length-in-u8 u)))
+  (check-argument (and (nat? u) (<= (integer-length u) 256)) "uint256" u)
+  (check-argument (<= (integer-length u) (* 8 n-bytes) 256) "valid length for u" [n-bytes u])
+  (segment-push-bytes! (Assembler-segment a) (nat->u8vector u n-bytes)))
+(def (&push a u (n-bytes (max 1 (nat-length-in-u8 u))))
+  (check-argument (<= 1 n-bytes 32) "length of immediate data" n-bytes)
   (&byte a (+ #x5F n-bytes))
-  (&int a i n-bytes))
+  (&uint a u n-bytes))
 (def (&push-bytes a bytes)
-  (&push a (nat<-bytes bytes)))
+  (&push a (u8vector->nat bytes)))
 
 (def (current-offset a)
   (Segment-fill-pointer (Assembler-segment a)))
@@ -179,7 +180,7 @@
 ;; TODO: should we mask off all but the n-bits lowest bits of actual?
 (def (check-uint a n-bits offset expected err)
   (def actual (u8vector-uint-ref (Segment-bytes (Assembler-segment a))
-                                 offset big (n-bytes<-n-bits n-bits)))
+                                 offset big (n-bits->n-u8 n-bits)))
   (unless (= actual expected)
     (err actual)))
 
@@ -189,14 +190,14 @@
     (error "fixup has no computed value" offset expr n-bits value))
   (unless (and (<= 0 value) (<= (integer-length value) n-bits))
     (error "fixup has incorrect computed value" offset expr n-bits value))
-  (u8vector-uint-set! (Segment-bytes (Assembler-segment a)) offset value big (n-bytes<-n-bits n-bits))
+  (u8vector-uint-set! (Segment-bytes (Assembler-segment a)) offset value big (n-bits->n-u8 n-bits))
   (hash-remove! (Assembler-fixups a) offset))
 
 ;; TODO: somehow check that fixup ranges don't overlap.
 ;; e.g. 32-bit fixup at address 10 and 8-bit fixup at address 12.
 (def (&fixup a n-bits expr)
   (def offset (Segment-fill-pointer (Assembler-segment a)))
-  (&int a 0 (n-bytes<-n-bits n-bits))
+  (&uint a 0 (n-bits->n-u8 n-bits))
   (hash-put! (Assembler-fixups a) offset (cons expr n-bits)))
 
 (def (&label a l (offset (current-offset a)))
@@ -408,10 +409,10 @@
    ((= 0 z)
     (PUSH1 a) (&byte a 0))
    (else
-    (let ((n-bytes (n-bytes<-n-bits (integer-length z))))
-      (assert! (<= n-bytes 32))
+    (let ((n-bytes (nat-length-in-u8 z)))
+      (check-argument (<= 1 n-bytes 32) "length of immediate data" n-bytes)
       (&byte a (+ #x5f n-bytes))
-      (&bytes a (bytes<-nat z n-bytes))))))
+      (&bytes a (nat->u8vector z n-bytes))))))
 
 (def (&directive a directive)
   (cond
@@ -446,7 +447,7 @@
 ;; it pays to be compact.
 ;; Reading is cheap enough:
 (def (&mload n-bytes)
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mload")
+  (check-argument (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "length for &mload" n-bytes)
   (cond
    ((zero? n-bytes) (&begin POP 0)) ;; [3B, 5G]
    ((= n-bytes 32) MLOAD) ;; [1B, 3G]
@@ -455,14 +456,14 @@
 (def (&mloadat addr (n-bytes 32))
   (when (object? n-bytes) ;; accept a fixed-size type descriptor
     (set! n-bytes (.@ n-bytes .length-in-bytes)))
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mloadat")
+  (check-argument (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "length for &mloadat" n-bytes)
   (cond
    ((zero? n-bytes) 0) ;; [2B, 3G]
    ((= n-bytes 32) (&begin addr MLOAD)) ;; [4B, 6G] or for small addresses [3B, 6G]
    (else (&begin addr MLOAD (&shr (- 256 (* 8 n-bytes))))))) ;; [7B, 12G] or for small addresses [6B, 12G]
 
 (def (&mstore n-bytes)
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &store")
+  (check-argument (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "length for &mstore" n-bytes)
   (cond
    ((zero? n-bytes) (&begin POP POP)) ;; [2B, 4G]
    ((= n-bytes 1) MSTORE8) ;; [1B, 3G]
@@ -476,7 +477,7 @@
       (&begin DUP1 n-bytes ADD MLOAD (&shr n-bits) DUP3 (&shl (- 256 n-bits)) OR SWAP1 MSTORE POP)))))
 
 (def (&mstoreat addr (n-bytes 32))
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &storeat")
+  (check-argument (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "length for &mstoreat" n-bytes)
   (cond
    ((= n-bytes 32) (&begin addr MSTORE)) ;; [4B, 6G] or for small addresses [3B, 6G]
    ((zero? n-bytes) (&begin POP)) ;; [1B, 2G]
@@ -488,7 +489,8 @@
 
 ;; Like &mstore, but is allowed (not obliged) to overwrite memory after it with padding bytes
 (def (&mstore/overwrite-after n-bytes)
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mstore/overwrite-after")
+  (check-argument (and (exact-integer? n-bytes) (<= 0 n-bytes 32))
+                  "length for &mstore/overwrite-after" n-bytes)
   (cond
    ((= n-bytes 32) MSTORE) ;; [1B, 3G]
    ((= n-bytes 1) MSTORE8) ;; [1B, 3G]
@@ -497,7 +499,8 @@
 
 ;; Like &mstoreat, but is allowed (not obliged) to overwrite memory after it with padding bytes
 (def (&mstoreat/overwrite-after addr (n-bytes 32))
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mstoreat/overwrite-after")
+  (check-argument (and (exact-integer? n-bytes) (<= 0 n-bytes 32))
+                  "length for &mstoreat/overwrite-after" n-bytes)
   (cond
    ((= n-bytes 32) (&begin addr MSTORE)) ;; [4B, 6G] or for small addresses [3B, 6G]
    ((= n-bytes 1) (&begin addr MSTORE8)) ;; [4B, 6G] or for small addresses [3B, 6G]
@@ -566,7 +569,7 @@
     (&swap-n n-return-values) JUMP))
 
 (def (&swap-n n)
-  (assert! (<= 1 n 16) "Invalid swap number")
+  (check-argument (<= 1 n 16) "swap number" n)
   (match n
     (1 SWAP1)
     (2 SWAP2)

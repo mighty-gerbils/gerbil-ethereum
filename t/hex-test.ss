@@ -1,7 +1,7 @@
 (export hex-test)
 
 (import
-  :gerbil/gambit/bytes :gerbil/gambit/exceptions
+  :gerbil/gambit
   :std/error :std/text/hex :std/test :std/srfi/1 :std/sugar
   :clan/crypto/keccak
   ../hex)
@@ -20,17 +20,18 @@
                  [8271117963530313756381553648673 "0x68656c6c6f2c20776f726c6421"]])
       (for-each (match <>
                   ([hex err]
-                   (check-equal? err (with-catch error-exception-message (cut nat<-0x hex)))))
-                [["0" "Hex string does not begin with 0x"]
-                 ["" "Hex string does not begin with 0x"]
-                 ["0x" "Hex quantity has no digits"]
-                 ["0x0123" "Hex quantity has leading zero"]]))
+                   (check-equal? (with-catch Error-message (cut nat<-0x hex)) err)))
+                [["0" "Bad argument; expected 0x prefix"]
+                 ["" "Bad argument; expected 0x prefix"]
+                 ["0x" "Bad argument; expected at least one hexit for 0x quantity"]
+                 ["0x213Z" "invalid hex char"]
+                 ["0x0123" "Bad argument; expected no leading zero for 0x quantity"]]))
 
     (test-case "bytes<-0x, 0x<-bytes"
       (for-each (match <>
                   ([dec hex]
-                   (check-equal? dec (bytes<-0x hex))
-                   (check-equal? hex (0x<-bytes dec))))
+                   (check-equal? (bytes<-0x hex) dec)
+                   (check-equal? (0x<-bytes dec) hex)))
                 [[#u8() "0x"]
                  [#u8(0) "0x00"]
                  [#u8(0 0) "0x0000"]
@@ -41,12 +42,12 @@
                  [(keccak256<-bytes #u8()) "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"]])
       (for-each (match <>
                   ([hex err]
-                   (check-equal? err (with-catch error-exception-message (cut bytes<-0x hex)))))
-                [["0" "Hex string does not begin with 0x"]
-                 ["" "Hex string does not begin with 0x"]
-                 ["004200" "Hex string does not begin with 0x"]
-                 ["0x0" "Odd number of digits in hex string"]
-                 ["0xf0f0f" "Odd number of digits in hex string"]]))
+                   (check-equal? (with-catch Error-message (cut bytes<-0x hex)) err)))
+                [["0" "Bad argument; expected 0x prefix"]
+                 ["" "Bad argument; expected 0x prefix"]
+                 ["004200" "Bad argument; expected 0x prefix"]
+                 ["0x0" "Bad argument; expected even number of digits in 0x string"]
+                 ["0xf0f0f" "Bad argument; expected even number of digits in 0x string"]]))
 
     (test-case "0x <-> address"
       (for-each (lambda (hex)
@@ -62,10 +63,13 @@
                  "0x507877C2E26f1387432D067D2DaAfa7d0420d90a"
                  ])
       (for-each (match <>
-                  ([hex err]
-                   (check-equal? (with-catch error-message (cut address-bytes<-0x hex)) err)))
+                  ([hex msg . irr]
+                   (check-equal? (with-catch (lambda (e) [(Error-message e) (cadr (Error-irritants e))...])
+                                             (cut address-bytes<-0x hex)) [msg irr ...])))
                 [["0x9797809415e4b8efea0963e362ff68b9d98f9e00"
-                  "Invalid address checksum \"0x9797809415e4b8efea0963e362ff68b9d98f9e00\" 12\n"]
+                  "Bad argument; expected valid address checksum"
+                  "0x9797809415e4b8efea0963e362ff68b9d98f9e00" 12]
                  ["0x507877C2E26f1387432D067D2DaAfa7D0420d90a"
-                  "Invalid address checksum \"0x507877C2E26f1387432D067D2DaAfa7D0420d90a\" 33\n"]
-                 ["0x507877" "invalid address string length \"0x507877\"\n"]]))))
+                  "Bad argument; expected valid address checksum"
+                  "0x507877C2E26f1387432D067D2DaAfa7D0420d90a" 33]
+                 ["0x507877" "Bad argument; expected 40 hexits for address" . "0x507877"]]))))

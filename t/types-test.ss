@@ -1,10 +1,9 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes
-  :gerbil/gambit/exceptions
+  :gerbil/gambit
   :std/error :std/text/hex :std/text/json :std/sort :std/srfi/1 :std/sugar :std/test
-  :std/misc/hash
+  :std/misc/hash :std/misc/walist
   :clan/base :clan/json :clan/list
   :clan/poo/object :clan/poo/io :clan/poo/brace (only-in :clan/poo/mop define-type)
   ../types ../hex)
@@ -57,7 +56,7 @@
       (check-rep (.@ Nat .<-json) (.@ Nat .json<-) "0x50" 80))
     (test-case "Record"
       (check-rep (compose .alist (.@ EthereumRpcConfig .<-json) list->hash-table)
-                 (compose Alist-value (.@ EthereumRpcConfig .json<-) object<-alist)
+                 (compose walist->alist (.@ EthereumRpcConfig .json<-) object<-alist)
                  '(("scheme" . "http") ("host" . "localhost") ("port" . "0x50"))
                  '((scheme . http) (host . "localhost") (port . 80)))
       (check-rep (compose .alist (.@ EthereumRpcConfig .<-bytes) bytes<-0x)

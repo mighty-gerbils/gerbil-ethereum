@@ -1,10 +1,9 @@
 (export #t)
 
 (import
-  :gerbil/gambit/threads
-  :std/error :std/misc/completion :std/text/hex
+  :gerbil/gambit
+  :std/error :std/misc/completion :std/net/json-rpc :std/text/hex
   :clan/base :clan/concurrency :clan/failure :clan/option :clan/maybe
-  :clan/net/json-rpc
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/persist/db :clan/persist/persist
   ./types ./ethereum ./json-rpc)

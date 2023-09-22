@@ -32,12 +32,12 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/misc
-  :std/assert :std/iter
+  :gerbil/gambit
+  :std/assert :std/iter :std/misc/number
   :std/srfi/1
   :std/sugar
   :std/text/hex
-  :clan/base :clan/number
+  :clan/base
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/crypto/secp256k1
   ./logger ./hex ./types ./ethereum ./known-addresses ./json-rpc
@@ -58,7 +58,7 @@
 ;; (every (lambda (i) (<= (integer-floor-sqrt2expt (integer-floor-logsqrt2 i)) i (1- (integer-floor-sqrt2expt (1+ (integer-floor-logsqrt2 i)))))) (iota 500 1))
 ;; : Nat <- Nat+
 (def (integer-floor-logsqrt2 n)
-  (assert! (and (nat? n) (plus? n)))
+  (assert! (and (nat? n) (positive? n)))
   (def j (* 2 (1- (integer-length n))))
   #;(DBG icl: n j (integer-floor-sqrt2expt j) (integer-floor-sqrt2expt (1+ j)) (integer-floor-sqrt2expt (+ j 2)))
   #;(assert! (<= (integer-floor-sqrt2expt j) n (1- (integer-floor-sqrt2expt (+ j 2)))))
@@ -138,7 +138,7 @@
   (def tx (tx<-presigned presigned gasPrice: gasPrice))
   (def balance (eth_getBalance creator block))
   (def missing (- (* gas (.@ tx gasPrice)) balance))
-  (when (plus? missing)
+  (when (positive? missing)
     (post-transaction {from: funder to: creator value: missing}))
   (log ["send-presigned" (json<- SignedTransactionInfo tx)])
   (post-transaction tx))

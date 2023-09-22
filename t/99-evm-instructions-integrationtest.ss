@@ -1,7 +1,7 @@
 (export #t)
 
 (import
-  :std/test :clan/number :clan/poo/object
+  :std/test :std/misc/number :clan/poo/object
   ../types ../assembly ../evm-runtime
   ../testing ../evm-instructions.ss
   ./10-json-rpc-integrationtest)

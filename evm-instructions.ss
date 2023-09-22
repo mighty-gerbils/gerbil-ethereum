@@ -1,11 +1,11 @@
 (export #t)
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes
+  :gerbil/gambit
   :std/assert :std/format
   :std/misc/list :std/misc/number
   :std/srfi/1 (only-in :std/srfi/141 floor/)
   :std/sugar
-  :clan/base :clan/number
+  :clan/base
   :clan/poo/object (only-in :clan/poo/mop Type)
   ./assembly ./ethereum ./evm-runtime)
 

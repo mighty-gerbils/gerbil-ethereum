@@ -1,11 +1,10 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes :gerbil/gambit/exceptions :gerbil/gambit/threads
-  :std/error :std/misc/completion :std/text/hex
+  :gerbil/gambit
+  :std/error :std/misc/completion :std/net/json-rpc :std/text/hex
   :clan/base :clan/concurrency :clan/exception
   :clan/failure :clan/option
-  :clan/net/json-rpc
   :clan/poo/object :clan/poo/brace :clan/poo/io :clan/poo/trie
   :clan/persist/db :clan/persist/persist
   :clan/debug :clan/poo/debug
@@ -151,7 +150,7 @@
    TxFailed: (Tuple (delay-type TransactionStatus) ExceptionOrString)))
 (define-sum-constructors TransactionStatus TxWanted TxSigned TxConfirmed TxFailed)
 
-(defstruct (TransactionFailed Exception) (status exn) transparent: #t)
+(defclass (TransactionFailed Exception) (status exn) transparent: #t)
 
 (def transaction-status-ongoing?
   (match <>
@@ -346,7 +345,7 @@
 (def (check-transaction-confirmed final-transaction-status)
   (match final-transaction-status
     ((TransactionStatus-TxConfirmed _) final-transaction-status)
-    ((TransactionStatus-TxFailed (vector status exn)) (raise (TransactionFailed status exn)))))
+    ((TransactionStatus-TxFailed (vector status exn)) (raise (TransactionFailed status: status exn: exn)))))
 
 ;; : Transaction SignedTransaction TransactionReceipt <- TransactionTracker
 (def (track-transaction tracker)

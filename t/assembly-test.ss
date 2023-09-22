@@ -6,7 +6,7 @@
         :std/srfi/1
         :std/misc/list
         :clan/pure/dict/assq
-        (only-in :clan/number bytes<-nat)
+        (only-in :std/misc/bytes nat->u8vector)
         ../assembly)
 
 ;; jumplabel-len : Nat
@@ -52,7 +52,7 @@
        (def j-code-jump (+ i-code-jump &jump2-len))
        (check-equal? (subu8vector code i-code-jump j-code-jump)
                      ;; #x61 is PUSH2, #x56 is JUMP
-                     (u8vector-append #u8(#x61) (bytes<-nat i-code-dest 2) #u8(#x56)))))))
+                     (u8vector-append #u8(#x61) (nat->u8vector i-code-dest 2) #u8(#x56)))))))
 
 ;; pair-flip : (cons a b) -> (cons b a)
 (def (pair-flip p) (with ((cons a b) p) (cons b a)))

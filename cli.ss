@@ -2,9 +2,10 @@
 
 (import
   :gerbil/expander
-  :std/format :std/getopt :std/iter :std/misc/hash
+  :std/format :std/getopt :std/iter
+  :std/misc/decimal :std/misc/hash :std/misc/list
   :std/sort :std/srfi/13 :std/sugar
-  :clan/cli :clan/decimal :clan/exit :clan/hash :clan/list
+  :clan/cli :clan/exit :clan/hash :clan/list
   :clan/multicall :clan/path-config :clan/string
   :clan/poo/object :clan/poo/brace :clan/poo/cli :clan/poo/debug
   :clan/persist/db
@@ -85,5 +86,5 @@
    [options/from options/to]))
 
 (def (parse-currency-value string currency)
-  (* (decimal<-string string group-separator: #\,)
+  (* (string->decimal string group-separator: #\,)
      (expt 10 (.@ currency decimals))))

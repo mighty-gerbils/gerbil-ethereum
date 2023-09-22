@@ -5,8 +5,7 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes
-  :gerbil/gambit/exceptions
+  :gerbil/gambit
   :std/sugar
   :std/error :std/text/hex :std/test :std/srfi/1
   ../abi ../hex ../types ../ethereum)

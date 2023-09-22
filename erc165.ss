@@ -3,8 +3,9 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes
-  :clan/base :clan/with-id
+  :gerbil/gambit
+  :std/sugar
+  :clan/base
   :clan/poo/object (only-in :clan/poo/mop)
   ./types ./ethereum ./known-addresses ./abi ./json-rpc
   ./transaction ./erc20)

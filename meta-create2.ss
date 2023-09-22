@@ -9,9 +9,9 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/misc
-  :std/iter :std/text/hex :std/sugar
-  :clan/base :clan/number
+  :gerbil/gambit
+  :std/iter :std/misc/number :std/text/hex :std/sugar
+  :clan/base
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/crypto/secp256k1
   ./logger ./hex ./ethereum ./abi ./transaction ./tx-tracker ./presigned ./testing ./simple-apps)

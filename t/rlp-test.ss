@@ -1,7 +1,7 @@
 (export #t)
 
 (import :std/iter
-        :gerbil/gambit/bytes
+        :gerbil/gambit
         :std/sugar :std/test
         :clan/base :clan/poo/object :clan/poo/io :clan/poo/brace
         ../rlp ../hex ../types ../ethereum ../transaction)

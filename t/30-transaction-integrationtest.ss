@@ -1,7 +1,6 @@
 (export #t)
 
 (import
-  :gerbil/gambit/threads
   :std/format :std/sugar :std/test
   :clan/base :clan/debug :clan/failure :clan/json :clan/option :clan/path
   :clan/poo/object :clan/poo/io :clan/poo/debug :clan/poo/brace

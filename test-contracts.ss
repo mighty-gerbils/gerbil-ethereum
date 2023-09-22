@@ -4,7 +4,7 @@
 
 (import
   (for-syntax :std/text/hex :clan/syntax)
-  :gerbil/gambit/exceptions
+  :gerbil/gambit
   :std/assert :std/format :std/iter
   :std/srfi/13 :std/sugar
   :clan/exception :clan/multicall :clan/source :clan/syntax

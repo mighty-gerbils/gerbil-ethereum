@@ -1,9 +1,9 @@
 (export #t)
 
 (import
-  :gerbil/gambit/exceptions :gerbil/gambit/ports
+  :gerbil/gambit
   :std/format :std/misc/list :std/misc/repr :std/srfi/13 :std/sugar :std/test
-  :clan/exception :clan/syntax :clan/with-id
+  :clan/exception :clan/syntax
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/crypto/keccak :clan/crypto/secp256k1
   ../hex ../rlp ../types ../ethereum ../known-addresses ../transaction

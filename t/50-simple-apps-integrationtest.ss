@@ -1,9 +1,11 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes
-  :std/format :std/iter :std/misc/list-builder :std/srfi/1 :std/sugar :std/test
-  :clan/decimal :clan/json :clan/number
+  :gerbil/gambit
+  :std/format :std/iter
+  :std/misc/decimal :std/misc/list-builder :std/misc/number
+  :std/srfi/1 :std/sugar :std/test
+  :clan/json
   :clan/poo/object :clan/poo/io
   :clan/crypto/random
   :clan/persist/db

@@ -1,7 +1,7 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes :gerbil/gambit/os
+  :gerbil/gambit
   :std/misc/list :std/misc/ports :std/test :std/text/hex
   :clan/base :clan/debug :clan/filesystem :clan/path :clan/path-config :clan/poo/io
   :clan/poo/object :clan/poo/debug

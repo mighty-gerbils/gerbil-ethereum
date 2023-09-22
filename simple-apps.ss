@@ -6,9 +6,9 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes
-  :std/iter :std/misc/list
-  :clan/base :clan/syntax
+  :gerbil/gambit
+  :std/iter :std/misc/list :std/stxutil
+  :clan/base
   :clan/poo/object (only-in :clan/poo/mop) :clan/poo/io
   :clan/crypto/secp256k1
   ./logger ./hex ./types ./ethereum ./known-addresses
