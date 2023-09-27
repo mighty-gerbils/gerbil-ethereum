@@ -150,7 +150,7 @@
    TxFailed: (Tuple (delay-type TransactionStatus) ExceptionOrString)))
 (define-sum-constructors TransactionStatus TxWanted TxSigned TxConfirmed TxFailed)
 
-(defclass (TransactionFailed Exception) (status exn) transparent: #t)
+(defclass (TransactionFailed Exception) (status exception) transparent: #t)
 
 (def transaction-status-ongoing?
   (match <>
@@ -345,7 +345,8 @@
 (def (check-transaction-confirmed final-transaction-status)
   (match final-transaction-status
     ((TransactionStatus-TxConfirmed _) final-transaction-status)
-    ((TransactionStatus-TxFailed (vector status exn)) (raise (TransactionFailed status: status exn: exn)))))
+    ((TransactionStatus-TxFailed (vector status exn))
+     (raise (TransactionFailed status: status exception: exn)))))
 
 ;; : Transaction SignedTransaction TransactionReceipt <- TransactionTracker
 (def (track-transaction tracker)

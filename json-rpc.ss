@@ -27,7 +27,7 @@
 
 (import
   :gerbil/gambit
-  (for-syntax :std/format)
+  (for-syntax :std/format :std/stxutil)
   :std/format :std/lazy :std/net/json-rpc :std/sugar
   :clan/base :clan/concurrency :clan/json :clan/logger :clan/failure :clan/hash
   :clan/maybe :clan/option :clan/string :clan/syntax
@@ -59,9 +59,8 @@
                        (let* ((n (length (syntax->datum #'(argument-type ...))))
                               (vars (formals<-nat n)))
                          (values #'name vars (cons 'vector vars))))))
-                   ((method-string) (format "~a_~a" (syntax->datum #'namespace)
-                                            (syntax->datum method-name)))
-                   ((fun-id) (datum->syntax (stx-car stx) (string->symbol method-string))))
+                   ((method-string) (stringify #'namespace "_" method-name))
+                   ((fun-id) (identifierify (stx-car stx) method-string)))
        (with-syntax (((formals ...) method-formals)
                      (args-vector args-vector)
                      (method-string method-string)
@@ -69,10 +68,10 @@
          #'(begin
              (def params-type (Tuple argument-type ...))
              (def (fun-id log: (log eth-log) url: (url (ethereum-url)) formals ...)
-                 (ethereum-json-rpc method-string
-                                    (.@ result-type .<-json)
-                                    (.@ params-type .json<-) args-vector
-                                    log: log url: url))))))))
+               (ethereum-json-rpc method-string
+                                  (.@ result-type .<-json)
+                                  (.@ params-type .json<-) args-vector
+                                  log: log url: url))))))))
 
 (define-ethereum-api web3 clientVersion
   String <-)
@@ -330,8 +329,12 @@
 ;; Computes an eth signature of (eth-sign-prefix message)
 (define-ethereum-api eth sign
   Data <- Address Data)
+
+;; : Data <- Data
 (def (eth-sign-prefix message)
-  (format "\x19;Ethereum Signed Message:\n~a~a" (string-length message) message))
+  (u8vector-append (string->bytes "\x19;Ethereum Signed Message:\n")
+                   (string->bytes (number->string (u8vector-length message)))
+                   message))
 
 ;; This is the thing specified (and used?) by Geth:
 (define-ethereum-api eth signTransaction
@@ -490,14 +493,14 @@
 ;;; However, the JSON RPC API passes the string as JSON, which will be UTF-8 encoded,
 ;;; so it might be "interesting" to try to sign arbitrary bytes that are not valid JSON string.
 (def ethereum-sign-message-prefix
-  (bytes-append #u8(19) (string->bytes "Ethereum Signed Message:")))
+  (u8vector-append #u8(19) (string->bytes "Ethereum Signed Message:")))
 (def (ethereum-sign-message-wrapper/bytes message)
   (call-with-output-u8vector
    (lambda (p)
-     (write-bytes ethereum-sign-message-prefix p)
-     (write-bytes (object->string (bytes-length message)))
-     (write-bytes message p)
-     (write-byte 10 p))))
+     (write-u8vector ethereum-sign-message-prefix p)
+     (write-u8vector (string->bytes (number->string (u8vector-length message))) p)
+     (write-u8vector message p)
+     (write-u8 10 p))))
 (def ethereum-sign-message-wrapper
   (compose ethereum-sign-message-wrapper/bytes string->bytes))
 

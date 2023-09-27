@@ -41,7 +41,7 @@
 
 (import
   :gerbil/gambit
-  :std/error :std/iter :std/misc/bytes :std/srfi/13 :std/text/hex
+  :std/error :std/iter :std/misc/bytes :std/misc/number :std/srfi/13 :std/text/hex
   :clan/crypto/keccak)
 
 ;; Raise an error if the string doesn't strictly start with "0x"
@@ -102,7 +102,7 @@
     (def j (+ i 2))
     (def ch (string-ref hex-digits j))
     (when (and (char<=? #\a ch #\f)
-               (not (zero? (bitwise-and (bytes-ref hashed-digits (arithmetic-shift i -1))
+               (not (zero? (bitwise-and (u8vector-ref hashed-digits (half i))
                                         (if (even? i) #x80 #x08)))))
       (string-set! hex-digits j (char-upcase ch))))
   hex-digits)
@@ -121,7 +121,7 @@
     (unless (char<=? #\0 ch #\9)
       (check-argument (or (char<=? #\a ch #\f) (char<=? #\A ch #\F)) "hexit" [hs (+ i 2)])
       (check-argument (eq? (char<=? #\a ch #\f)
-                           (zero? (bitwise-and (bytes-ref hashed-digits (arithmetic-shift i -1))
+                           (zero? (bitwise-and (u8vector-ref hashed-digits (half i))
                                                (if (even? i) #x80 #x08))))
                       "valid address checksum" [hs (+ i 2)])))
   hs)

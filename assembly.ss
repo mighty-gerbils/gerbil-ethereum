@@ -42,22 +42,22 @@
   transparent: #t)
 
 (def (new-segment (size max-segment-size))
-  (make-Segment (make-bytes size 0) 0))
+  (make-Segment (make-u8vector size 0) 0))
 
 (def (segment-full? s)
-  (>= (Segment-fill-pointer s) (bytes-length (Segment-bytes s))))
+  (>= (Segment-fill-pointer s) (u8vector-length (Segment-bytes s))))
 
 (def (segment-push! s b)
   (when (segment-full? s) (error "segment full" 'segment-push! s b))
-  (bytes-set! (Segment-bytes s) (Segment-fill-pointer s) b)
+  (u8vector-set! (Segment-bytes s) (Segment-fill-pointer s) b)
   (increment! (Segment-fill-pointer s)))
 
 (def (segment-push-bytes! s b)
-  (unless (< (+ (bytes-length b) (Segment-fill-pointer s))
-             (bytes-length (Segment-bytes s)))
+  (unless (< (+ (u8vector-length b) (Segment-fill-pointer s))
+             (u8vector-length (Segment-bytes s)))
     (error "segment full" 'segment-push-bytes! s b))
-  (subu8vector-move! b 0 (bytes-length b) (Segment-bytes s) (Segment-fill-pointer s))
-  (increment! (Segment-fill-pointer s) (bytes-length b)))
+  (subu8vector-move! b 0 (u8vector-length b) (Segment-bytes s) (Segment-fill-pointer s))
+  (increment! (Segment-fill-pointer s) (u8vector-length b)))
 
 (def (segment-contents s)
   (subu8vector (Segment-bytes s) 0 (Segment-fill-pointer s)))
@@ -174,7 +174,7 @@
   (Segment-fill-pointer (Assembler-segment a)))
 
 (def (check-byte a offset value msg)
-  (unless (= (bytes-ref (Segment-bytes (Assembler-segment a)) offset) value)
+  (unless (= (u8vector-ref (Segment-bytes (Assembler-segment a)) offset) value)
     (error msg)))
 
 ;; TODO: should we mask off all but the n-bits lowest bits of actual?
@@ -417,7 +417,7 @@
 (def (&directive a directive)
   (cond
    ((exact-integer? directive) (&push a directive))
-   ((bytes? directive) (&push-bytes a directive))
+   ((u8vector? directive) (&push-bytes a directive))
    ((address? directive) (&push-bytes a (bytes<- Address directive)))
    ((procedure? directive) (directive a))
    ((pair? directive) (apply (car directive) a (cdr directive)))

@@ -2,14 +2,35 @@
 
 (import
   :gerbil/gambit
-  :std/misc/list :std/misc/ports :std/test :std/text/hex
-  :clan/base :clan/debug :clan/filesystem :clan/path :clan/path-config :clan/poo/io
-  :clan/poo/object :clan/poo/debug
-  ../json-rpc ../transaction ../nonce-tracker ../testing  ../assembly
-  ../abi  ../erc20 ../ethereum ../tx-tracker ../types ../evm-runtime
-  ../meta-create2 ../test-contracts
-  ./10-json-rpc-integrationtest  ./20-nonce-tracker-integrationtest
-  ./30-transaction-integrationtest ./60-abi-integrationtest)
+  :std/misc/list
+  :std/misc/path
+  :std/misc/ports
+  :std/test
+  :std/text/hex
+  :clan/base
+  :clan/debug
+  :clan/filesystem
+  :clan/path-config
+  :clan/poo/io
+  :clan/poo/object
+  :clan/poo/debug
+  ../json-rpc
+  ../transaction
+  ../nonce-tracker
+  ../testing
+  ../assembly
+  ../abi
+  ../erc20
+  ../ethereum
+  ../tx-tracker
+  ../types
+  ../evm-runtime
+  ../meta-create2
+  ../test-contracts
+  ./10-json-rpc-integrationtest
+  ./20-nonce-tracker-integrationtest
+  ./30-transaction-integrationtest
+  ./60-abi-integrationtest)
 
 (def (erc20-balances contract accounts)
   (map (lambda (account) (DDT erc20-balance: Address contract Address account Any

@@ -70,7 +70,7 @@
 
 ;; Null address
 ;; : Address
-(def null-address (make-address (make-bytes 20 0)))
+(def null-address (make-address (make-u8vector 20 0)))
 
 (defmethod (@@method :wr address)
   (lambda (self we)
@@ -138,9 +138,9 @@
 ;; https://eips.ethereum.org/EIPS/eip-1014
 ;; : Address <- Address UInt256
 (def (address<-create2 creator salt init-code)
-  (address<-data (bytes-append #u8(#xff) (bytes<- Address creator)
-                               (validate Bytes32 salt)
-                               (keccak256<-bytes init-code))))
+  (address<-data (u8vector-append #u8(#xff) (bytes<- Address creator)
+                                  (validate Bytes32 salt)
+                                  (keccak256<-bytes init-code))))
 
 ;; Signature <- 'a:Type SecKey 'a
 (def (make-signature type secret-key data)

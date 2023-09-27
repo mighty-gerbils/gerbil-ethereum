@@ -55,7 +55,7 @@
            Address logger2
            TransactionReceipt
            (post-transaction
-            (call-function croesus create2-wrapper (bytes-append salt (trivial-logger-init)))))
+            (call-function croesus create2-wrapper (u8vector-append salt (trivial-logger-init)))))
       (check-equal? (eth_getCode logger2) (trivial-logger-runtime))
       (def receipt
         (DDT 50-create2-wrapper-1: TransactionReceipt
@@ -85,7 +85,7 @@
         [(batched-transfer amount alice) ;; tx 0
          (batched-create 0 (trivial-logger-init)) ;; tx 1
          (batched-call 0 logger (string->bytes "Hello from tx")) ;; tx 2: call contract create in tx 1 !!
-         (batched-call amount creator (bytes-append salt universal-batcher-init))
+         (batched-call amount creator (u8vector-append salt universal-batcher-init))
          (batched-create2 0 alice-batcher-init salt) ;; tx 3
          (batched-transfer amount bob)
          ])

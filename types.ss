@@ -65,7 +65,7 @@
 
 (def (ensure-zeroes bytes start len)
   (for (i (in-range len))
-    (assert! (zero? (bytes-ref bytes (+ start i))))))
+    (assert! (zero? (u8vector-ref bytes (+ start i))))))
 
 (def simple-eth-types (make-hash-table))
 (def (register-simple-eth-type type (name (.@ type .ethabi-name)))
@@ -178,23 +178,23 @@
    sexp: 'BytesL16
    .Length: UInt16
    .ethabi-name: "bytes"
-   .element?: (λ (x) (and (bytes? x) (<= (bytes-length x) 65535)))
+   .element?: (λ (x) (and (u8vector? x) (<= (u8vector-length x) 65535)))
    .validate: (λ (x (context '()))
-                (unless (bytes? x) (type-error context Type @ [value: x]))
-                (unless (<= (bytes-length x) 65535)
+                (unless (u8vector? x) (type-error context Type @ [value: x]))
+                (unless (<= (u8vector-length x) 65535)
                   (type-error context Type @ [value: x]
-                    (format "\n  length too long: expected <=65535, given ~a" (bytes-length x))))
+                    (format "\n  length too long: expected <=65535, given ~a" (u8vector-length x))))
                 x)
    .marshal: marshal-sized16-u8vector
    .unmarshal: unmarshal-sized16-u8vector
-   .ethabi-tail-length: (lambda (x) (+ 32 (ceiling-align (bytes-length x) 32)))
+   .ethabi-tail-length: (lambda (x) (+ 32 (ceiling-align (u8vector-length x) 32)))
    .ethabi-encode-into:
    (lambda (x bytes start head get-tail set-tail!)
      (def tail (get-tail))
      (u8vector-uint-set! bytes head (- tail start) big 32)
-     (u8vector-uint-set! bytes tail (bytes-length x) big 32)
-     (subu8vector-move! x 0 (bytes-length x) bytes (+ tail 32))
-     (set-tail! (+ tail 32 (ceiling-align (bytes-length x) 32))))
+     (u8vector-uint-set! bytes tail (u8vector-length x) big 32)
+     (subu8vector-move! x 0 (u8vector-length x) bytes (+ tail 32))
+     (set-tail! (+ tail 32 (ceiling-align (u8vector-length x) 32))))
    .ethabi-decode-from:
    (lambda (bytes start head get-tail set-tail!)
      (def tail (+ start (u8vector-uint-ref bytes head big 32)))
@@ -211,7 +211,7 @@
    .element?: (λ (x) (and (string? x)
                           (or (< (string-length x) 16384)
                               (and (not (< 65535 (string-length x)))
-                                   (<= (bytes-length (string->bytes x)) 65535)))))
+                                   (<= (u8vector-length (string->bytes x)) 65535)))))
    .ethabi-name: "string"
    .ethabi-display-type: (cut display .ethabi-name <>)
    .ethabi-head-length: 32

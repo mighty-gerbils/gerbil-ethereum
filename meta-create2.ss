@@ -555,7 +555,7 @@
   (ensure-presigned-create2-wrapper funder: funder)
   (def init-code (ethabi-encode types arguments contract-bytes))
   (def address (address<-create2 create2-wrapper salt init-code))
-  (!> (bytes-append salt init-code)
+  (!> (u8vector-append salt init-code)
       (cut call-function funder create2-wrapper <> value: value)
       post-transaction)
   address)

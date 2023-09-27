@@ -27,14 +27,14 @@
 
 (def (bytes32<-string s)
   (def b (string->bytes s))
-  (def l (bytes-length b))
+  (def l (u8vector-length b))
   (assert! (<= l 32))
-  (bytes-append b (make-bytes (- 32 l) 0)))
+  (u8vector-append b (make-u8vector (- 32 l) 0)))
 
 ;; Used to test `watch` with multiple ordered logs.
 (def (string-logger-runtime strings)
   (def (log-string s)
-    [(bytes32<-string s) 0 MSTORE CALLER (bytes-length (string->bytes s)) 0 LOG1])
+    [(bytes32<-string s) 0 MSTORE CALLER (u8vector-length (string->bytes s)) 0 LOG1])
   (assemble/bytes [(append-map log-string strings)... STOP]))
 
 ;; : Bytes <-

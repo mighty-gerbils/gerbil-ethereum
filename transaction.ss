@@ -37,7 +37,7 @@
 (def (chainid<-v v)
   (cond
    ((<= 27 v 28) 0)
-   ((<= 37 v) (arithmetic-shift (- v 35) -1))
+   ((<= 37 v) (half (- v 35)))
    (else (error "invalid v" v))))
 
 ;; : (OrFalse SignedTransactionInfo) <- Bytes
@@ -218,7 +218,7 @@
 (def (complete-tx-to tx)
   (complete-tx-field tx 'to address? #f))
 (def (complete-tx-data tx)
-  (complete-tx-field tx 'data bytes? #f (lambda () #u8())))
+  (complete-tx-field tx 'data u8vector? #f (lambda () #u8())))
 (def (complete-tx-value tx)
   (complete-tx-field tx 'value nat? #f (lambda () 0)))
 (def (complete-tx-nonce tx from) ;; NB: beware concurrency/queueing in transactions from the same person.
@@ -287,8 +287,8 @@
 
 (def (bytes-count-zeroes bytes)
   (def c 0)
-  (for (i (in-iota (bytes-length bytes)))
-    (when (zero? (bytes-ref bytes i))
+  (for (i (in-iota (u8vector-length bytes)))
+    (when (zero? (u8vector-ref bytes i))
       (increment! c)))
   c)
 
@@ -299,7 +299,7 @@
 (def (intrinsic-gas<-bytes
       data base: (base transfer-gas-used) zero: (zero Gtxdatazero) nonzero: (nonzero Gtxdatanonzero))
   (def cz (bytes-count-zeroes data))
-  (def cnz (- (bytes-length data) cz))
+  (def cnz (- (u8vector-length data) cz))
   (+ (* zero cz) (* nonzero cnz) base))
 
 ;; Inputs must be normalized

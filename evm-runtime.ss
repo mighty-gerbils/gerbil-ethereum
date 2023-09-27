@@ -95,7 +95,7 @@
 (def (&trivial-contract-init contract-runtime)
   (&begin
    ;; Push args for RETURN; doing it in this order saves one byte and some gas
-   (bytes-length contract-runtime) 0 #|memory address for the code: 0|# ;;-- 0 length
+   (u8vector-length contract-runtime) 0 #|memory address for the code: 0|# ;;-- 0 length
 
    ;; Push args for CODECOPY; the DUP's for length and memory target are where the savings are
    DUP2 #|length|# [&push-label1 'runtime-start] DUP3 #|0|# ;;-- 0 start length 0 length
@@ -499,7 +499,7 @@
 (def &validate-sig-data ;; v r s <-- v r s
   (&begin
    1 27 DUP3 SUB GT ;; check that v is 27 or 28, which prevents malleability (not 29 or 30)
-   (arithmetic-shift secp256k1-order -1) DUP5 GT ;; s <= s_max, under half the order of the group, or else rejected by Bitcoin
+   (half secp256k1-order) DUP5 GT ;; s <= s_max, under half the order of the group, or else rejected by Bitcoin
    OR &require-not!))
 
 ;; TESTING STATUS: Wholly tested.

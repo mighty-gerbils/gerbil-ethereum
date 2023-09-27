@@ -3,15 +3,36 @@
 (export #t)
 
 (import
-  (for-syntax :std/text/hex :clan/syntax)
+  (for-syntax :std/text/hex
+              :std/misc/path
+              :std/misc/ports
+              :std/stxutil)
+  :std/stxutil
   :gerbil/gambit
-  :std/assert :std/format :std/iter
-  :std/srfi/13 :std/sugar
-  :clan/exception :clan/multicall :clan/source :clan/syntax
-  :clan/poo/object :clan/poo/cli
+  :std/assert
+  :std/format
+  :std/iter
+  :std/srfi/13
+  :std/source
+  :std/sugar
+  :clan/exception
+  :clan/multicall
+  :clan/syntax
+  :clan/poo/object
+  :clan/poo/cli
   :clan/persist/db
-  ./types ./ethereum ./network-config ./json-rpc ./abi ./transaction ./tx-tracker
-  ./testing ./meta-create2 ./assets ./cli ./testing)
+  ./types
+  ./ethereum
+  ./network-config
+  ./json-rpc
+  ./abi
+  ./transaction
+  ./tx-tracker
+  ./testing
+  ./meta-create2
+  ./assets
+  ./cli
+  ./testing)
 
 (def initial-supply (expt 10 27))
 
@@ -29,8 +50,9 @@
 ;; NB: We wire-in those contracts into the binary, so run-ethereum-test-net does not depend on
 ;; the source code being available at runtime to locate the test files.
 (begin-syntax
-  (def (stx-source-hex stx relpath) (hex-decode (bytes->string (stx-source-content stx relpath)))))
-(def-syntax-call (this-source-hex x relpath) (stx-source-hex x relpath))
+  (def (stx-source-hex stx relpath)
+    (hex-decode (bytes->string (stx-source-content stx relpath)))))
+(defsyntax-call (this-source-hex x relpath) (stx-source-hex x relpath))
 
 (def (test-erc20-contract-bytes)
   (this-source-hex "t/precompiled/ERC20PresetFixedSupply.bin"))
@@ -89,7 +111,7 @@
      (when (address? contract)
        (printf "... ~a contract created at address ~a\n" NAME (0x<-address contract))))
    (catch (TransactionFailed? e)
-     (display-exception (TransactionFailed-exn e))
+     (display-exception (TransactionFailed-exception e))
      (error "fail!")))
   (assert! (equal? (eth_getTransactionCount initializer) 3)))
 

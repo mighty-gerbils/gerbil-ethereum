@@ -27,18 +27,40 @@
 ;; This implies able to find any ancillary data files it uses.
 
 (import
-  (for-syntax :std/misc/ports :clan/syntax)
+  (for-syntax :std/misc/path :std/misc/ports :std/stxutil)
   :gerbil/expander
   :gerbil/gambit
-  :std/format :std/getopt :std/misc/list :std/misc/ports :std/misc/process :std/misc/string
-  :std/net/json-rpc :std/pregexp :std/srfi/1 :std/srfi/13 :std/sugar :std/text/hex
-  :clan/base :clan/files :clan/json :clan/maybe :clan/multicall
-  :clan/path :clan/path-config :clan/shell :clan/syntax :clan/temporary-files
+  :std/format
+  :std/getopt
+  :std/misc/list
+  :std/misc/path
+  :std/misc/ports
+  :std/misc/process
+  :std/misc/string
+  :std/net/json-rpc
+  :std/pregexp
+  :std/srfi/1
+  :std/srfi/13
+  :std/source
+  :std/sugar
+  :std/text/hex
+  :clan/base
+  :clan/files
+  :clan/json
+  :clan/maybe
+  :clan/multicall
+  :clan/path-config
+  :clan/shell
+  :clan/syntax
+  :clan/temporary-files
   :clan/crypto/secp256k1
   :clan/persist/db
-  :mukn/ethereum/hex :mukn/ethereum/ethereum :mukn/ethereum/known-addresses
-  :mukn/ethereum/json-rpc :mukn/ethereum/testing :mukn/ethereum/test-contracts)
-
+  :mukn/ethereum/hex
+  :mukn/ethereum/ethereum
+  :mukn/ethereum/known-addresses
+  :mukn/ethereum/json-rpc
+  :mukn/ethereum/testing
+  :mukn/ethereum/test-contracts)
 
 (with-catch void (cut import-module ':mukn/ethereum/version #t #t))
 
@@ -197,7 +219,8 @@
    prefix: "genesis-tmp-" suffix: ".json"
    while-open:
    (lambda (port _path)
-     (display (syntax-call (lambda (ctx) (read-file-string (stx-source-path ctx "genesis.json")))) port))
+     (display (syntax-call (lambda (ctx) (read-file-string
+                                     (stx-source-path ctx "genesis.json")))) port))
    after-close:
    (lambda (genesis.json)
      (run-geth "init" genesis.json)))

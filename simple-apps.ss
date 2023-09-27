@@ -216,7 +216,7 @@
 ;; : ContractConfig <- Address owner:?(OrFalse Address) log:?(Fun Unit <- Json)
 (def (ensure-batch-contract creator owner: (owner creator) log: (log eth-log))
   (def config (ensure-contract-config/db
-               (apply bytes-append (string->bytes "batch:")
+               (apply u8vector-append (string->bytes "batch:")
                       (when/list owner [(bytes<- Address owner)]))
                (create-contract owner (batch-contract-init owner))
                log: log))
@@ -254,20 +254,20 @@
 (def (marshal-batched-transaction tx port)
   (def (m.address address) (marshal Address (validate Address address) port))
   (def (m.value value) (marshal UInt88 (validate UInt88 value) port))
-  (def (m.bytes-length bytes) (marshal UInt16 (bytes-length (validate BytesL16 bytes)) port))
-  (def (m.bytes bytes) (write-bytes bytes port))
+  (def (m.bytes-length bytes) (marshal UInt16 (u8vector-length (validate BytesL16 bytes)) port))
+  (def (m.bytes bytes) (write-u8vector bytes port))
   (match tx
     ((batched-transfer value to)
-     (write-byte 0 port) (m.address to) (m.value value))
+     (write-u8 0 port) (m.address to) (m.value value))
     ((batched-call value to data)
-     (write-byte 1 port) (m.address to) (m.value value) (m.bytes-length data) (m.bytes data))
+     (write-u8 1 port) (m.address to) (m.value value) (m.bytes-length data) (m.bytes data))
     ((batched-delegate-call value to data)
-     (write-byte 2 port) (m.address to) (m.bytes-length data) (m.bytes data))
+     (write-u8 2 port) (m.address to) (m.bytes-length data) (m.bytes data))
     ((batched-create value initcode)
-     (write-byte 3 port) (m.value value)
+     (write-u8 3 port) (m.value value)
      (m.bytes-length initcode) (m.bytes initcode))
     ((batched-create2 value initcode salt)
-     (write-byte 4 port) (m.value value) (m.bytes-length initcode)
+     (write-u8 4 port) (m.value value) (m.bytes-length initcode)
      (m.bytes (validate Bytes32 salt)) (m.bytes initcode))))
 
 ;; Marshal a list of batched tx for use with a batch contract
@@ -282,7 +282,7 @@
 (def (bytes<-batched-transactions/signed address txs)
   (def b (bytes<-batched-transactions txs))
   (def sig (make-signature Bytes (secret-key<-address address) b))
-  (bytes-append (bytes<- Signature sig) b))
+  (u8vector-append (bytes<- Signature sig) b))
 
 ;; EVM code for a batched tx for use *without* a batch contract
 ;; : Directive <- BatchedTransaction UInt16
@@ -293,16 +293,16 @@
      (&begin DUP1 DUP1 DUP1 DUP1 value to GAS
              (&unless CALL (&begin DUP1 DUP1 REVERT))))
     ((batched-call value to data)
-     (&begin DUP1 DUP1 (bytes-length data)
+     (&begin DUP1 DUP1 (u8vector-length data)
              DUP1 [&push-label2 label] DUP4 CODECOPY
              DUP2 value to GAS
              (&unless CALL (&begin DUP1 DUP1 REVERT))))
     ((batched-create value initcode)
-     (&begin (bytes-length initcode)
+     (&begin (u8vector-length initcode)
              DUP1 [&push-label2 label] DUP4 CODECOPY
              DUP2 value CREATE POP)) ;; TODO: does CREATE return 0 on failure?
     ((batched-create2 value initcode salt)
-     (&begin [&push-bytes salt] (bytes-length initcode)
+     (&begin [&push-bytes salt] (u8vector-length initcode)
              DUP1 [&push-label2 label] DUP5 CODECOPY
              DUP3 value CREATE2 POP)))) ;; TODO: does CREATE2 return 0 on failure?
 

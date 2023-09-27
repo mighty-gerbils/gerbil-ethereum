@@ -18,11 +18,11 @@
 
 (def (make-signature-wrong sig)
   (def bytes (bytes<- Signature sig))
-  (bytes-set! bytes 4 (1- (bytes-ref bytes 4))) ;; arbitrarily decrement the fifth byte
+  (u8vector-set! bytes 4 (1- (u8vector-ref bytes 4))) ;; arbitrarily decrement the fifth byte
   (<-bytes Signature bytes))
 
 (def ethereum-test
-  (test-suite "Test suite for ethereum/ethereum"
+  (test-suite "test suite for ethereum/ethereum"
     (test-case "check test users"
       (defrule (check-user name addressj pubkeyj)
         (with-id ethereum-test

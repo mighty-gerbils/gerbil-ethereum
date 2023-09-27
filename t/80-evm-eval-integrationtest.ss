@@ -23,7 +23,7 @@
 (define-type String128
   {(:: @ String)
    .length-in-bytes: 128
-   .element?: (lambda (s) (and (string? s) (= (bytes-length (string->bytes s)) 128)))
+   .element?: (lambda (s) (and (string? s) (= (u8vector-length (string->bytes s)) 128)))
    .Bytes: Bytes128})
 
 (def 80-evm-eval-integrationtest

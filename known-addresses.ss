@@ -59,20 +59,20 @@
   (keypair address pubkey seckey))
 
 (def (nibble-ref bytes i)
-  (def b (bytes-ref bytes (arithmetic-shift i -1)))
+  (def b (u8vector-ref bytes (half i)))
   (if (even? i) (arithmetic-shift b -4) (bitwise-and b 15)))
 
 (def (scoring<-prefix prefix)
   (def len (string-length prefix))
   (unless (and (<= len 40) (string-every unhex* prefix))
     (error "Invalid keypair prefix" prefix))
-  (def p (make-bytes len 0))
-  (for ((i (in-range len))) (bytes-set! p i (unhex (string-ref prefix i))))
+  (def p (make-u8vector len 0))
+  (for ((i (in-range len))) (u8vector-set! p i (unhex (string-ref prefix i))))
   [(lambda (b)
      (let/cc return
-       (def l (min len (* 2 (bytes-length b))))
+       (def l (min len (* 2 (u8vector-length b))))
        (for ((i (in-naturals)))
-         (unless (and (< i l) (eqv? (bytes-ref p i) (nibble-ref b i)))
+         (unless (and (< i l) (eqv? (u8vector-ref p i) (nibble-ref b i)))
            (return i)))))
    len])
 

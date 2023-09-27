@@ -3,7 +3,7 @@
 
 (import
   :gerbil/gambit
-  :std/net/json-rpc :std/sugar :std/srfi/1
+  :std/misc/number :std/net/json-rpc :std/sugar :std/srfi/1
   :clan/concurrency :clan/exception :clan/failure :clan/option :clan/timestamp
   :clan/poo/object :clan/poo/brace
   :clan/persist/persist
@@ -77,7 +77,7 @@
          ;; Recovery strategy: Repartition to decrease request size.
          ;; See: https://infura.io/docs/ethereum/json-rpc/eth-getLogs#limitations
          ;; TODO: Test this.
-         (let (part-block (arithmetic-shift (+ from-block to-block) -1))
+         (let (part-block (half (+ from-block to-block)))
            (get-logs-from-blocks f contract-address from-block part-block next-event)
            (get-logs-from-blocks f contract-address (1+ part-block) to-block 0))
          ;; Unrecoverable errors: raise error

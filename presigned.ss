@@ -48,7 +48,7 @@
 (def (integer-floor-sqrt2expt n)
   (assert! (nat? n))
   (if (odd? n) (integer-sqrt (arithmetic-shift 1 n))
-      (arithmetic-shift 1 (arithmetic-shift n -1))))
+      (arithmetic-shift 1 (half n))))
 
 ;; integer-length: il such that (< (1- (expt 2 (1- il))) n (expt 2 il)) = (ceiling (log (1+ n) 2))
 ;; integer-floor-log2: the largest l such that (<= (expt 2 l) n) = (floor (log n) 2)

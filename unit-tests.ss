@@ -2,7 +2,10 @@
 ;; To run tests, use: ./unit-tests.ss
 ;; You can even run tests without first running ./build.ss !
 
-(import :clan/testing :clan/path-config :clan/path)
+(import
+  :std/misc/path
+  :clan/testing
+  :clan/path-config)
 
 ;; Let's share the configuration and data directories with the rest of the Glow ecosystem
 (set! application-name (lambda () "glow"))

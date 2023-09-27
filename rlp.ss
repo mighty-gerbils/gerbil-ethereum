@@ -89,7 +89,7 @@
 
 ;; nat<-rlp : Nat <- Rlp
 (def (nat<-rlp bs)
-  (unless (bytes? bs)
+  (unless (u8vector? bs)
     (error 'nat<-rlp "expected bytes, given" bs))
   (u8vector->nat bs))
 
@@ -109,20 +109,20 @@
      (write-u8 (u8vector-ref bs 0) out))
     ((< n 56)
      (write-u8 (+ #x80 n) out)
-     (write-bytes bs out))
+     (write-u8vector bs out))
     (else
      (let ()
        (def nn (nat-length-in-u8 n))
        (write-u8 (+ #xb7 nn) out)
-       (write-bytes (rlp<-nat n) out)
-       (write-bytes bs out)))))
+       (write-u8vector (rlp<-nat n) out)
+       (write-u8vector bs out)))))
 
 ;; rlp-write : Rlp OutputPort <- Void
 ;; Encodes the Rlp item and writes it to the given output port
 ;; https://eth.wiki/en/fundamentals/rlp#definition
 (def (rlp-write rlp out)
   (cond
-    ((bytes? rlp) (rlp-write-bytes rlp out))
+    ((u8vector? rlp) (rlp-write-bytes rlp out))
     (else
      (let ()
        (def payload* (open-output-u8vector))
@@ -132,13 +132,13 @@
        (cond
          ((< n 56)
           (write-u8 (+ #xc0 n) out)
-          (write-bytes payload out))
+          (write-u8vector payload out))
          (else
           (let ()
             (def nn (nat-length-in-u8 n))
             (write-u8 (+ #xf7 nn) out)
-            (write-bytes (rlp<-nat n) out)
-            (write-bytes payload out))))))))
+            (write-u8vector (rlp<-nat n) out)
+            (write-u8vector payload out))))))))
 
 ;; --------------------------------------------------------
 
