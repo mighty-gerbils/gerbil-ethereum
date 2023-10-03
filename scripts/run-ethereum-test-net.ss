@@ -55,14 +55,14 @@
   :clan/temporary-files
   :clan/crypto/secp256k1
   :clan/persist/db
-  :mukn/ethereum/hex
-  :mukn/ethereum/ethereum
-  :mukn/ethereum/known-addresses
-  :mukn/ethereum/json-rpc
-  :mukn/ethereum/testing
-  :mukn/ethereum/test-contracts)
+  :clan/ethereum/hex
+  :clan/ethereum/ethereum
+  :clan/ethereum/known-addresses
+  :clan/ethereum/json-rpc
+  :clan/ethereum/testing
+  :clan/ethereum/test-contracts)
 
-(with-catch void (cut import-module ':mukn/ethereum/version #t #t))
+(with-catch void (cut import-module ':clan/ethereum/version #t #t))
 
 ;; Let's share the configuration and data directories with the rest of the Glow ecosystem
 (set! application-name (lambda () "glow"))

@@ -40,9 +40,12 @@
 (export #t)
 
 (import
-  :gerbil/gambit
-  :std/error :std/iter :std/misc/bytes :std/misc/number :std/srfi/13 :std/text/hex
-  :clan/crypto/keccak)
+  (only-in :std/error check-argument)
+  (only-in :std/iter for in-range)
+  (only-in :std/misc/bytes bytevector->uint big)
+  (only-in :std/misc/number half)
+  (only-in :std/text/hex hex-encode hex-decode)
+  (only-in :clan/crypto/keccak keccak256<-string))
 
 ;; Raise an error if the string doesn't strictly start with "0x"
 ;; : Unit <- 0xString

@@ -1,27 +1,44 @@
 ;; We are shadowing existing types. Should we monkey-patch them instead? Let's hope not.
 (export #t)
-(export (import: :clan/poo/mop) (import: :clan/poo/type) (import: :clan/poo/number))
+(export (import: :clan/poo/mop)
+        (import: :clan/poo/number)
+        (import: :clan/poo/type))
+
+;; For re-export
+(import
+  (except-in :clan/poo/mop Bool)
+  (except-in :clan/poo/number Nat UInt. UInt)
+  (except-in :clan/poo/type Maybe. BytesN. Symbol String Record Tuple. Enum.))
 
 (import
-  (for-syntax :gerbil/gambit :std/iter :std/stxutil :clan/syntax)
-  :gerbil/gambit
-  :std/assert :std/format :std/iter
-  :std/misc/bytes :std/misc/completion :std/misc/hash :std/misc/list :std/misc/number
-  :std/sort
-  :std/srfi/1 :std/srfi/13 :std/srfi/43
-  :std/sugar
-  :std/text/json
-  :clan/base :clan/io :clan/json :clan/list
-  :clan/maybe :std/stxutil
-  :clan/poo/object :clan/poo/io :clan/poo/rationaldict
-  (except-in :clan/poo/mop Bool)
+  (for-syntax (only-in :std/iter for/collect)
+              (only-in :std/stxutil symbolify))
+  (only-in :std/assert assert!)
+  (only-in :std/format format fprintf)
+  (only-in :std/iter for in-range)
+  (only-in :std/misc/bytes u8vector-uint-set! u8vector-uint-ref u8vector-sint-set! u8vector-sint-ref big)
+  (only-in :std/misc/hash hash-ensure-ref)
+  (only-in :std/misc/list-builder with-list-builder)
+  (only-in :std/misc/number ceiling-align normalize-nat)
+  (only-in :std/srfi/43 vector-every vector-fold vector-unfold)
+  (only-in :std/sugar defrule)
+  (only-in :std/text/json json-object->string)
+  (only-in :clan/base compose rcompose λ)
+  (only-in :clan/io marshal-uint16 unmarshal-uint16 marshal-sized16-u8vector unmarshal-sized16-u8vector)
+  (only-in :std/stxutil symbolify maybe-intern-symbol)
+  (only-in :clan/poo/object .def .@ .call .for-each! .mix)
+  (only-in :clan/poo/io methods.bytes<-marshal)
+  (only-in :clan/poo/rationaldict RationalSet)
+  (only-in :clan/poo/mop Type. Type define-type type-error validate json<-)
   (prefix-in (only-in :clan/poo/mop Bool) poo.)
-  (except-in :clan/poo/number Nat UInt. UInt)
   (prefix-in (only-in :clan/poo/number Nat UInt. UInt Int. Int) poo.)
-  (except-in :clan/poo/type Maybe. BytesN. Symbol String Record Tuple. Enum.)
+  (only-in :clan/poo/type methods.bytes)
   (prefix-in (only-in :clan/poo/type Maybe. BytesN. Symbol String Record Tuple. Enum.) poo.)
-  :clan/poo/brace
-  ./hex ./abi ./rlp)
+  (only-in :clan/poo/brace @method)
+  (only-in ./hex 0x<-bytes bytes<-0x 0x<-nat nat<-0x)
+  (only-in ./abi ethabi-display-types ethabi-head-length ethabi-tail-length
+           ethabi-encode-into ethabi-decode-from)
+  (only-in ./rlp <-rlp rlp<- rlp<-nat nat<-rlp))
 
 (.def (Maybe. @ [poo.Maybe.] type)
   .rlp<-: (lambda (x) (if (void? x) #u8() (rlp<- type x)))

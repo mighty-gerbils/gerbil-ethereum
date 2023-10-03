@@ -1,14 +1,22 @@
 (export #t)
 
 (import
-  :gerbil/gambit
-  :std/format :std/misc/number :std/misc/decimal :std/sugar
-  :clan/base :clan/maybe
-  :clan/crypto/keccak :clan/crypto/secp256k1
-  :clan/poo/object :clan/poo/io :clan/poo/brace
-  (only-in :clan/poo/mop sexp<-)
-  (only-in :clan/poo/type Sum define-sum-constructors)
-  ./types ./hex ./rlp)
+  (only-in :gerbil/gambit object->serial-number)
+  (only-in :std/format format)
+  (only-in :std/misc/number integer-part)
+  (only-in :std/misc/decimal decimal->string)
+  (only-in :clan/base !> compose)
+  (only-in :clan/crypto/keccak keccak256<-bytes)
+  (only-in :clan/crypto/secp256k1 recover-signer-public-key make-message-signature PublicKey)
+  (only-in :clan/poo/object defmethod def-slots .mix .@)
+  (only-in :clan/poo/io bytes<- methods.marshal<-bytes)
+  (only-in :clan/poo/brace @method @@method)
+  (only-in :clan/poo/mop sexp<- define-type validate Type.)
+  (only-in :clan/poo/type Sum define-sum-constructors Maybe)
+  (only-in ./types Record Bytes Bytes4 Bytes20 Bytes32 UInt32 UInt63 UInt256
+           register-simple-eth-type ensure-zeroes)
+  (only-in ./hex address-bytes<-0x bytes<-0x 0x<-address-bytes)
+  (only-in ./rlp rlpbytes<-rlp rlp<-nat))
 
 ;; Types used by Ethereum APIs
 (define-type Quantity UInt256)

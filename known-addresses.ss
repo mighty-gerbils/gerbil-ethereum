@@ -1,18 +1,33 @@
 (export #t)
 
 (import
-  :gerbil/gambit
-  :std/assert :std/format :std/iter
-  :std/misc/bytes :std/misc/list :std/misc/number
-  :std/sort
-  :std/srfi/13
-  :std/sugar
-  :std/text/hex
-  :clan/base :clan/json :clan/list :clan/ports
-  :clan/crypto/keccak
-  :clan/poo/io :clan/poo/brace :clan/poo/object :clan/poo/debug
-  :clan/crypto/secp256k1 :clan/crypto/secp256k1-ffi
-  ./hex ./logger ./types ./ethereum)
+  (only-in :std/error check-argument)
+  (only-in :std/format format)
+  (only-in :std/iter for in-range in-naturals)
+  (only-in :std/misc/bytes u8vector->nat)
+  (only-in :std/misc/list push!)
+  (only-in :std/misc/number half)
+  (only-in :std/sort sort)
+  (only-in :std/srfi/13 string-ci= string-every)
+  (only-in :std/sugar while hash)
+  (only-in :std/text/hex unhex unhex*)
+  (only-in :clan/base ignore-errors nest)
+  (only-in :clan/json read-file-json write-json-ln)
+  (only-in :std/misc/ports with-output)
+  (only-in :clan/random random-nat)
+  (only-in :clan/crypto/keccak keccak256<-bytes)
+  (only-in :clan/poo/mop <-json json<- validate Type.)
+  (only-in :clan/poo/type Map)
+  (only-in :clan/poo/io bytes<-)
+  (only-in :clan/poo/brace @method)
+  (only-in :clan/poo/debug DDT)
+  (only-in :clan/crypto/secp256k1 secp256k1-order secp256k1-seckey PublicKey
+           import-secret-key/json export-secret-key/json secp256k1-seckey-data)
+  (only-in :clan/crypto/secp256k1-ffi secp256k1-pubkey<-seckey)
+  (only-in ./hex bytes<-0x)
+  (only-in ./logger eth-log)
+  (only-in ./types String define-type UInt256 Bytes32)
+  ./ethereum)
 
 (defstruct keypair (address public-key secret-key) equal: #t)
 
@@ -38,7 +53,8 @@
         ("pubkey" (json<- PublicKey (keypair-public-key kp)))
         ("seckey" (export-secret-key/json (keypair-secret-key kp)))))
 (def (import-keypair/json j)
-  (assert! (equal? (sort (hash-keys j) string<?) '("address" "pubkey" "seckey")))
+  (check-argument (equal? (sort (hash-keys j) string<?) '("address" "pubkey" "seckey"))
+                  "keypair json" j)
   (keypair (<-json Address (hash-get j "address"))
            (<-json PublicKey (hash-get j "pubkey"))
            (import-secret-key/json (hash-get j "seckey"))))
@@ -84,7 +100,7 @@
     (let/cc return)
     (with ([score-function enough-score] scoring))
     (let ((best-score-so-far -inf.0)
-          (seed (random-integer secp256k1-order))))
+          (seed (random-nat secp256k1-order))))
     (while #t)
     (let* ((seckey-data (bytes<- UInt256 seed))
            (seckey (secp256k1-seckey seckey-data))

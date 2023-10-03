@@ -15,8 +15,8 @@
 (init-test-environment!)
 
 ;; Accept the command-line subcommands defined in the files below.
-(import :mukn/ethereum/version :mukn/ethereum/testing :mukn/ethereum/cli
-        :mukn/ethereum/test-contracts)
+(import :clan/ethereum/version :clan/ethereum/testing :clan/ethereum/cli
+        :clan/ethereum/test-contracts)
 
 ;; Define more commands
 (import :std/misc/process

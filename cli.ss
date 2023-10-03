@@ -27,7 +27,7 @@
   (def keys (sort (hash-keys ethereum-networks) string<?))
   (def (name<-key key) (.@ (hash-get ethereum-networks key) name))
   (def keys-by-name (map (cut sort <> compare-strings-by-length-then-lexicographically<)
-                         (grouping keys name<-key)))
+                         (group-same keys key: name<-key)))
   (def keys-strings (map (cut string-join <> " ") keys-by-name))
   (def primary-keys (map car keys-by-name))
   (def urls (map (lambda (key) (with-catch (lambda (_) "") (cut car (.@ (hash-get ethereum-networks key) rpc))))

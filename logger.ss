@@ -1,6 +1,8 @@
 (export #t)
 
-(import :clan/logger)
+(import
+  (only-in :clan/logger json-logger))
 
-;;(def eth-log (json-logger "ethereum"))
-(import :clan/json)(def eth-log (values write-json-ln))
+(def eth-log (json-logger "ethereum"))
+
+;;For debugging: (import :clan/json)(def eth-log (values write-json-ln))

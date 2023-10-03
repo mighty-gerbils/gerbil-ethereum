@@ -1,5 +1,5 @@
 ;; Gerbil Ethereum support
-(package: mukn/ethereum
+(package: clan/ethereum
  depend: ("github.com/mighty-gerbils/gerbil-utils"
           "github.com/mighty-gerbils/gerbil-crypto"
           "github.com/mighty-gerbils/gerbil-poo"
