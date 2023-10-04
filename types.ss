@@ -20,7 +20,7 @@
   (only-in :std/misc/hash hash-ensure-ref)
   (only-in :std/misc/list-builder with-list-builder)
   (only-in :std/misc/number ceiling-align normalize-nat)
-  (only-in :std/srfi/43 vector-every vector-fold vector-unfold)
+  (only-in :std/srfi/43 vector-every vector-fold vector-unfold vector-for-each)
   (only-in :std/sugar defrule)
   (only-in :std/text/json json-object->string)
   (only-in :clan/base compose rcompose λ)
@@ -29,7 +29,7 @@
   (only-in :clan/poo/object .def .@ .call .for-each! .mix)
   (only-in :clan/poo/io methods.bytes<-marshal)
   (only-in :clan/poo/rationaldict RationalSet)
-  (only-in :clan/poo/mop Type. Type define-type type-error validate json<-)
+  (only-in :clan/poo/mop Type. Type define-type raise-type-error validate json<-)
   (prefix-in (only-in :clan/poo/mop Bool) poo.)
   (prefix-in (only-in :clan/poo/number Nat UInt. UInt Int. Int) poo.)
   (only-in :clan/poo/type methods.bytes)
@@ -196,11 +196,11 @@
    .Length: UInt16
    .ethabi-name: "bytes"
    .element?: (λ (x) (and (u8vector? x) (<= (u8vector-length x) 65535)))
-   .validate: (λ (x (context '()))
-                (unless (u8vector? x) (type-error context Type @ [value: x]))
+   .validate: (λ (x)
+                (unless (u8vector? x) (raise-type-error @ x))
                 (unless (<= (u8vector-length x) 65535)
-                  (type-error context Type @ [value: x]
-                    (format "\n  length too long: expected <=65535, given ~a" (u8vector-length x))))
+                  (raise-type-error @ x
+                    ["length too long: expected <=65535" given: (u8vector-length x)]))
                 x)
    .marshal: marshal-sized16-u8vector
    .unmarshal: unmarshal-sized16-u8vector

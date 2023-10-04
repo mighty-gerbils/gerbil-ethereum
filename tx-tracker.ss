@@ -204,7 +204,7 @@
            (def (update status)
              (with-committed-tx (tx) (save! status tx)))
            (let loop ((status status))
-             (validate TransactionStatus status [[TT.loop: [@] key]])
+             (validate TransactionStatus status)
              (def (continue status) (update status) (loop status))
              (def (invalidate transaction-status e)
                (reset-nonce user)
@@ -313,7 +313,7 @@
   ;; : TransactionTracker.Key TransactionTracker <- UserTransactionsTracker TransactionStatus
   add-transaction:
   (lambda (user transaction-status)
-    (validate TransactionStatus transaction-status [[add-transaction: Address user]])
+    (validate TransactionStatus transaction-status)
     (action
      user
      (fun (add-transaction get-state set-state! tx)
