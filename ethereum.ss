@@ -12,8 +12,8 @@
   (only-in :clan/poo/io bytes<- methods.marshal<-bytes)
   (only-in :clan/poo/brace @method @@method)
   (only-in :clan/poo/mop sexp<- define-type validate Type.)
-  (only-in :clan/poo/type Sum define-sum-constructors Maybe)
-  (only-in ./types Record Bytes Bytes4 Bytes20 Bytes32 UInt32 UInt63 UInt256
+  (only-in :clan/poo/type Sum define-sum-constructors)
+  (only-in ./types Maybe Record Bytes Bytes4 Bytes20 Bytes32 UInt32 UInt63 UInt256
            register-simple-eth-type ensure-zeroes)
   (only-in ./hex address-bytes<-0x bytes<-0x 0x<-address-bytes)
   (only-in ./rlp rlpbytes<-rlp rlp<-nat))

@@ -8,7 +8,7 @@
 (import
   (except-in :clan/poo/mop Bool)
   (except-in :clan/poo/number Nat UInt. UInt)
-  (except-in :clan/poo/type Maybe. BytesN. Symbol String Record Tuple. Enum.))
+  (except-in :clan/poo/type Maybe Maybe. BytesN. Symbol String Record Tuple. Enum.))
 
 (import
   (for-syntax (only-in :std/iter for/collect)
