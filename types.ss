@@ -20,7 +20,7 @@
   (only-in :std/misc/hash hash-ensure-ref)
   (only-in :std/misc/list-builder with-list-builder)
   (only-in :std/misc/number ceiling-align normalize-nat)
-  (only-in :std/srfi/43 vector-every vector-fold vector-unfold vector-for-each)
+  (only-in :std/srfi/43 vector-every vector-fold vector-unfold vector-for-each vector-map)
   (only-in :std/sugar defrule)
   (only-in :std/text/json json-object->string)
   (only-in :clan/base compose rcompose λ)
