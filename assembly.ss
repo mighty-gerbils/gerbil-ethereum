@@ -433,7 +433,7 @@
 
 (def generate-label-counter 0)
 (def (generate-label (g 'g))
-  (symbolify g "_" (post-increment! generate-label-counter)))
+  (make-symbol g "_" (post-increment! generate-label-counter)))
 
 ;; BEWARE: The args will be evaluated right-to-left
 (def (&call routine . args)

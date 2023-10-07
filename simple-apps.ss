@@ -287,7 +287,7 @@
 ;; EVM code for a batched tx for use *without* a batch contract
 ;; : Directive <- BatchedTransaction UInt16
 (def (batched-transaction-code tx n)
-  (def label (symbolify "data" n))
+  (def label (make-symbol "data" n))
   (match tx ;; 0 <-- 0
     ((batched-transfer value to)
      (&begin DUP1 DUP1 DUP1 DUP1 value to GAS
@@ -309,7 +309,7 @@
 ;; EVM ancillary data for a batched tx for use *without* a batch contract
 ;; : Directive <- BatchedTransaction UInt16
 (def (batched-transaction-data tx n)
-  (def label (symbolify "data" n))
+  (def label (make-symbol "data" n))
   (match tx
     ((batched-transfer value to)
      (&begin))

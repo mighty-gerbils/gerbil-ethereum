@@ -13,7 +13,7 @@
   ./nonce-tracker ./assembly ./evm-runtime ./simple-apps ./assets)
 
 (def (capitalize name)
-  (def Name (string-downcase (stringify name)))
+  (def Name (string-downcase (as-string name)))
   (string-set! Name 0 (char-upcase (string-ref Name 0)))
   Name)
 

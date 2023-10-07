@@ -11,8 +11,7 @@
   (except-in :clan/poo/type Maybe Maybe. BytesN. Symbol String Record Tuple. Enum.))
 
 (import
-  (for-syntax (only-in :std/iter for/collect)
-              (only-in :std/stxutil symbolify))
+  (for-syntax (only-in :std/iter for/collect))
   (only-in :std/assert assert!)
   (only-in :std/format format fprintf)
   (only-in :std/iter for in-range)
@@ -25,7 +24,7 @@
   (only-in :std/text/json json-object->string)
   (only-in :clan/base compose rcompose λ)
   (only-in :clan/io marshal-uint16 unmarshal-uint16 marshal-sized16-u8vector unmarshal-sized16-u8vector)
-  (only-in :std/stxutil symbolify maybe-intern-symbol)
+  (only-in :std/stxutil maybe-make-symbol)
   (only-in :clan/poo/object .def .@ .call .for-each! .mix)
   (only-in :clan/poo/io methods.bytes<-marshal)
   (only-in :clan/poo/rationaldict RationalSet)
@@ -90,7 +89,7 @@
 
 ;; Integer types
 (.def (UInt. @ [poo.UInt.] .length-in-bits .length-in-bytes .validate)
-  sexp: (symbolify "UInt" .length-in-bits)
+  sexp: (make-symbol "UInt" .length-in-bits)
   .json<-: 0x<-nat
   .<-json: (compose .validate number<-json)
   .rlp<-: rlp<-nat
@@ -113,7 +112,7 @@
                    (lambda () (.mix UInt. (poo.UInt .length-in-bits)))))
 
 (.def (Int. @ [poo.Int.] .length-in-bits .length-in-bytes .normalize)
-  sexp: (symbolify "Int" .length-in-bits)
+  sexp: (make-symbol "Int" .length-in-bits)
   .nat<-: (cut normalize-nat <> .length-in-bits)
   .<-nat: .normalize
   .json<-: (compose 0x<-nat .nat<-)
@@ -140,8 +139,8 @@
 (defsyntax (defXIntNs stx)
   (with-syntax ((((UIntX IntX x)...)
                  (for/collect (x (iota 32 8 8))
-                   [(datum->syntax (stx-car stx) (symbolify "UInt" x))
-                    (datum->syntax (stx-car stx) (symbolify "Int" x))
+                   [(stx-identifier (stx-car stx) "UInt" x)
+                    (stx-identifier (stx-car stx) "Int" x)
                     x])))
     #'(begin
         (begin
@@ -150,6 +149,7 @@
           (def IntX (IntN x))
           (register-simple-eth-type IntX))...)))
 (defXIntNs)
+
 (def UInt63 (UIntN 63))
 (register-simple-eth-type UInt63)
 (register-simple-eth-type Int256 "int")
@@ -181,9 +181,10 @@
     (subu8vector bytes head end)))
 
 (defsyntax (defBytesNs stx)
-  (def (foo n) [(datum->syntax (stx-car stx) (symbolify "Bytes" n)) n])
-  (with-syntax* ((((rid ri)...) (map foo (iota 32 1)))
-                 (((uid ui)...) (map foo [60 64 256])) ;; Shh id / PubKey / Bloom filter
+  (def (foo ns)
+    (map (lambda (n) [(stx-identifier (stx-car stx) "Bytes" n) n]) ns))
+  (with-syntax* ((((rid ri)...) (foo (iota 32 1))) ;; Bytes1 to Bytes32
+                 (((uid ui)...) (foo [60 64 256])) ;; Shh id, PubKey, Bloom filter
                  (((id i)...) #'((rid ri)... (uid ui)...)))
     #'(begin
         (defrule (d name n) (define-type (name @ BytesN.) n: n))
@@ -248,14 +249,14 @@
   .ethabi-display-type: (cut display .ethabi-name <>)
   .ethabi-head-length: 32
   .String: String
-  .<-string: maybe-intern-symbol
+  .<-string: maybe-make-symbol
   .ethabi-tail-length: (rcompose symbol->string (.@ .String .ethabi-tail-length))
   .ethabi-encode-into:
   (lambda (x bytes start head get-tail set-tail!)
     (.call .String .ethabi-encode-into (symbol->string x) bytes start head get-tail set-tail!))
   .ethabi-decode-from:
   (lambda (bytes start head get-tail set-tail!)
-    (maybe-intern-symbol (.call .String .ethabi-decode-from bytes start head get-tail set-tail!))))
+    (maybe-make-symbol (.call .String .ethabi-decode-from bytes start head get-tail set-tail!))))
 
 (define-type (Bool @ poo.Bool)
   .ethabi-name: "bool"
