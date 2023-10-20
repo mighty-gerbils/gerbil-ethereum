@@ -94,7 +94,7 @@
    [;; At instruction 0, so push 0 on stack while it's extra cheap!
     ;; a non-zero contract byte costs 220, a zero one only costs 204, so the GETPC optimization
     ;; is worth it if we actually use that 0 at least twice in the source code.
-    GETPC #|0|# 32 ;; -- $CONSTANTS = 32 0
+    GETPC 32 ;; -- $CONSTANTS = 32 0
     CALLDATASIZE DUP3 #|0|# DUP1 #|0|#
     ;; -- 0 0 size $CONSTANTS
     (if owner

@@ -8,7 +8,7 @@
   :clan/path-config)
 
 ;; Let's share the configuration and data directories with the rest of the Glow ecosystem
-(set! application-name (lambda () "glow"))
+;;(set! application-name (lambda () "glow"))
 
 ;; Initialize the test environment, and enable the associated command-line subcommands.
 ;; This also enables the loading of modules below even when not compiled.

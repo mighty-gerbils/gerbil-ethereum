@@ -65,7 +65,7 @@
 (with-catch void (cut import-module ':clan/ethereum/version #t #t))
 
 ;; Let's share the configuration and data directories with the rest of the Glow ecosystem
-(set! application-name (lambda () "glow"))
+;;(set! application-name (lambda () "glow")) ;; Or not: Gerbil is active, Glow is dormant.
 
 ;; User-configurable variables
 (def eth-rpc-port 8545) ;; NOTE: Mantis by default uses 8546, while Geth uses 8545
@@ -215,7 +215,7 @@
       "--unlock" (0x<-address croesus)
       "account" "import" "--password" "/dev/null" croesus.prv)))
   ;; Second, initialize the state of the blockchain
-  (call-with-temporary-file
+  #;(call-with-temporary-file
    prefix: "genesis-tmp-" suffix: ".json"
    while-open:
    (lambda (port _path)
@@ -229,7 +229,7 @@
    ["--dev"
     (when/list (and geth-dev-period (< 0 geth-dev-period))
                ["--dev.period" (number->string geth-dev-period)])...
-    "--fakepow" "--mine"
+    ;; "--fakepow" "--mine"
     "--http" "--http.api" "admin,db,debug,eth,light,net,personal,web3"
     "--http.port" (number->string eth-rpc-port)
     "--http.corsdomain" "https://remix.ethereum.org,http://remix.ethereum.org"

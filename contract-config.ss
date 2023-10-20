@@ -1,12 +1,25 @@
 (export #t)
 
 (import
-  :std/sugar
-  :clan/exception :clan/json :clan/path-config
-  :clan/poo/object :clan/poo/brace :clan/poo/io
-  :clan/persist/db
-  :clan/crypto/keccak
-  ./hex ./types ./known-addresses ./ethereum ./logger ./json-rpc ./transaction ./tx-tracker)
+  (only-in :std/generic type-of)
+  (only-in :std/error Error-message Error-irritants)
+  (only-in :std/misc/repr repr)
+  (only-in :std/sugar try catch)
+  (only-in :clan/base ignore-errors)
+  (only-in :clan/json write-file-json read-file-json)
+  (only-in :clan/path-config config-path)
+  (only-in :clan/poo/object .@)
+  (only-in :clan/poo/brace @method)
+  (only-in :clan/poo/io bytes<- <-bytes)
+  (only-in :clan/persist/db with-committed-tx db-put! with-tx db-get)
+  (only-in :clan/crypto/keccak keccak256<-bytes)
+  (only-in ./types define-type json<- <-json sexp<- Record)
+  (only-in ./known-addresses nickname<-address)
+  (only-in ./ethereum 0x<-address Digest PreTransaction Address Quantity)
+  (only-in ./logger eth-log)
+  (only-in ./json-rpc eth_getTransactionReceipt eth_getTransactionByHash)
+  (only-in ./transaction successful-receipt?)
+  (only-in ./tx-tracker post-transaction))
 
 (define-type ContractConfig
   (Record
@@ -75,7 +88,10 @@
    (log ['ensure-contract-valid (json<- ContractConfig previous-config)])
    previous-config
    (catch (e)
-     (log ['ensure-contract-create-because (string<-exception e)])
+     (log ['ensure-contract-create-because
+           (ignore-errors (type-of e))
+           (ignore-errors (Error-message e))
+           (ignore-errors (repr (Error-irritants e)))])
      (def creation-receipt (post-transaction pretx))
      (def config (contract-config<-creation-receipt creation-receipt))
      (log ['ensure-contract-created

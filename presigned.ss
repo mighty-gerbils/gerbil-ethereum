@@ -33,7 +33,10 @@
 
 (import
   :gerbil/gambit
-  :std/assert :std/iter :std/misc/number
+  (only-in :std/error check-argument)
+  (only-in :std/format fprintf)
+  :std/iter
+  :std/misc/number
   :std/srfi/1
   :std/sugar
   :std/text/hex
@@ -46,7 +49,7 @@
 ;; Return the nth power of sqrt(2), rounded down to the nearest integer
 ;; : Nat <- Nat
 (def (integer-floor-sqrt2expt n)
-  (assert! (nat? n))
+  (check-argument (nat? n) "natural" n)
   (if (odd? n) (integer-sqrt (arithmetic-shift 1 n))
       (arithmetic-shift 1 (half n))))
 
@@ -58,7 +61,7 @@
 ;; (every (lambda (i) (<= (integer-floor-sqrt2expt (integer-floor-logsqrt2 i)) i (1- (integer-floor-sqrt2expt (1+ (integer-floor-logsqrt2 i)))))) (iota 500 1))
 ;; : Nat <- Nat+
 (def (integer-floor-logsqrt2 n)
-  (assert! (and (nat? n) (positive? n)))
+  (check-argument (and (nat? n) (positive? n)) "positive integer" n)
   (def j (* 2 (1- (integer-length n))))
   #;(DBG icl: n j (integer-floor-sqrt2expt j) (integer-floor-sqrt2expt (1+ j)) (integer-floor-sqrt2expt (+ j 2)))
   #;(assert! (<= (integer-floor-sqrt2expt j) n (1- (integer-floor-sqrt2expt (+ j 2)))))
@@ -69,7 +72,7 @@
 #;(every (lambda (i) (<= (1+ (integer-floor-sqrt2expt (1- (integer-ceiling-logsqrt2 i)))) i (integer-floor-sqrt2expt (integer-ceiling-logsqrt2 i)))) (iota 500 2))
 ;; : Nat <- Nat
 (def (integer-ceiling-logsqrt2 n)
-  (assert! (nat? n))
+  (check-argument (nat? n) "natural" n)
   (if (< n 2) n (1+ (integer-floor-logsqrt2 (1- n)))))
 
 ;; Treat 0 specially, mapping it to 0
@@ -84,7 +87,7 @@
    data: (void)
    value: 0
    nonce: 0
-   gas: (eth_estimateGas {from to data nonce value})
+   gas: (gas-estimate from to data value 1.5)
    sigs: (list->vector
           (for/collect (i (in-range 512))
             (def gasPrice (zero-or-integer-floor-sqrt2expt i))
@@ -160,7 +163,7 @@
       name: (name "presigned contract")
       funder: (funder croesus) gasPrice: (gasPrice (void)) log: (log eth-log))
   (def-slots (from to data nonce value gas sigs) presigned)
-  (assert! (equal? [to nonce value] [(void) 0 0]))
+  (check-argument (equal? [to nonce value] [(void) 0 0]) "zero" [to nonce value])
   (def creator from)
   (def address (address<-creator-nonce creator nonce))
   (match (eth_getTransactionCount creator 'latest)
@@ -180,3 +183,15 @@
        (error "Bad contract created for " name address data)))
     (n (error "Creator address was used more than once(?) or initial nonce > 0" address n)))
   address)
+
+(def (display-presigned presigned (port (current-output-port)))
+  (with-slots (from to value nonce gas data sigs) presigned
+    (fprintf port " {from: ~s
+  to: ~r value: ~r nonce: ~r gas: ~r
+  data: ~s
+  sigs: (vector-map hex-decode
+         #(~a))}\n"
+             (sexp<- Address from) to value nonce gas
+             (sexp<- Bytes data)
+             (string-join (map (lambda (x) (object->string (hex-encode x)))
+                               (vector->list sigs)) "\n           "))))

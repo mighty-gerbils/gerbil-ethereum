@@ -98,7 +98,7 @@
    (u8vector-length contract-runtime) 0 #|memory address for the code: 0|# ;;-- 0 length
 
    ;; Push args for CODECOPY; the DUP's for length and memory target are where the savings are
-   DUP2 #|length|# [&push-label1 'runtime-start] DUP3 #|0|# ;;-- 0 start length 0 length
+   DUP2 #|length|# [&push-label1 'runtime-start] 0 ;;-- 0 start length 0 length
 
    ;; Initialize the contract by returning the memory array containing the runtime code
    CODECOPY RETURN ;;just before the return: -- 0 length
@@ -327,28 +327,28 @@
   (&begin
    ;; Init vs running convention!
    ;; Put some values on stack while they're extra cheap.
-   GETPC GETPC GETPC ;; -- 2 1 0
+   1 GETPC ;; -- 2 1 ;; note how we don't need 0 anymore thanks to PUSH0, so save 1 gas
    ;; Get state frame size, starting with PC, 16 bit
-   DUP3 #|0|# CALLDATALOAD (&shr 240) frame@ ;; -- frame@ sz 2 1 0
+   0 CALLDATALOAD (&shr 240) frame@ ;; -- frame@ sz 2 1
    ;; copy frame to memory
-   DUP2 #|sz|# DUP4 #|2|# DUP3 #|frame@|# CALLDATACOPY ;; -- frame@ sz 2 1 0
+   DUP2 #|sz|# DUP4 #|2|# DUP3 #|frame@|# CALLDATACOPY ;; -- frame@ sz 2 1
    ;; store calldatapointer and calldatanew
    ;; TODO: in the future, optionally allow for DAG subset reveal
-   DUP2 #|sz|# DUP4 #|2|# ADD ;; -- calldatanew frame@ sz 2 1 0
-   DUP1 calldatanew-set! calldatapointer-set! ;; -- frame@ sz 2 1 0
+   DUP2 #|sz|# DUP4 #|2|# ADD ;; -- calldatanew frame@ sz 2 1
+   DUP1 calldatanew-set! calldatapointer-set! ;; -- frame@ sz 2 1
    ;; save the brk variable -- NB: importantly, brk-start must be properly initialized
-   (unbox (brk-start)) DUP6 #|brk@,==0|# MSTORE ;; -- frame@ sz 2 1 0
+   (unbox (brk-start)) 0 #|brk@,==0|# MSTORE ;; -- frame@ sz 2 1
    ;; compute the digest of the frame just restored
-   SHA3 ;; -- digest 2 1 0
+   SHA3 ;; -- digest 2 1
    ;; compare to saved merkleized state, jump to saved label if it matches
    ;; BEWARE: we assume the variable *before* the frame is not initialized, and still 0.
-   DUP4 #|0|# SLOAD EQ (- frame@ 30) MLOAD JUMPI ;; -- stack at destination: -- 2 1 0
+   0 SLOAD EQ (- frame@ 30) MLOAD JUMPI ;; -- stack at destination: -- 2 1
    (&define-abort-contract-call)))
 
 (def (&define-abort-contract-call)
   ;; Abort. We explicitly PUSH1 0 for the first rather than DUPn,
   ;; because we don't assume stack geometry from the caller when aborting.
-  (&begin [&jumpdest 'abort-contract-call] 0 DUP1 #|0|# REVERT))
+  (&begin [&jumpdest 'abort-contract-call] 0 0 REVERT))
 
 ;; TESTING STATUS: Wholly tested.
 (def (&memcpy/const-size n overwrite-after?: (overwrite-after? #f) dst-first?: (dst-first? #f))
@@ -481,9 +481,9 @@
 ;; TESTING STATUS: Wholly untested.
 (def &send-ethers!
   (&begin ;; -- address value
-   0 DUP1 #|0|# ;; -- 0 0 address value
-   DUP1 #|0|# SWAP4 ;; -- value 0 0 address 0
-   DUP2 #|0|# SWAP4 ;; -- address value 0 0 0 0
+   0 0 ;; -- 0 0 address value
+   0 SWAP4 ;; -- value 0 0 address 0
+   0 SWAP4 ;; -- address value 0 0 0 0
    GAS ;; -- gas address value 0 0 0 0
    CALL &require!)) ;; -- Transfer!
 

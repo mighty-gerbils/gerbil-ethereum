@@ -2,14 +2,27 @@
 (export #t)
 
 (import
-  :gerbil/gambit
-  :std/error :std/iter :std/misc/list :std/misc/number :std/sugar :std/text/hex
-  :std/net/json-rpc
-  :clan/assert :clan/base :clan/failure :clan/option
-  :clan/poo/object :clan/poo/io :clan/poo/brace
-  :clan/crypto/keccak :clan/crypto/secp256k1
-  :clan/persist/db
-  ./hex ./types ./rlp ./ethereum ./known-addresses
+  (only-in :std/srfi/13 string-prefix?)
+  (only-in :std/error Exception Error-message)
+  (only-in :std/iter for in-iota)
+  (only-in :std/misc/list when/list)
+  (only-in :std/misc/number increment! nat? half integer-part)
+  (only-in :std/sugar defrule with-id try catch)
+  (only-in :std/text/hex hex-encode)
+  (only-in :std/net/json-rpc JSON-RPCError json-rpc-error? eth_sendRawTransaction)
+  (only-in :clan/failure failure with-result)
+  (only-in :clan/option some)
+  (only-in :clan/poo/object .@ .ref def-slots def-prefixed-slots with-slots)
+  (only-in :clan/poo/io bytes<-)
+  (only-in :clan/poo/brace @method)
+  (only-in :clan/crypto/keccak keccak256<-bytes)
+  (only-in :clan/crypto/secp256k1 export-secret-key/bytes
+           make-message-signature vrs<-signature signature<-vrs)
+  (only-in ./types json<- Maybe Bytes)
+  (only-in ./rlp <-rlpbytes rlpbytes<-rlp rlp<-nat)
+  (only-in ./ethereum address? Address Quantity SignedTransactionInfo address<-creator-nonce 0x<-address
+           recover-signer-address SignedTransactionData)
+  (only-in ./known-addresses keypair<-address keypair-secret-key)
   ./logger ./network-config ./json-rpc ./nonce-tracker)
 
 ;; Signing transactions, based on spec in EIP-155
@@ -268,11 +281,11 @@
      (unless (equal? transaction-hash hash)
        (error "eth-send-raw-transaction: invalid hash" transaction-hash hash))
      (confirmed-receipt<-transaction tx confirmations: #f))
-    ((failure (JSON-RPCError code: -32000 message: "nonce too low"))
+    ((failure (JSON-RPCError code: -32000 message: (? (cut string-prefix? "nonce too low" <>))))
      (confirmed-receipt<-transaction tx confirmations: #f nonce-too-low?: #t))
     ((failure (JSON-RPCError code: -32000 message: "replacement transaction underpriced"))
      (raise (ReplacementTransactionUnderpriced)))
-    ((failure (JSON-RPCError code: -32000 message: "intrinsic gas too low"))
+    ((failure (JSON-RPCError code: -32000 message: (? (cut string-prefix? "intrinsic gas too low" <>))))
      (raise (IntrinsicGasTooLow)))
     ((failure (JSON-RPCError code: -32000 message:
                               (? (let (m (string-append "known transaction: " (hex-encode hash)))
@@ -304,7 +317,7 @@
 
 ;; Inputs must be normalized
 ;; : Quantity <- Address (Maybe Address) Bytes Quantity
-(def (gas-estimate from to data value)
+(def (gas-estimate from to data value (factor 2))
   (if (and (address? to) (equal? data #u8()))
     transfer-gas-used
     (let ((intrinsic-gas (intrinsic-gas<-bytes data))
@@ -318,7 +331,7 @@
         (set! estimate (max intrinsic-gas 2000000))) ;; arbitrary number, hopefully large enough.
       ;; Sometimes the geth estimate is not enough, so we arbitrarily double it.
       ;; TODO: improve on this doubling
-      (* 2 estimate))))
+      (integer-part (* estimate factor)))))
 
 ;; TODO: in the future, take into account the market (especially in case of block-buying attack)
 ;; and how much gas this is for to compute an estimate of the gas price.

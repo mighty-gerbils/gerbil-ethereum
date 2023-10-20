@@ -21,8 +21,10 @@
 ;; instead we merely *check* that labels are used properly
 ;; and the formulas match.
 
-;; 24576, limit set by EIP 170 https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
-(def max-segment-size #x6000)
+;; 24576, code size limit set by EIP 170 https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
+(def max-code-size #x6000)
+;; 49152, initialization code size limit set by EIP 3860 (Shanghai, 2023), double the above
+(def max-init-code-size #xC000)
 
 ;; TODO: use mutable extensible vectors? pure functional arrays?
 ;; Doubly linked list of sub-segments? Balanced tree that maintains intervals?
@@ -41,7 +43,7 @@
    fill-pointer) ;; how many of those bytes are filled?
   transparent: #t)
 
-(def (new-segment (size max-segment-size))
+(def (new-segment (size max-code-size))
   (make-Segment (make-u8vector size 0) 0))
 
 (def (segment-full? s)
@@ -147,11 +149,9 @@
 ;;
 ;; Returns the length of the argument to the PUSH instruction with the provided
 ;; opcode.
-(def (push-code-amount code)
-  (def PUSH1-code (hash-ref opcodes 'PUSH1))
-  (def PUSH32-code (hash-ref opcodes 'PUSH32))
-  (and (<= PUSH1-code code PUSH32-code)
-       (+ code 1 (- PUSH1-code))))
+(def (push-code-amount opcode)
+  (def n (- opcode #x5f)) ;; PUSH0
+  (and (<= 0 n 32) n))
 
 (def (&byte a b)
   (segment-push! (Assembler-segment a) b))
@@ -163,9 +163,9 @@
   (check-argument (and (nat? u) (<= (integer-length u) 256)) "uint256" u)
   (check-argument (<= (integer-length u) (* 8 n-bytes) 256) "valid length for u" [n-bytes u])
   (segment-push-bytes! (Assembler-segment a) (nat->u8vector u n-bytes)))
-(def (&push a u (n-bytes (max 1 (nat-length-in-u8 u))))
-  (check-argument (<= 1 n-bytes 32) "length of immediate data" n-bytes)
-  (&byte a (+ #x5F n-bytes))
+(def (&push a u (n-bytes (nat-length-in-u8 u)))
+  (check-argument (and (nat? n-bytes) (<= n-bytes 32)) "length of immediate data" n-bytes)
+  (&byte a (+ #x5F n-bytes)) ;; PUSH0
   (&uint a u n-bytes))
 (def (&push-bytes a bytes)
   (&push a (u8vector->nat bytes)))
@@ -287,7 +287,8 @@
   (#x59 MSIZE 2) ;; Get the size of active memory in bytes
   (#x5a GAS 2) ;; the amount of available gas, including the corresponding reduction the amount of available gas
   (#x5b JUMPDEST 1) ;; Mark a valid destination for jumps
-  ;; #x5c - #x5f  Unused
+  ;; #x5c - #x5e  Unused
+  (#x5f PUSH0 2) ;; Place 0 on stack (since Shanghai upgrade, 2023)
   (#x60 PUSH1 3) ;; Place 1-byte item on stack
   (#x61 PUSH2 3) ;; Place 2-byte item on stack
   (#x62 PUSH3 3) ;; Place 3-byte item on stack
@@ -369,7 +370,7 @@
   ;; #xfb - #xfc  Unused
   (#xfd REVERT #t) ;; Stop execution and revert state changes, without consuming all provided gas and providing a reason
   (#xfe INVALID 0) ;; Designated invalid instruction
-  (#xff SELFDESTRUCT 5000 #t)) ;; Halt execution and register account for later deletion
+  (#xff SELFDESTRUCT 5000 #t)) ;; Halt execution, register account for deletion... phased out EIP-6049
 
 (def (&jumpdest a l)
   (&label a l)

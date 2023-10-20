@@ -65,17 +65,15 @@
 ;; stack output: part0 part1 ... partn
 ;; (Thunk part0 part1 ... partn <-) <- Bytes
 (def (&push/any-size bytes)
-  (def total-bytes (u8vector-length bytes))
-  (assert-bytes-at-least! total-bytes 1)
-  (def start 0)
-  (&push-1/any-size bytes start total-bytes))
+  (&push-0/any-size bytes 0 (u8vector-length bytes)))
 
-(def (&push-1/any-size bytes start total-bytes)
+(def (&push-0/any-size bytes start total-bytes)
   (def end (min total-bytes (+ start (EVM-WORD-SIZE))))
   (when (< start end)
     (let ()
       (def bytes<=evm-word-size (subu8vector bytes start end))
-      (&begin (&push-1/any-size bytes end total-bytes) [&push-bytes bytes<=evm-word-size]))))
+      (&begin (&push-0/any-size bytes end total-bytes)
+              [&push-bytes bytes<=evm-word-size]))))
 
 ;; Helper function - Make list of word-sizes for byte partitions.
 ;;
@@ -96,8 +94,7 @@
 (def (&mstore/free/any-size size)
   (assert-bytes-at-least! size 1)
   (def sizes/base/evm-word-size (sizes/word-size<-size size))
-  (&begin (map &brk-cons sizes/base/evm-word-size) ...)
-  )
+  (&begin (map &brk-cons sizes/base/evm-word-size) ...))
 
 ;; Helper function - Make list of relative offsets and sizes for partitions.
 ;; Used by `&mload/any-size` to obtain memory ranges for storing partitions.

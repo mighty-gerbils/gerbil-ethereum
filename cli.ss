@@ -12,7 +12,7 @@
   ./network-config ./types ./ethereum ./known-addresses ./json-rpc ./testing)
 
 ;; Let's share the configuration and data directories with the rest of the Glow ecosystem
-(set! application-name (lambda () "glow"))
+;;(set! application-name (lambda () "glow"))
 
 (def (compare-strings-by-length-then-lexicographically< x y)
   (def lx (string-length x))
