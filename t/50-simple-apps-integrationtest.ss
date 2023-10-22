@@ -32,7 +32,7 @@
   (check-equal? balances-after (make-list (length prefunded-addresses) target-amount)))
 
 (def 50-simple-apps-integrationtest
-  (test-suite "integration test for ethereum/simple-apps"
+  (test-suite "integration test for clan/ethereum/simple-apps"
     (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
 
     (test-case "Prefunding accounts works as expected."
@@ -50,12 +50,11 @@
       (def create2-wrapper (ensure-presigned-create2-wrapper funder: croesus gasPrice: 100))
       (check-equal? (eth_getCode create2-wrapper) (create2-wrapper-runtime))
       (def logger2 (address<-create2 create2-wrapper salt (trivial-logger-init)))
+      (check-equal? (abi-create2 funder: alice salt (trivial-logger-init)) logger2)
+      (check-equal? (abi-create2 funder: bob salt (trivial-logger-init)) logger2)
       (DDT 50-create2-wrapper-0:
            Address create2-wrapper
-           Address logger2
-           TransactionReceipt
-           (post-transaction
-            (call-function croesus create2-wrapper (u8vector-append salt (trivial-logger-init)))))
+           Address logger2)
       (check-equal? (eth_getCode logger2) (trivial-logger-runtime))
       (def receipt
         (DDT 50-create2-wrapper-1: TransactionReceipt

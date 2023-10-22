@@ -115,11 +115,15 @@
     (tx<-presigned presigned gasPrice: (if (< i 2) i (integer-floor-sqrt2expt i)))
     (for ((i (in-iota 512))) (verify-presigned presigned i))))
 
+;; Raw transactions from a presigned transaction and an optional gas price index,
+;; so you can more easily track in the ethereum logs if/when the transaction appears.
+;; : (Vector String 512) <- PresignedTransaction
 (def (raw<-presigned presigned)
   (for/collect (i (in-iota 512))
     (hex-encode (bytes<-signed-tx (tx<-presigned presigned gasPrice: (if (< i 2) i (integer-floor-sqrt2expt i)))))))
 
 ;; Use this function to create a presigned transaction, usually to create a given contract.
+;; : PresignedTransaction <- Bytes
 (def (presign-contract-creation code)
   (def creator-name "presigning-account")
   (register-keypair creator-name (generate-keypair scoring: (scoring<-prefix "8e7a")))
@@ -155,10 +159,12 @@
    ((null? b) (append-reverse r-head a))
    (else (alternate-lists (cdr a) (cdr b) [(car b) (car a) r-head ...]))))
 
+;; (List UInt9) <- ?Quantity
 (def (likely-gasPrice-indices (gasPrice (eth_gasPrice)))
   (def current (integer-ceiling-logsqrt2 gasPrice))
   (alternate-lists (iota (- 512 current) current) (iota current)))
 
+;; Address <- PresignedTransaction ?String ?Address ?Quantity ?(<- Jsonable)
 (def (ensure-presigned-contract presigned
       name: (name "presigned contract")
       funder: (funder croesus) gasPrice: (gasPrice (void)) log: (log eth-log))
@@ -184,14 +190,15 @@
     (n (error "Creator address was used more than once(?) or initial nonce > 0" address n)))
   address)
 
+(define-type PreSigs (Vector Bytes65 512))
+
+;; : <- PresignedTrasaction ?OutputPort
 (def (display-presigned presigned (port (current-output-port)))
   (with-slots (from to value nonce gas data sigs) presigned
     (fprintf port " {from: ~s
   to: ~r value: ~r nonce: ~r gas: ~r
   data: ~s
-  sigs: (vector-map hex-decode
-         #(~a))}\n"
+  sigs: (<-bytes PreSigs (bytes<-0x ~s))}\n"
              (sexp<- Address from) to value nonce gas
              (sexp<- Bytes data)
-             (string-join (map (lambda (x) (object->string (hex-encode x)))
-                               (vector->list sigs)) "\n           "))))
+             (0x<-bytes (bytes<- PreSigs sigs)))))
