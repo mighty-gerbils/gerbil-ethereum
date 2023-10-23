@@ -10,7 +10,7 @@
   (only-in :clan/path-config config-path)
   (only-in :clan/poo/object .@)
   (only-in :clan/poo/brace @method)
-  (only-in :clan/poo/io bytes<- <-bytes)
+  (only-in :clan/poo/io TV bytes<- <-bytes)
   (only-in :clan/persist/db with-committed-tx db-put! with-tx db-get)
   (only-in :clan/crypto/keccak keccak256<-bytes)
   (only-in ./types define-type json<- <-json sexp<- Record)
@@ -67,10 +67,10 @@
   (unless (equal? (bytes<- ContractConfig config)
                   (bytes<- ContractConfig chain-config))
     (error "Contract configuration not matched by on-chain transaction"
-      (sexp<- ContractConfig config) (sexp<- ContractConfig chain-config)))
+      (TV ContractConfig config) (TV ContractConfig chain-config)))
   (unless (equal? (code-hash<-create-contract pretx) (.@ chain-config code-hash))
     (error "Contract configuration doesn't match expected transaction"
-      (sexp<- ContractConfig config) (sexp<- PreTransaction pretx))))
+      (TV ContractConfig config) (TV PreTransaction pretx))))
 
 ;; : ContractConfig <-
 ;;     (ContractConfig <- 'a) (Unit <- 'a ContractConfig) 'a
