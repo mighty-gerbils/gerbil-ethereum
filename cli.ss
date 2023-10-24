@@ -2,16 +2,17 @@
 
 (import
   :gerbil/expander
-  :std/format :std/getopt :std/iter :std/misc/hash
+  :std/format :std/getopt :std/iter
+  :std/misc/decimal :std/misc/hash :std/misc/list
   :std/sort :std/srfi/13 :std/sugar
-  :clan/cli :clan/decimal :clan/exit :clan/hash :clan/list
+  :clan/cli :clan/exit :clan/hash :clan/list
   :clan/multicall :clan/path-config :clan/string
   :clan/poo/object :clan/poo/brace :clan/poo/cli :clan/poo/debug
   :clan/persist/db
   ./network-config ./types ./ethereum ./known-addresses ./json-rpc ./testing)
 
 ;; Let's share the configuration and data directories with the rest of the Glow ecosystem
-(set! application-name (lambda () "glow"))
+;;(set! application-name (lambda () "glow"))
 
 (def (compare-strings-by-length-then-lexicographically< x y)
   (def lx (string-length x))
@@ -26,7 +27,7 @@
   (def keys (sort (hash-keys ethereum-networks) string<?))
   (def (name<-key key) (.@ (hash-get ethereum-networks key) name))
   (def keys-by-name (map (cut sort <> compare-strings-by-length-then-lexicographically<)
-                         (grouping keys name<-key)))
+                         (group-same keys key: name<-key)))
   (def keys-strings (map (cut string-join <> " ") keys-by-name))
   (def primary-keys (map car keys-by-name))
   (def urls (map (lambda (key) (with-catch (lambda (_) "") (cut car (.@ (hash-get ethereum-networks key) rpc))))
@@ -85,4 +86,5 @@
    [options/from options/to]))
 
 (def (parse-currency-value string currency)
-  (* (decimal<-string string) (expt 10 (.@ currency decimals))))
+  (* (string->decimal string group-separator: #\,)
+     (expt 10 (.@ currency decimals))))

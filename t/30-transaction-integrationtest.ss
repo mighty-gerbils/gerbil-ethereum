@@ -1,14 +1,33 @@
 (export #t)
 
 (import
-  :gerbil/gambit/threads
-  :std/format :std/sugar :std/test
-  :clan/base :clan/debug :clan/failure :clan/json :clan/option :clan/path
-  :clan/poo/object :clan/poo/io :clan/poo/debug :clan/poo/brace
+  :std/format
+  :std/misc/path
+  :std/sugar
+  :std/test
+  :clan/base
+  :clan/debug
+  :clan/failure
+  :clan/json
+  :clan/option
+  :clan/poo/object
+  :clan/poo/io
+  :clan/poo/debug
+  :clan/poo/brace
   :clan/persist/db
-  ../hex ../types ../network-config ../testing ../known-addresses
-  ../ethereum ../json-rpc ../nonce-tracker ../transaction ../watch ../evm-runtime
-  ./10-json-rpc-integrationtest ./20-nonce-tracker-integrationtest)
+  ../hex
+  ../types
+  ../network-config
+  ../testing
+  ../known-addresses
+  ../ethereum
+  ../json-rpc
+  ../nonce-tracker
+  ../transaction
+  ../watch
+  ../evm-runtime
+  ./10-json-rpc-integrationtest
+  ./20-nonce-tracker-integrationtest)
 
 (register-test-keys)
 

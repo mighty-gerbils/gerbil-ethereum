@@ -1,7 +1,7 @@
 (export #t)
 
 (import
-  :std/test :clan/number :clan/poo/object
+  :std/test :std/misc/number :clan/poo/object
   ../types ../assembly ../evm-runtime
   ../testing ../evm-instructions.ss
   ./10-json-rpc-integrationtest)
@@ -14,7 +14,7 @@
 (def &store-brk
   (&begin (&mloadat brk@) DUP1 MSTORE))
 
-(def 100-evm-instructions-integrationtest
+(def 99-evm-instructions-integrationtest
   (test-suite "integration tests for evm instructions"
     (test-case "EVM-type: &mstore/free/any-size, size = 1"
       (evm-test [] (&begin

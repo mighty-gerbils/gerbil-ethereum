@@ -1,123 +1,99 @@
 (export #t)
 
 (import
-  :std/misc/list :std/srfi/1 :std/test
-  :clan/debug :clan/poo/object
-  ../watch ../json-rpc ../transaction ../nonce-tracker ../testing ../simple-apps
+  :gerbil/gambit
+  :std/assert :std/misc/list :std/srfi/1 :std/test
+  :clan/base :clan/debug :clan/order :clan/poo/object :clan/poo/mop
+  ../watch ../json-rpc ../known-addresses ../transaction ../nonce-tracker ../contract-config
+  ../ethereum ../assembly ../evm-runtime ../simple-apps ../logger ../testing
   ./30-transaction-integrationtest)
 
-(def (process-filter filter)
-  (display filter))
+(def (watch-contract-logs contract-address start-block end-block (next-event 0))
+  (with-list-builder (c)
+    (def prev [-1 0])
+    (watch-contract
+      (lambda (log)
+        (def curr [(.@ log blockNumber) (.@ log logIndex)])
+        (check-equal? (<= start-block (.@ log blockNumber) end-block) #t)
+        (check-equal? (lexicographic<? < prev curr) #t)
+        (set! prev curr)
+        (c log))
+      contract-address start-block end-block next-event)))
+
+(def (log->string log) (bytes->string (.@ log data)))
+
+(def (watch-contract-log-strings contract-address start-block end-block (next-event 0))
+  (map log->string (watch-contract-logs contract-address start-block end-block next-event)))
+
+(def (bytes32<-string s)
+  (def b (string->bytes s))
+  (def l (u8vector-length b))
+  (assert! (<= l 32))
+  (u8vector-append b (make-u8vector (- 32 l) 0)))
+
+;; Used to test `watch` with multiple ordered logs.
+(def (string-logger-runtime strings)
+  (def (log-string s)
+    [(bytes32<-string s) 0 MSTORE CALLER (u8vector-length (string->bytes s)) 0 LOG1])
+  (assemble/bytes [(append-map log-string strings)... STOP]))
+
+;; : Bytes <-
+(def string-logger-init
+  (compose stateless-contract-init string-logger-runtime))
+
+;; : Bytes <-
+(def (ensure-string-logger-contract owner strings log: (log eth-log))
+  (ensure-contract-config/db
+   (string->bytes "string-logger-contract")
+   (create-contract owner (string-logger-init strings))
+   log: log))
 
 (def 70-watch-integrationtest
   (test-suite "integration test for ethereum/watch"
     (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
+    (def string-logs ["The Biggest City"
+                      "Only makes you truly feel"
+                      "Crushed by loneliness."])
+    (def trivial-logs ["The Greatest Distance"
+                       "I pride in having traveled:"
+                       "My heart to your heart."])
+    (def all-logs (append trivial-logs string-logs))
+
     (def trivial-logger (.@ (ensure-trivial-logger-contract croesus) contract-address))
-    (def pc-logger (.@ (ensure-pc-logger-contract croesus) contract-address))
+    (def string-logger (.@ (ensure-string-logger-contract croesus string-logs) contract-address))
 
-    (test-case "watch-contract-step"
+    (def receipt
+      (batch-txs croesus
+                 [(map (lambda (s) (batched-call 0 trivial-logger (string->bytes s))) trivial-logs)...
+                  (batched-call (wei<-gwei 1) string-logger (string->bytes "Just lost one gwei"))]))
+    (def block-number (.@ receipt blockNumber))
+
+    (test-case "watch-contract: batch"
+      ;; watch a contract, or all contracts
+      (check-equal? (watch-contract-log-strings trivial-logger block-number block-number)
+                    trivial-logs)
+      (check-equal? (watch-contract-log-strings string-logger block-number block-number)
+                    string-logs)
+      (check-equal? (watch-contract-log-strings (void) block-number block-number)
+                    all-logs)
+      ;; resume watch after first entry, for a contract, or all of them
+      (check-equal? (watch-contract-log-strings trivial-logger block-number block-number 1)
+                    (cdr trivial-logs))
+      (check-equal? (watch-contract-log-strings string-logger block-number block-number 4)
+                    (cdr string-logs))
+      (check-equal? (watch-contract-log-strings (void) block-number block-number 1)
+                    (cdr all-logs)))
+
+    (test-case "watch-contract: blah"
       (def before-block (eth_blockNumber))
-      (debug-send-tx (call-function croesus trivial-logger (string->bytes "hello, world")))
+      (def receipts (map-in-order
+                     (lambda (l) (debug-send-tx (call-function croesus trivial-logger (string->bytes l))))
+                     trivial-logs))
       (def after-block (eth_blockNumber))
-      (defvalues (logs confirmed-block) (watch-contract-step trivial-logger before-block after-block))
-      (check-equal? (length logs) 1)
-      (check-equal? (<= before-block confirmed-block after-block) #t)
-      (check-equal? (bytes->string (.@ (car logs) data)) "hello, world")
-      (defvalues (more-logs more-confirmed-block)
-        (watch-contract-step trivial-logger (1+ confirmed-block) confirmed-block))
-      (check-equal? more-logs '())
-      (check-equal? more-confirmed-block confirmed-block))
-
-    ;; Test Utilites for `watch-contract`
-    (def (watch-result->string watch-result) (bytes->string (.@ watch-result log data)))
-
-    (def (check-block-ordering? watch-results before-block after-block)
-      (for-each! watch-results
-        (lambda (watch-result)
-          (def next-block (.@ watch-result next-block))
-          (def log-block (.@ watch-result log blockNumber))
-          (check-equal? (<= log-block next-block) #t)))
-
-      (def watch-log-blocks (map (cut .@ <> log blockNumber) watch-results))
-      (check-equal? (apply <= [before-block watch-log-blocks ... after-block]) #t))
-
-    (test-case "watch-contract: single log"
-      (def before-block (eth_blockNumber))
-      (def log-data "hello, world")
-      (debug-send-tx (call-function croesus trivial-logger (string->bytes log-data)))
-      (def after-block (eth_blockNumber))
-
-      (def (callback watch-result)
-        (def-slots (log next-block) watch-result)
-        (def watch-log-data (bytes->string (.@ log data)))
-        (check-equal? watch-log-data log-data)
-
-        (def watch-log-block (.@ log blockNumber))
-        (check-equal? (<= watch-log-block next-block) #t)
-        (check-equal? (<= before-block watch-log-block after-block) #t))
-
-      (watch-contract callback trivial-logger before-block after-block 0))
-
-    (test-case "watch-contract: multiple distinct logs from multiple calls"
-      (def before-block (eth_blockNumber))
-      (def logs (list "hello, world 1" "hello, world 2" "hello, world 3"))
-      (for-each! logs (lambda (l) (debug-send-tx (call-function croesus trivial-logger (string->bytes l)))))
-      (def after-block (eth_blockNumber))
-
-      (with-list-builder (push-res! get-res!)
-        (watch-contract push-res! trivial-logger before-block after-block 0)
-        (def watch-results (get-res!))
-        (def watch-logs (map watch-result->string watch-results))
-        (check-equal? watch-logs logs)
-        (check-block-ordering? watch-results before-block after-block))
-      )
-
-    (test-case "watch-contract: resuming watch from unprocessed events"
-      (def before-block (eth_blockNumber))
-      (def logs (list "hello, world 1" "hello, world 2" "hello, world 3"))
-      (for-each (lambda (l) (debug-send-tx (call-function croesus trivial-logger (string->bytes l)))) logs)
-      (def after-block (eth_blockNumber))
-
-      (with-list-builder (push-res! get-res!)
-        (def unprocessed-event-in-block 1)
-        (watch-contract push-res! trivial-logger before-block after-block unprocessed-event-in-block)
-        (def watch-results (get-res!))
-        (def watch-logs (map watch-result->string watch-results))
-        (check-equal? watch-logs (cdr logs))
-        (check-block-ordering? watch-results before-block after-block))
-      )
-
-    (test-case "watch-contract: multiple distinct logs from a single contract call"
-      (def before-block (eth_blockNumber))
-      (debug-send-tx (call-function croesus pc-logger (string->bytes "hello, world")))
-      (def after-block (eth_blockNumber))
-
-      (with-list-builder (push-res! get-res!)
-        (watch-contract push-res! pc-logger before-block after-block 0)
-        (def watch-results (get-res!))
-        (def watch-logs (map (cut .@ <> log data) watch-results))
-        (check-equal? watch-logs
-          (list #u8(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
-                #u8(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 13)
-                #u8(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 27)))
-        (check-block-ordering? watch-results before-block after-block))
-      )
+      (check-equal? (watch-contract-log-strings trivial-logger (1+ before-block) after-block 0)
+                    trivial-logs))
 
     ;; TODO (test-case "watch-contract: large batches of logs / request timeout")
-
     ;; TODO (test-case "watch-contract: other errors")
 
-#|
-    (test-case "watchBlockchain"
-      (def fromBlock (eth_blockNumber))
-      (def receipt
-        (batch-txs croesus
-                   [(batched-call 0 trivial-logger (string->bytes "Nothing here"))
-                    (batched-call (wei<-gwei 1) trivial-logger (string->bytes "Just lost one gwei"))]))
-      (if (successful-receipt? receipt)
-        (begin
-          (register-confirmed-event-hook "trivial-family" fromBlock  receipt process-filter)
-          (watchBlockchain)
-          (check-equal? (next-unprocessed-block)  (1+ fromBlock)))))
-|#
-          ))
+    (void)))

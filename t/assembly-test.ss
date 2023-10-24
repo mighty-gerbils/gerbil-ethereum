@@ -6,7 +6,7 @@
         :std/srfi/1
         :std/misc/list
         :clan/pure/dict/assq
-        (only-in :clan/number bytes<-nat)
+        (only-in :std/misc/bytes nat->u8vector)
         ../assembly)
 
 ;; jumplabel-len : Nat
@@ -52,11 +52,27 @@
        (def j-code-jump (+ i-code-jump &jump2-len))
        (check-equal? (subu8vector code i-code-jump j-code-jump)
                      ;; #x61 is PUSH2, #x56 is JUMP
-                     (u8vector-append #u8(#x61) (bytes<-nat i-code-dest 2) #u8(#x56)))))))
+                     (u8vector-append #u8(#x61) (nat->u8vector i-code-dest 2) #u8(#x56)))))))
 
 ;; pair-flip : (cons a b) -> (cons b a)
 (def (pair-flip p) (with ((cons a b) p) (cons b a)))
 
+(def (check-disassemble input output)
+  (check-equal?
+    (disassemble (assemble/bytes input))
+    output))
+
 (def assembly-test
   (test-suite "test suite for ethereum/assembly"
-    (test-labels '((a . 13) (b . 8) (c . 21) (d . 0) (e . 34) (f . 3) (g . 5)))))
+    (test-labels '((a . 13) (b . 8) (c . 21) (d . 0) (e . 34) (f . 3) (g . 5)))
+    (test-case "Check that assemble & disassemble agree"
+      (for-each
+        (cut apply check-disassemble <>)
+        [[[ADD MUL 8 SUB]
+          '(ADD MUL (PUSH1 8 "0x08") SUB)]
+         [[SHR 520 1000000 SWAP1]
+          '(SHR (PUSH2 520 "0x0208") (PUSH3 1000000 "0x0f4240") SWAP1)]]))
+    (test-case "Check disassemble on large pushes for small values."
+      (check-equal?
+        (disassemble (list->u8vector [(hash-ref opcodes 'PUSH3) 0 0 42]))
+        '((PUSH3 42 "0x00002a"))))))

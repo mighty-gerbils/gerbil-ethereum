@@ -1,18 +1,34 @@
 (export #t)
 
 (import
-  :gerbil/gambit/os
-  :std/misc/list :std/misc/ports :std/srfi/1 :std/sugar :std/test :std/text/hex
-  :clan/debug :clan/filesystem :clan/list :clan/path :clan/path-config
+  :gerbil/gambit
+  :std/misc/list
+  :std/misc/path
+  :std/misc/ports
+  :std/srfi/1
+  :std/sugar
+  :std/test
+  :std/text/hex
+  :clan/debug
+  :clan/filesystem
+  :clan/list
+  :clan/path-config
+  :clan/source
   :clan/poo/object
-  ../hex ../types ../network-config
-  ../json-rpc ../nonce-tracker ../transaction ../abi ../tx-tracker ../testing
+  ../hex
+  ../types
+  ../network-config
+  ../json-rpc
+  ../nonce-tracker
+  ../transaction
+  ../abi
+  ../tx-tracker
+  ../testing
+  ../test-contracts
   ./30-transaction-integrationtest)
 
-(def test-hello-contract-bin (source-path "t/precompiled/HelloWorld.bin"))
-
 (def (test-hello-contract-bytes)
-  (hex-decode (read-file-string test-hello-contract-bin)))
+  (this-source-hex "precompiled/HelloWorld.bin"))
 
 (def hello-contract #f)
 
@@ -51,7 +67,7 @@
           ;; but its JSON RPC API doesn't give us any way to tell it's failed.
           (DBG create-hello-contract-too-little-gas:)
           (check-exception (post-transaction (create-contract croesus (test-hello-contract-bytes) gas: 21000))
-                           (match <> ((TransactionFailed _ exn)
+                           (match <> ((TransactionFailed exception: exn)
                                       (if (ethereum-mantis?)
                                         ;; NB: this error has changed on our mantis support, anyway
                                         (and (TransactionRejected? exn)
@@ -63,7 +79,7 @@
           ;; but its JSON RPC API doesn't give us any way to tell it's failed.
           (DBG create-hello-contract:)
           (check-exception (post-transaction (create-contract croesus (test-hello-contract-bytes) gas: 100000))
-                           (match <> ((TransactionFailed _ (? TransactionRejected?)) #t)
+                           (match <> ((TransactionFailed exception: (? TransactionRejected?)) #t)
                                   (_ #f)))))
       (test-case "Call contract function hello with no argument"
         (ensure-hello-contract)

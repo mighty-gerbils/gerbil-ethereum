@@ -1,9 +1,11 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes
-  :std/format :std/iter :std/misc/list-builder :std/srfi/1 :std/sugar :std/test
-  :clan/decimal :clan/json :clan/number
+  :gerbil/gambit
+  :std/format :std/iter
+  :std/misc/decimal :std/misc/list-builder :std/misc/number
+  :std/srfi/1 :std/sugar :std/test
+  :clan/json
   :clan/poo/object :clan/poo/io
   :clan/crypto/random
   :clan/persist/db
@@ -15,7 +17,7 @@
 (def (round-up-amount amount increment)
   (ceiling-align (+ amount (* 1/2 increment)) increment))
 
-(def (test-transfer direct?)
+(def (test-prefund)
   (def balances-before (map eth_getBalance prefunded-addresses))
   ;; Round up to one thousandth of an ETH in wei, adding at least half that.
   (def target-amount (round-up-amount (apply max balances-before) (wei<-ether 1/1000)))
@@ -23,21 +25,18 @@
        (cut map (.@ Ether .string<-) <>) balances-before
        (.@ Ether .string<-) target-amount)
   (ensure-addresses-prefunded from: croesus to: prefunded-addresses
-                              min-balance: target-amount target-balance: target-amount
-                              batch-contract: (not direct?))
+                              min-balance: target-amount target-balance: target-amount)
   (def balances-after (map eth_getBalance prefunded-addresses))
   (DDT after-batch-transfer:
        (cut map (.@ Ether .string<-) <>) balances-after)
   (check-equal? balances-after (make-list (length prefunded-addresses) target-amount)))
 
 (def 50-simple-apps-integrationtest
-  (test-suite "integration test for ethereum/simple-apps"
+  (test-suite "integration test for clan/ethereum/simple-apps"
     (reset-nonce croesus) (DBG nonce: (peek-nonce croesus))
 
-    (test-case "direct batch transfer works"
-      (test-transfer #t))
-    (test-case "batch transfer contract works"
-      (test-transfer #f))
+    (test-case "Prefunding accounts works as expected."
+      (test-prefund))
 
     (test-case "trivial-logger works"
       (def trivial-logger
@@ -51,12 +50,11 @@
       (def create2-wrapper (ensure-presigned-create2-wrapper funder: croesus gasPrice: 100))
       (check-equal? (eth_getCode create2-wrapper) (create2-wrapper-runtime))
       (def logger2 (address<-create2 create2-wrapper salt (trivial-logger-init)))
+      (check-equal? (abi-create2 funder: alice salt (trivial-logger-init)) logger2)
+      (check-equal? (abi-create2 funder: bob salt (trivial-logger-init)) logger2)
       (DDT 50-create2-wrapper-0:
            Address create2-wrapper
-           Address logger2
-           TransactionReceipt
-           (post-transaction
-            (call-function croesus create2-wrapper (bytes-append salt (trivial-logger-init)))))
+           Address logger2)
       (check-equal? (eth_getCode logger2) (trivial-logger-runtime))
       (def receipt
         (DDT 50-create2-wrapper-1: TransactionReceipt
@@ -86,7 +84,7 @@
         [(batched-transfer amount alice) ;; tx 0
          (batched-create 0 (trivial-logger-init)) ;; tx 1
          (batched-call 0 logger (string->bytes "Hello from tx")) ;; tx 2: call contract create in tx 1 !!
-         (batched-call amount creator (bytes-append salt universal-batcher-init))
+         (batched-call amount creator (u8vector-append salt universal-batcher-init))
          (batched-create2 0 alice-batcher-init salt) ;; tx 3
          (batched-transfer amount bob)
          ])

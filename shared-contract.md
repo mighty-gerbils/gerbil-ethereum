@@ -105,10 +105,10 @@ All state is asynchronous, and the last byte identifies the asynchronous state s
 - The global state would be under ID 0.
 
 - State associated to a particular user's balance would be at id
-  `(bytes-append (make-bytes 11) user-address #u8(1))`
+  `(u8vector-append (make-bytes 11 0) user-address #u8(1))`
 
 - State associated to a user's allowance for another would be at
-  `(bytes-replace (digest (Tuple Address Address) (vector from to)) 31 2)`
+  `(u8vector-replace (digest (Tuple Address Address) (vector from to)) 31 2)`
 
 
 The global interaction state schema (result of a global transformation of the *Glow* code)
@@ -128,16 +128,16 @@ All state is asynchronous, and the last byte identifies the asynchronous state s
 - The global state would be under ID 0.
 
 - State associated to a particular subtoken would be at id
-  `(bytes-append padding subtoken-address #u8(1))`
+  `(u8vector-append padding subtoken-address #u8(1))`
   --- assuming the subtoken address is less than 31-byte wide, --- or
-  `(bytes-replace (digest (Tuple Address Address) (vector from to)) 31 1)`
+  `(u8vector-replace (digest (Tuple Address Address) (vector from to)) 31 1)`
   if the subtoken-address is 32-byte wide (maybe itself a digest of some larger state).
 
 - State associated to a user owning some token would be:
-  `(bytes-replace (digest (Tuple Address TokenId) (vector owner token-id)) 31 2)`
+  `(u8vector-replace (digest (Tuple Address TokenId) (vector owner token-id)) 31 2)`
 
 - State associated to a user allowing a transfer to another user would be:
-  `(bytes-replace (digest (Tuple Address Address TokenId) (vector sender recipient token-id)) 31 3)`
+  `(u8vector-replace (digest (Tuple Address Address TokenId) (vector sender recipient token-id)) 31 3)`
 
 ### Contract calling convention
 

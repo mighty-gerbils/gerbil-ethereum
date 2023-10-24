@@ -3,14 +3,38 @@
 (export #t)
 
 (import
-  (for-syntax :std/misc/ports :std/text/hex :clan/path :clan/source)
-  :gerbil/gambit/exceptions
-  :std/format :std/iter :std/sugar :std/srfi/13
-  :clan/exception :clan/multicall :clan/path-config :clan/syntax
-  :clan/poo/object :clan/poo/cli :clan/poo/debug
+  (for-syntax :std/text/hex
+              :std/misc/path
+              :std/misc/ports
+              :std/stxutil)
+  :std/stxutil
+  :gerbil/gambit
+  :std/assert
+  :std/format
+  :std/iter
+  :std/srfi/13
+  :std/source
+  :std/sugar
+  :clan/exception
+  :clan/multicall
+  :clan/syntax
+  :clan/poo/object
+  :clan/poo/cli
   :clan/persist/db
-  ./types ./ethereum ./network-config ./json-rpc ./abi ./transaction ./tx-tracker
-  ./testing ./meta-create2 ./assets ./cli ./testing)
+  ./types
+  ./ethereum
+  ./network-config
+  ./json-rpc
+  ./abi
+  ./transaction
+  ./tx-tracker
+  ./testing
+  ./meta-create2
+  ./assets
+  ./cli
+  ./testing)
+
+(def initial-supply (expt 10 27))
 
 ;; NB: based on creator, nonce
 (def QASPET@ (address<-0x "0x8e0BE69f202e245221B6D679B58faaBe1e463100"))
@@ -23,14 +47,17 @@
 (def RBTCED@ RBTPET@)
 (def HAMCED@ HAMPET@)
 
-(defvalues (test-erc20-contract-bytes test-erc721-contract-bytes)
-  (syntax-call
-   (lambda (ctx)
-     (def here (path-parent (vector-ref (stx-source ctx) 0)))
-     (def test-erc20-contract-bin (subpath here "t/precompiled/ERC20PresetFixedSupply.bin"))
-     (def test-erc721-contract-bin (subpath here "t/precompiled/ERC721PresetMinterPauserAutoId.bin"))
-     `(values ,(hex-decode (read-file-string test-erc20-contract-bin))
-              ,(hex-decode (read-file-string test-erc721-contract-bin))))))
+;; NB: We wire-in those contracts into the binary, so run-ethereum-test-net does not depend on
+;; the source code being available at runtime to locate the test files.
+(begin-syntax
+  (def (stx-source-hex stx relpath)
+    (hex-decode (bytes->string (stx-source-content stx relpath)))))
+(defsyntax-call (this-source-hex x relpath) (stx-source-hex x relpath))
+
+(def (test-erc20-contract-bytes)
+  (this-source-hex "t/precompiled/ERC20PresetFixedSupply.bin"))
+(def (test-erc721-contract-bytes)
+  (this-source-hex "t/precompiled//ERC721PresetMinterPauserAutoId.bin"))
 
 (defkeys ensure-test-contracts
   (initializer "0x9a0685cf801c0b16a839ec9c28b7dc7f461e70f3d33307f3a15da1d68c7f9d83"))
@@ -46,20 +73,20 @@
     (ethabi-encode [String String UInt256 Address]
                    [(string-append "Quality Assurance Specie on " name)
                     (string-append "QAS" NET)
-                    (expt 10 18) owner]
-                   test-erc20-contract-bytes))
+                    initial-supply owner] ;; one billion total tokens with 1e-18 precision
+                   (test-erc20-contract-bytes)))
   (def (RBT-bytes)
     (ethabi-encode [String String UInt256 Address]
                    [(string-append "Random Barter Token on " name)
                     (string-append "RBT" NET)
-                    (expt 10 18) owner]
-                   test-erc20-contract-bytes))
+                    initial-supply owner] ;; one billion total tokens with 1e-18 precision
+                   (test-erc20-contract-bytes)))
   (def (HAM-bytes)
     (ethabi-encode [String String String]
                    [(string-append "Crypto-Hamsters on " name)
                     (string-append "HAM" NET)
                     (format "https://ham~a.mukn.io/" net)]
-                   test-erc721-contract-bytes))
+                   (test-erc721-contract-bytes)))
 
   (displayln "Creating Universal CREATE2 wrapper...")
   (ensure-presigned-create2-wrapper)
@@ -84,15 +111,13 @@
      (when (address? contract)
        (printf "... ~a contract created at address ~a\n" NAME (0x<-address contract))))
    (catch (TransactionFailed? e)
-     (display-exception (TransactionFailed-exn e))
+     (display-exception (TransactionFailed-exception e))
      (error "fail!")))
   (assert! (equal? (eth_getTransactionCount initializer) 3)))
 
-(.def (PET @ Ether)
-  .name: "PET Ether"
-  .symbol: 'PET
-  .decimals: 18
-  .network: 'pet)
+
+(def PET (lookup-asset 'PET))
+(def CED (lookup-asset 'CED))
 
 (.def (QASPET @ ERC20)
   .contract-address: QASPET@
@@ -108,12 +133,6 @@
   .decimals: 18
   .network: 'pet)
 
-(.def (CED @ Ether)
-  .name: "CED Ether"
-  .symbol: 'CED
-  .decimals: 18
-  .network: 'ced)
-
 (.def (QASCED @ ERC20)
   .contract-address: QASCED@
   .name: "Quality Assurance Specie on Private Ethereum Testnet"
@@ -128,6 +147,7 @@
   .decimals: 18
   .network: 'ced)
 
+
 (for-each register-asset!
-          [PET QASPET RBTPET
-           CED QASCED RBTCED])
+          [QASPET RBTPET
+           QASCED RBTCED])

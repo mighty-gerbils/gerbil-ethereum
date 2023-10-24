@@ -1,7 +1,7 @@
 (export #t)
 
 (import :std/iter
-        :gerbil/gambit/bytes
+        :gerbil/gambit
         :std/sugar :std/test
         :clan/base :clan/poo/object :clan/poo/io :clan/poo/brace
         ../rlp ../hex ../types ../ethereum ../transaction)
@@ -9,7 +9,7 @@
 (def (bs . vs)
   (apply u8vector-append
     (for/collect ((v vs))
-      (cond ((bytes? v) v)
+      (cond ((u8vector? v) v)
             ((and (integer? v) (<= 0 v 255)) (u8vector v))
             ((string? v) (string->bytes v))
             (else (error 'bs))))))

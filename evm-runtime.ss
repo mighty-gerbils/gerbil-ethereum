@@ -1,8 +1,11 @@
 (export #t)
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
-  :std/misc/number :std/sugar
-  :clan/base :clan/number :clan/with-id
+  :gerbil/gambit
+  :std/assert :std/iter
+  :std/misc/number
+  :std/sugar
+  :clan/base
+  :clan/poo/brace
   :clan/poo/object (only-in :clan/poo/mop Type)
   :clan/crypto/secp256k1
   ./network-config ./assembly ./ethereum ./types)
@@ -92,10 +95,10 @@
 (def (&trivial-contract-init contract-runtime)
   (&begin
    ;; Push args for RETURN; doing it in this order saves one byte and some gas
-   (bytes-length contract-runtime) 0 #|memory address for the code: 0|# ;;-- 0 length
+   (u8vector-length contract-runtime) 0 #|memory address for the code: 0|# ;;-- 0 length
 
    ;; Push args for CODECOPY; the DUP's for length and memory target are where the savings are
-   DUP2 #|length|# [&push-label1 'runtime-start] DUP3 #|0|# ;;-- 0 start length 0 length
+   DUP2 #|length|# [&push-label1 'runtime-start] 0 ;;-- 0 start length 0 length
 
    ;; Initialize the contract by returning the memory array containing the runtime code
    CODECOPY RETURN ;;just before the return: -- 0 length
@@ -126,17 +129,55 @@
         ((element? Type type-or-length) type-or-length)
         (else (invalid 'param-type type-or-length))))
 
-;; ctx is a lexical context in which for each of the specified contract-level parameters,
-;; assembly-level variables will be defined for type, length, address, getter and setter.
-;; start is an expression the value of which will be the address for the first parameter
-;; end is an identifier which will be defined as the next available address after these parameters.
-;; For each each parameter, param is a identifier and
-;; type-or-length is an expression evaluating to either a type descriptor or a length (integer).
-;; The respective type, length, address, getter and setter identifiers for each parameter
-;; will be defined in the lexical context ctx, and will be computed by appending to the param identifier
-;; the respective suffixes "-types" "-length " "@" "" "-set!".
-;; The getter and setter will only be usefully defined if the length is between 0 and 32 included.
+;; define-consecutive-addresses defines statically-allocated variables in the EVM address
+;; space.
+;;
+;; Parameters:
+;;
+;; - `ctx` is a lexical context in which for each of the specified contract-level parameters
+;; - `start` is an expression the value of which will be the address for the first variable.
+;; - `end` is an identifier which will be defined as the next available address after these
+;;   variables.
+;;
+;; Finally, any remaining arguments specify the actual variables. They have the form
+;; (param type-or-length), where param is an identifier and type-or-length is an
+;; expression evaluating to either a type descriptor or a length (integer).
+;;
+;; The macro generates the following definitions:
+;;
+;; - A getter, with the same name `param`.
+;; - A setter, named `param-set!`.
+;; - A numeric address, named `param@`.
+;; - A length, named `param-length`.
+;; - A POO object, grouping all of the above into a value that
+;;   can be passed around as a unit. This is named `param-var`.
+;;
+;; The getter and setter will only be useful if the length is between 0 and 32
+;; included; otherwise the implementation just throws an error.
+;;
+;; The object has properties named:
+;;
+;; - type
+;; - length
+;; - address
+;; - get
+;; - set!
+;;
+;; NB, in doc comments we refer to this object type as a StaticVar.
+;;
+;; ...with the obvious correspondences. TODO: bring these more in-line with
+;; the stand-alone names?
+;;
+;; Additionally, the object has a property `name` which is the name of the
+;; variable (as a symbol).
+;;
 ;; TODO: support intermediate-speed variables that overwrite-after?
+;;
+;; TODO: we really don't want to do this as a macro at all, since it means we
+;; can't write programs that allocate variables based on their input, if they
+;; have to do so at macro expansion time, which is pretty sad. Instead, we should
+;; store relevant information in a run-time (scheme) variable or parameter, and
+;; have normal *functions* for defining variables.
 (defrule (define-consecutive-addresses ctx start end (param type-or-length) ...)
   (begin
     ;; Variable with a name provided by the macro caller above,
@@ -149,14 +190,22 @@
          (length #'param '-length)
          (address #'param '@)
          (getter #'param)
-         (setter #'param '-set!))
+         (setter #'param '-set!)
+         (var #'param '-var))
       (def type (param-type type-or-length))
       (def length (param-length type-or-length))
       (def address (post-increment! end length))
       (def getter (if (<= 0 length 32) (&mloadat address length)
                       (lambda _ (error "Variable too large to be loaded on stack" 'param length))))
       (def setter (if (<= 0 length 32) (&mstoreat address length)
-                      (lambda _ (error "Variable too large to be stored from stack" 'param length)))))
+                      (lambda _ (error "Variable too large to be stored from stack" 'param length))))
+      (def var
+           {name: 'param
+            type: type
+            length: length
+            address: address
+            get: getter
+            set!: setter}))
     ...))
 
 ;; Local memory layout for solidity:
@@ -172,11 +221,34 @@
 ;; We could have used any of the variables above or below as context, including frame@.
 (def this-ctx (void))
 
-(define-consecutive-addresses this-ctx 0 frame@
+(define-consecutive-addresses this-ctx 0 tmp100@
   (brk 32 #|3|#) ;; The free memory pointer.
   (calldatapointer 32 #|3|#) ;; Pointer within CALLDATA to yet unread published information.
   (calldatanew 32 #|3|#) ;; Pointer to new information within CALLDATA (everything before was seen).
-  (deposit 32 #|12|#)) ;; Required deposit so far.
+
+  ;; Track the required deposit amounts for various assets. For now, we have an arbitrary
+  ;; limit of 3 assets per interaction, mainly because define-consecutive-addresses being
+  ;; a macro means we have to decide on this before we get to look at the particular contract.
+  ;; TODO: rework this so that we define variable offsets in consensus-code-generator,
+  ;; rather than statically in gerbil-ethereum, and then pick this number based on what
+  ;; the contract actually uses.
+  (deposit0 32)
+  (deposit1 32)
+  (deposit2 32)
+
+  ;; Track the pending withdrawals. We have one variable for each (asset, participant)
+  ;; pair.
+  (withdraw0 32)
+  (withdraw1 32)
+  (withdraw2 32)
+  (withdraw3 32)
+  (withdraw4 32)
+  (withdraw5 32))
+
+;; tmp100@ is the constant offset to a 100-byte scratch buffer
+;; used by methods in assets.ss .commit-deposit! and .commit-withdraw!
+(define-consecutive-addresses this-ctx tmp100@ frame@
+  (tmp100-stuff 100))
 
 ;; Second, the frame state as merkleized. These are the fields present in all frames:
 (define-consecutive-addresses this-ctx frame@ params-start@
@@ -184,11 +256,38 @@
          ;; NOTE: &simple-contract-prelude makes a critical assumption that
          ;; pc is the first thing inside the merkelized state; do not re-order
          ;; it.
-  (balance 32) ;; Balance for this interaction. We store this as a variable, rather than
-               ;; using the BALANCE instruction, so that we can multiplex multiple
-               ;; interactions onto one contract.
+
+  ;; Variables to track the balances of various assets for this interaction. For
+  ;; non-native tokens, storing this is cheaper than querying the token's contract,
+  ;; and for the native token, we want to avoid  using the BALANCE instruction, so
+  ;; that we can multiplex multiple interactions onto one contract in the future.
+  (balance0 32)
+  (balance1 32)
+  (balance2 32)
+
   (timer-start Block) ;; Block at which the timer was started
   #;(challenged-participant Offset)) ;; TODO? offset of the parameter containing the participant challenged to post before timeout
+
+;; Put reified variables for deposit, balance, and withdraw into lists, so
+;; we can look them up by numeric index, iterate over them, etc.
+(def deposit-vars
+   [deposit0-var
+    deposit1-var
+    deposit2-var])
+(def balance-vars
+   [balance0-var
+    balance1-var
+    balance2-var])
+(def withdraw-vars
+   [withdraw0-var
+    withdraw1-var
+    withdraw2-var
+    withdraw3-var
+    withdraw4-var
+    withdraw5-var])
+
+(def MAX_ASSETS (length balance-vars))
+(def MAX_PARTICIPANTS (/ (length withdraw-vars) MAX_ASSETS))
 
 ;; Then there will be per-frame parameter fields, to be defined in the proper scope with:
 (defrule (define-frame-params ctx params ...)
@@ -228,28 +327,28 @@
   (&begin
    ;; Init vs running convention!
    ;; Put some values on stack while they're extra cheap.
-   GETPC GETPC GETPC ;; -- 2 1 0
+   1 GETPC ;; -- 2 1 ;; note how we don't need 0 anymore thanks to PUSH0, so save 1 gas
    ;; Get state frame size, starting with PC, 16 bit
-   DUP3 #|0|# CALLDATALOAD (&shr 240) frame@ ;; -- frame@ sz 2 1 0
+   0 CALLDATALOAD (&shr 240) frame@ ;; -- frame@ sz 2 1
    ;; copy frame to memory
-   DUP2 #|sz|# DUP4 #|2|# DUP3 #|frame@|# CALLDATACOPY ;; -- frame@ sz 2 1 0
+   DUP2 #|sz|# DUP4 #|2|# DUP3 #|frame@|# CALLDATACOPY ;; -- frame@ sz 2 1
    ;; store calldatapointer and calldatanew
    ;; TODO: in the future, optionally allow for DAG subset reveal
-   DUP2 #|sz|# DUP4 #|2|# ADD ;; -- calldatanew frame@ sz 2 1 0
-   DUP1 calldatanew-set! calldatapointer-set! ;; -- frame@ sz 2 1 0
+   DUP2 #|sz|# DUP4 #|2|# ADD ;; -- calldatanew frame@ sz 2 1
+   DUP1 calldatanew-set! calldatapointer-set! ;; -- frame@ sz 2 1
    ;; save the brk variable -- NB: importantly, brk-start must be properly initialized
-   (unbox (brk-start)) DUP6 #|brk@,==0|# MSTORE ;; -- frame@ sz 2 1 0
+   (unbox (brk-start)) 0 #|brk@,==0|# MSTORE ;; -- frame@ sz 2 1
    ;; compute the digest of the frame just restored
-   SHA3 ;; -- digest 2 1 0
+   SHA3 ;; -- digest 2 1
    ;; compare to saved merkleized state, jump to saved label if it matches
    ;; BEWARE: we assume the variable *before* the frame is not initialized, and still 0.
-   DUP4 #|0|# SLOAD EQ (- frame@ 30) MLOAD JUMPI ;; -- stack at destination: -- 2 1 0
+   0 SLOAD EQ (- frame@ 30) MLOAD JUMPI ;; -- stack at destination: -- 2 1
    (&define-abort-contract-call)))
 
 (def (&define-abort-contract-call)
   ;; Abort. We explicitly PUSH1 0 for the first rather than DUPn,
   ;; because we don't assume stack geometry from the caller when aborting.
-  (&begin [&jumpdest 'abort-contract-call] 0 DUP1 #|0|# REVERT))
+  (&begin [&jumpdest 'abort-contract-call] 0 0 REVERT))
 
 ;; TESTING STATUS: Wholly tested.
 (def (&memcpy/const-size n overwrite-after?: (overwrite-after? #f) dst-first?: (dst-first? #f))
@@ -314,12 +413,6 @@
 ;; TESTING STATUS: Used by buy-sig
 (def &require! (&begin ISZERO &require-not!)) ;; [4B, 16G]
 
-;; Check the requirement that the amount actually deposited in the call (from CALLVALUE) is sufficient
-;; to cover the amount that the contract believes should have been deposited (from deposit@ MLOAD).
-;; TESTING STATUS: Insufficiently tested
-(def &check-sufficient-deposit
-  (&begin deposit CALLVALUE LT &require-not!)) ;; [8B, 25G]
-
 ;; TODO: *in the future*, have a variant of contracts that allows for posting markets,
 ;; whereby whoever posts the message to the blockchain might not be the participant,
 ;; and instead, the participant signs the in-contract message.
@@ -328,6 +421,12 @@
 (def &check-participant!
   ;; Scheme pseudocode: (lambda (participant) (require! (eqv? (CALLER) participant)))
   (&begin CALLER EQ &require!)) ;; [6B, 21G]
+
+(def (safe-add . xs)
+  (def s (apply + xs))
+  (unless (<= (integer-length s) 256)
+    (error "safe-add: overflow from adding" xs "=" s))
+  s)
 
 ;; Safely add two UInt256, checking for overflow
 ;; TESTING STATUS: Wholly tested
@@ -369,27 +468,24 @@
      EQ &require! [&jumpdest safe-mul-end]))) ;; -- xy [6B, 20G]
 
 ;; TESTING STATUS: Wholly tested
-(def &deposit!
-  ;; Scheme pseudocode: (lambda (amount) (increment! deposit amount))
+(def (&add-var! var)
+  ;; Scheme pseudocode: (lambda (amount) (increment! var amount))
   ;; TODO: can we statically prove it's always within range and make the &safe-add an ADD ???
-  (&begin deposit &safe-add deposit-set!)) ;; [14B, 40G]
+  (&begin (.@ var get) &safe-add (.@ var set!))) ;; [14B, 40G]
 
+;; (EVMThunk <- Amount)
+(def (&sub-var! var)
+  (&begin (.@ var get) &safe-sub (.@ var set!)))
+
+;; (EVMThunk <- Address Amount)
 ;; TESTING STATUS: Wholly untested.
 (def &send-ethers!
   (&begin ;; -- address value
-   0 DUP1 #|0|# ;; -- 0 0 address value
-   DUP1 #|0|# SWAP4 ;; -- value 0 0 address 0
-   DUP2 #|0|# SWAP4 ;; -- address value 0 0 0 0
+   0 0 ;; -- 0 0 address value
+   0 SWAP4 ;; -- value 0 0 address 0
+   0 SWAP4 ;; -- address value 0 0 0 0
    GAS ;; -- gas address value 0 0 0 0
    CALL &require!)) ;; -- Transfer!
-
-;; TODO: group the withdrawals at the end, like the deposit checks?
-;; TESTING STATUS: Wholly untested.
-(def &withdraw!
-   (&begin ;; -- address value
-     DUP2 ;; -- value address value
-     balance &safe-sub balance-set! ;; -- address value
-     &send-ethers!))
 
 ;; TESTING STATUS: Used in buy-sig. TODO: we should also test with a bad signature.
 (def &mload/signature ;; v r s <-- signature@
@@ -403,7 +499,7 @@
 (def &validate-sig-data ;; v r s <-- v r s
   (&begin
    1 27 DUP3 SUB GT ;; check that v is 27 or 28, which prevents malleability (not 29 or 30)
-   (arithmetic-shift secp256k1-order -1) DUP5 GT ;; s <= s_max, under half the order of the group, or else rejected by Bitcoin
+   (half secp256k1-order) DUP5 GT ;; s <= s_max, under half the order of the group, or else rejected by Bitcoin
    OR &require-not!))
 
 ;; TESTING STATUS: Wholly tested.
@@ -476,83 +572,22 @@
    ;; -- frame-length TODO: at standard place in frame, info about who is or isn't timing out
    ;; and/or make it a standard part of the cp0 calling convention to catch such.
    (&read-published-datum 1) ISZERO 'tail-call-body JUMPI
-   &sync-deposit! ;; NB: update the balance *before* we compute the SHA3
+   &sync-deposit! ;; NB: update the balances *before* we compute the SHA3
    frame@ SHA3 0 SSTORE ;; TODO: ensure frame-width is on the stack before here
    'stop-contract-call
    [&jump1 'commit-contract-call])) ;; update the state, then commit and finally stop
 
-;; add the deposit to our recorded interaction balance.
+;; add the deposits to our recorded interaction balances.
 (def &sync-deposit!
-  (&begin
-    deposit balance &safe-add balance-set!))
-
-;; Logging the data, simple version, optimal for messages less than 6000 bytes of data.
-;; TESTING STATUS: Used by buy-sig.
-(def &define-simple-logging
-  (&begin
-   [&jumpdest 'commit-contract-call] ;; -- return-address
-   &check-sufficient-deposit ;; First, check deposit
-   calldatanew DUP1 CALLDATASIZE SUB ;; -- logsz cdn ret
-   SWAP1 ;; -- cdn logsz ret
-   DUP2 ;; logsz cdn logsz ret
-   0 SWAP2 ;; -- cdn logsz 0 logsz ret
-   DUP3 ;; -- 0 cdn logsz 0 logsz ret
-   CALLDATACOPY ;; -- 0 logsz ret
-   LOG0 JUMP))
-
-;; Logging the data
-;; TESTING STATUS: Wholly untested.
-(def &define-variable-size-logging
-  (&begin
-   [&jumpdest 'commit-contract-call]
-   &check-sufficient-deposit ;; First, check the deposit
-   ;; compute available buffer size: max(MSIZE, n*256)
-   ;; -- TODO: find out the optimal number to minimize gas, considering the quadratic cost of memory
-   ;; versus the affine cost of logging, and the cost of this loop.
-   ;; i.e. compute total logging gas depending on buffer size, differentiate, minimize
-   ;; The marginal cost C of this loop is ~550 (linear logging costs are not marginal), total C*L/B.
-   ;; The marginal memory cost beyond M is 3/32*B+B*B/Q, Q=524288. Minimize for B: C*L/B+B*B/Q+3/32*B
-   ;; We cancel the derivative, which is -C*L/B^2+2*B/Q+3/32, or (B^3*2/Q + B^2*3/32 -C*L)/B^2.
-   ;; Let's neglect the quadratic term for now.
-   ;; The optimal buffer size verifies -C*L/B^2 + 3/32 = 0, or B = sqrt(32*C*L/3) = sqrt(32*C/3)*sqrt(L)
-   ;; sqrt(32*C/3) is about 77. Under about 6000B (the usual case?), it's always best to have a single log.
-   ;; That's before the quadratic term kicks in.
-   ;; Now, for large call data sizes, the quadratic term starts to matter:
-   ;; 8M gas limit and about 22 g/byte mean that L < 360000 sqrt(L) < 600.
-   ;; The optimal number neglecting the quadratic term goes up to 46200,
-   ;; but at that point, the total two memory costs are comparable (about 4000 Gas).
-   ;; The formula for optimal L with only the quadratic term is cubrt(Q*C/2)*cubrt(L),
-   ;; which also tops at 38000 and grows more slowly.
-   ;; But we can use Wolfram Alpha to solve exactly:
-   ;; https://www.wolframalpha.com/input/?i=Reduce%5B%283+B%5E2%29%2F32+%2B+B%5E3%2F262144+-+550+L+%3D%3D+0%2C+B%5D
-   ;; We find the exact real solution:
-   ;; B = 64 ((275 L + 5 sqrt(11) sqrt(L (275 L - 4194304)) - 2097152)^(1/3) + 16384/(275 L + 5 sqrt(11) sqrt(L (275 L - 4194304)) - 2097152)^(1/3) - 128)
-   ;; We can plot it:
-   ;; https://www.wolframalpha.com/input/?i=plot+%7C+64+%28%28275+L+%2B+5+sqrt%2811%29+sqrt%28L+%28275+L+-+4194304%29%29+-+2097152%29%5E%281%2F3%29+%2B+16384%2F%28275+L+%2B+5+sqrt%2811%29+sqrt%28L+%28275+L+-+4194304%29%29+-+2097152%29%5E%281%2F3%29+-+128%29%2C+L+from+0+to+360000&assumption=%7B%22F%22%2C+%22Plot%22%2C+%22plotvariable%22%7D+-%3E%22L%22&assumption=%22FSelect%22+-%3E+%7B%7B%22Plot%22%7D%7D&assumption=%7B%22F%22%2C+%22Plot%22%2C+%22plotlowerrange%22%7D+-%3E%2232%22&assumption=%7B%22C%22%2C+%22plot%22%7D+-%3E+%7B%22Calculator%22%7D&assumption=%7B%22F%22%2C+%22Plot%22%2C+%22plotfunction%22%7D+-%3E%2264+%28%28275+L+%2B+5+sqrt%2811%29+sqrt%28L+%28275+L+-+4194304%29%29+-+2097152%29%5E%281%2F3%29+%2B+16384%2F%28275+L+%2B+5+sqrt%2811%29+sqrt%28L+%28275+L+-+4194304%29%29+-+2097152%29%5E%281%2F3%29+-+128%29%22&assumption=%7B%22F%22%2C+%22Plot%22%2C+%22plotupperrange%22%7D+-%3E%22360000%22
-   ;; It grows slowly from 0 to a bit over 30000 for L=360000.
-   ;;
-   ;; Instead of having the contract itself minimize a polynomial according to some elaborate formula,
-   ;; we can just let the user specify their buffer size as a parameter (within meaningful limits);
-   ;; if they provide a bad answer, they are the ones who pay the extra gas (or fail).
-   ;; This parameter could be a single byte, to be shifted left 7 bits.
-   ;; -- getting it wrong is only 70-odd gas wrong,
-   ;; less than it costs to use a second byte for precision.
-   MSIZE 16384 DUP2 DUP2 GT [&jumpi1 'maxm1] SWAP1
-   [&jumpdest 'maxm1] POP ;; -- bufsz
-   calldatanew DUP1 CALLDATASIZE SUB ;; -- logsz cdn bufsz
-   ;; Loop:
-   [&jumpdest 'logbuf] ;; -- logsz cdn bufsz
-   ;; If there's no more data, stop.
-   DUP1 #|logsz|# [&jumpi1 'logbuf1] POP POP POP JUMP [&jumpdest 'logbuf1] ;; -- logsz cdn bufsz
-   ;; compute the message size: msgsz = min(cdsz, bufsz)
-   DUP3 #|bufsz|# DUP2 #|logsz|# LT [&jumpi1 'minbl] SWAP1
-   [&jumpdest 'minbl] POP ;; -- msgsz logsz cdn bufsz
-   ;; Log a message
-   DUP1 #|msgsz|# 0 DUP2 #|msgsz|# DUP6 #|cdn|# DUP3 #|0|# CALLDATACOPY LOG0 ;; -- msgsz logsz cdn bufsz
-   ;; Adjust logsz and cdn
-   SWAP2 #|cdn logsz msgsz|# DUP3 #|msgsz|# ADD SWAP2 #|msgsz logsz cdn|# SWAP1 SUB ;; -- logsz cdn bufsz
-   ;; loop!
-   [&jump1 'logbuf]))
+  (&begin*
+    (for/collect
+      ((deposit deposit-vars)
+       (balance balance-vars))
+      (&begin
+        (.@ deposit get)
+        (.@ balance get)
+        &safe-add
+        (.@ balance set!)))))
 
 ;; Emulate the SELFDESTRUCT instruction, but only for the current *interaction*, rather
 ;; than the whole contract. At time of writing, there is only one interaction per contract,
@@ -564,12 +599,14 @@
 ;;
 ;; Works as follows:
 ;;
-;; 1. Send interaction balance to temporary replacement for SELFDESTRUCT,
+;; 1. Send interaction balances to temporary replacement for SELFDESTRUCT,
 ;; 2. Make the interaction unusable (assuming it uses our ABI) by putting 0 in its state digest
 ;; 3. Successfully commit the transaction by RETURNing an empty array of bytes.
 ;;
 ;; Discrepancies from actual SELFDESTRUCT:
 ;;
+;; - This knows about our assets abstraction, and will transfer *all* assets to the recipient,
+;;   not just the native token but also e.g. ERC20s.
 ;; - The larger contract remains usable, only the current interaction is destroyed.
 ;; - If the contract doesn't use our ABI, then step 2 is useless and the interaction might still
 ;;   be "usable".
@@ -577,16 +614,35 @@
 ;;   for the recipient to either log data or deny the request.
 ;;
 ;; TESTING STATUS: manually tested
-(def (&interaction-selfdestruct) ;; address -->
+(def (&interaction-selfdestruct assets-and-vars) ;; address -->
   (&begin
-    balance SWAP1 &send-ethers!  ;; 1. send all the remaining ethers to given address
-            0 DUP1 SSTORE STOP)) ;; 2. blank out next state digest, 3. return empty array.
-            ;; TODO: when we actually support multiplexed interactions, we need to store
-            ;; the state digest for different interactions at different addresses, so
-            ;; we'll have to replace DUP1 above with loading the correct key for this
-            ;; interaction's state digest. Also, maybe pick a value other than zero, so
-            ;; we can tell the difference between a destroyed contract and a new one,
-            ;; since storage is zero-initialized.
+    ;; 1. send all the remaining funds to given address:
+    (&begin*
+      (map
+        (lambda (pair)
+          (def asset (car pair))
+          (def balance-var (cdr pair))
+          (def skip-label (generate-label 'skip-transfer))
+          (&begin
+            ;; If the balance is zero, skip the actual transfer.
+            ;; This is the common case, so should save a bit of gas.
+            (.@ balance-var get) ISZERO skip-label JUMPI
+            DUP1 (.call asset .commit-withdraw-all! balance-var)
+            [&jumpdest skip-label]))
+        assets-and-vars))
+  ;; 2. blank out next state digest:
+   0 DUP1 SSTORE
+
+  ;; 3. return empty array:
+   STOP)
+
+  ;; TODO: when we actually support multiplexed interactions, we need to store
+  ;; the state digest for different interactions at different addresses, so
+  ;; we'll have to replace DUP1 above with loading the correct key for this
+  ;; interaction's state digest. Also, maybe pick a value other than zero, so
+  ;; we can tell the difference between a destroyed contract and a new one,
+  ;; since storage is zero-initialized.
+  )
 
 ;; Define the end-contract library function, if reachable.
 ;; TODO: one and only one of end-contract or tail-call shall just precede the commit-contract-call function!
@@ -595,11 +651,11 @@
 ;; or can be anywhere with a jump in the end, with an expected use frequency function
 ;; to prefer one the most used one over the alternatives?
 ;; TESTING STATUS: Used by buy-sig.
-(def (&define-end-contract)
+(def (&define-end-contract assets-and-vars)
   (&begin
    [&jumpdest 'suicide]
    (ethereum-penny-collector) ;; send any leftover money to this address!
-   (&interaction-selfdestruct)
+   (&interaction-selfdestruct assets-and-vars)
    [&jumpdest 'end-contract]
    0 0 SSTORE 'suicide [&jump1 'commit-contract-call]))
 
@@ -617,22 +673,27 @@
 
 ;; abort unless saved data indicates a timeout
 ;; TESTING STATUS: Used by buy-sig. Incompletely untested.
-(def (&check-timeout! timeout: (timeout (ethereum-timeout-in-blocks))) ;; -->
+(def (&check-timeout! timeout) ;; -->
   (&begin
    timeout timer-start ADD ;; using &safe-add is probably redundant there.
+   ;; TODO: should this be GT require or LT require-not?
    NUMBER GT &require!))
 
 ;; BEWARE! This is for two-participant contracts only,
-;; where all the money is on the table, no other assets than Ether.
+;; where all the money is on the table.
 ;; TESTING STATUS: Used by buy-sig. Incompletely untested.
-(def (&define-check-participant-or-timeout debug: (debug #f))
+;; TODO: the timeout argument should be mandatory, the default is wrong
+(def (&define-check-participant-or-timeout assets-and-vars
+                                           timeout: (timeout (ethereum-timeout-in-blocks))
+                                           debug: (debug #f))
   (&begin ;; obliged-actor@ other-actor@ ret@C --> other-actor@
    [&jumpdest 'check-participant-or-timeout]
+   ;; load obliged-actor@, who was supposed to be the active participant
    (&mload 20) CALLER EQ #|-- ok? other@ ret@C|# SWAP1 SWAP2 #|-- ret@C ok? other@ |#
    JUMPI ;; if the caller matches, return to the program. Jump or not, the stack is: -- other-actor@
    ;; TODO: support some amount being in escrow for the obliged-actor and returned to him
-   ;; Also support ERC20s, etc.
-   (&check-timeout!) (&mload 20) (&interaction-selfdestruct))) ;; give all the money to the other guy.
+   (&check-timeout! timeout)
+   (&mload 20) (&interaction-selfdestruct assets-and-vars))) ;; give all the money to the other guy.
 
 ;; BEWARE: this function passes the actors by address reference, not by address value
 ;; TESTING STATUS: Used by buy-sig.
@@ -661,3 +722,6 @@
    (&begin* (map (match <> ([t . v] (&marshal t v))) tvps))
    SUB SWAP1 ;; -- bufstart bufwidth
    SHA3))
+
+;; TODO: subroutine to call an address, fail if only 21000 gas was used (which implies that despite apparent "success", there was no contract at said address) --- or will calling with arguments fail in that case?
+;; Or is that why the convention to check success is to not merely to check the absence of error, but also to verify that a boolean true was returned?

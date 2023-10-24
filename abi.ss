@@ -7,11 +7,13 @@
 ;; See also in Rust: https://github.com/openethereum/ethabi
 ;; Finally, external representation of the abi is in abi-
 
+;; TODO: parse and unparse abi types as string or json.
+
 (export #t)
 
 (import
-  :gerbil/gambit/bytes
-  :std/misc/number :std/misc/process :std/misc/repr :std/srfi/1 :std/sugar
+  :gerbil/gambit
+  :std/assert :std/misc/number :std/misc/process :std/misc/repr :std/srfi/1 :std/sugar
   :clan/io :clan/poo/object :clan/poo/mop
   :clan/crypto/keccak)
 
@@ -89,7 +91,7 @@
 ;; each x at index i corresponds to the type at index i.
 ;; The prefix is typically (a) the 4-bytes identifying a function call, or (b) an ABI-following contract
 (def (ethabi-encode types xs (prefix #u8()))
-  (def prefix-length (bytes-length prefix))
+  (def prefix-length (u8vector-length prefix))
   (def head-length (ethabi-head-length types))
   (def tail-length (ethabi-tail-length types xs))
   (def tail (+ prefix-length head-length))
@@ -98,7 +100,7 @@
   (def (set-tail! new-tail)
     (assert! (<= tail new-tail end))
     (set! tail new-tail))
-  (def bytes (make-bytes end))
+  (def bytes (make-u8vector end 0))
   (subu8vector-move! prefix 0 prefix-length bytes 0)
   (ethabi-encode-into types xs bytes prefix-length prefix-length get-tail set-tail!)
   bytes)
@@ -116,7 +118,7 @@
             types xs))
 
 ;; : [Listof Any] <- [Listof Type] Bytes Nat Nat
-(def (ethabi-decode types bytes (start 0) (end (bytes-length bytes)))
+(def (ethabi-decode types bytes (start 0) (end (u8vector-length bytes)))
   (def head-end (+ start (ethabi-head-length types)))
   (def tail head-end)
   (def (get-tail) tail)

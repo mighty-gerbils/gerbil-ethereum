@@ -1,9 +1,13 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
-  :std/misc/bytes :std/misc/number :std/sugar
-  :clan/base :clan/number :clan/syntax
+  :gerbil/gambit
+  :std/error :std/format
+  :std/misc/bytes :std/misc/hash :std/misc/number
+  :std/srfi/1 :std/stxutil
+  :std/sugar
+  :std/text/hex :std/values
+  :clan/base
   :clan/poo/object :clan/poo/io
   ./types ./ethereum ./network-config)
 
@@ -17,8 +21,10 @@
 ;; instead we merely *check* that labels are used properly
 ;; and the formulas match.
 
-;; 24576, limit set by EIP 170 https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
-(def max-segment-size #x6000)
+;; 24576, code size limit set by EIP 170 https://github.com/ethereum/EIPs/blob/master/EIPS/eip-170.md
+(def max-code-size #x6000)
+;; 49152, initialization code size limit set by EIP 3860 (Shanghai, 2023), double the above
+(def max-init-code-size #xC000)
 
 ;; TODO: use mutable extensible vectors? pure functional arrays?
 ;; Doubly linked list of sub-segments? Balanced tree that maintains intervals?
@@ -37,23 +43,23 @@
    fill-pointer) ;; how many of those bytes are filled?
   transparent: #t)
 
-(def (new-segment (size max-segment-size))
-  (make-Segment (make-bytes size) 0))
+(def (new-segment (size max-code-size))
+  (make-Segment (make-u8vector size 0) 0))
 
 (def (segment-full? s)
-  (>= (Segment-fill-pointer s) (bytes-length (Segment-bytes s))))
+  (>= (Segment-fill-pointer s) (u8vector-length (Segment-bytes s))))
 
 (def (segment-push! s b)
   (when (segment-full? s) (error "segment full" 'segment-push! s b))
-  (bytes-set! (Segment-bytes s) (Segment-fill-pointer s) b)
+  (u8vector-set! (Segment-bytes s) (Segment-fill-pointer s) b)
   (increment! (Segment-fill-pointer s)))
 
 (def (segment-push-bytes! s b)
-  (unless (< (+ (bytes-length b) (Segment-fill-pointer s))
-             (bytes-length (Segment-bytes s)))
+  (unless (< (+ (u8vector-length b) (Segment-fill-pointer s))
+             (u8vector-length (Segment-bytes s)))
     (error "segment full" 'segment-push-bytes! s b))
-  (subu8vector-move! b 0 (bytes-length b) (Segment-bytes s) (Segment-fill-pointer s))
-  (increment! (Segment-fill-pointer s) (bytes-length b)))
+  (subu8vector-move! b 0 (u8vector-length b) (Segment-bytes s) (Segment-fill-pointer s))
+  (increment! (Segment-fill-pointer s) (u8vector-length b)))
 
 (def (segment-contents s)
   (subu8vector (Segment-bytes s) 0 (Segment-fill-pointer s)))
@@ -83,7 +89,11 @@
 (def (eval-fixup-expression labels expr)
   (match expr
     ((? number? x) x)
-    ((? symbol? s) (hash-get labels s))
+    ((? symbol? s)
+     (hash-ref/default labels s
+       (cut error (format "eval-fixup-expression: expr symbol ~r not found in labels ~r"
+                          s
+                          (hash-keys labels)))))
     ([f . l]
      (apply (hash-get fixup-functions f) (map (cut eval-fixup-expression labels <>) l)))))
 
@@ -100,7 +110,48 @@
 
 (def (assemble/bytes directives) (first-value (assemble directives)))
 
+;; disassemble takes a u8vector and disassembles it, returning a list
+;; of instructions, of the form:
+;;
+;; - A symbol for the instruction mnemonic, for most instructions.
+;; - (PUSH* number string) for PUSH* instructions (where * is the size of the argument).
+;;   The (first) numeric argument is the actual value that is pushed. The second argument
+;;   is the same, but encoded as a hexideicmal scheme literal (e.g. "#x0ab1"); having
+;;   both forms readily available is sometimes helpful when debugging.
+(def (disassemble bytes)
+  (def labels (make-hash-table))
+  (let loop ((data (u8vector->list bytes)))
+    ;; TODO(perf): use numeric indexing, instead of converting the whole
+    ;; program to a list of bytes. Not a big deal right now as there's a
+    ;; 24K limit on program size anyway.
+    (if (null? data)
+      []
+      (let*
+        ((opcode (car data))
+         (name (vector-ref rev-opcodes opcode))
+         (push-amt (push-code-amount opcode)))
+        (cond
+          ((not (symbol? name))
+           (cons ['invalid opcode] (loop (cdr data))))
+          (push-amt
+           (let ()
+             (def rest (cdr data))
+             (def arg-bytes (take rest push-amt))
+             (def arg-hex (hex-encode (list->u8vector arg-bytes)))
+             (def arg-decimal (with-input-from-string (string-append "#x" arg-hex) read))
+             (cons
+               [name arg-decimal (string-append "0x" arg-hex)]
+               (loop (drop rest push-amt)))))
+          (else
+            (cons name (loop (cdr data)))))))))
 
+;; push-code-amount : Byte -> (Maybe Nat)
+;;
+;; Returns the length of the argument to the PUSH instruction with the provided
+;; opcode.
+(def (push-code-amount opcode)
+  (def n (- opcode #x5f)) ;; PUSH0
+  (and (<= 0 n 32) n))
 
 (def (&byte a b)
   (segment-push! (Assembler-segment a) b))
@@ -108,27 +159,28 @@
   (segment-push-bytes! (Assembler-segment a) b))
 (def (&type a type x)
   (&bytes a ((.@ type .bytes<-) x)))
-(def (&int a i (n-bytes (n-bytes<-n-bits (integer-length i))))
-  (assert! (<= (integer-length i) (* 8 n-bytes)))
-  (segment-push-bytes! (Assembler-segment a) (bytes<-nat i n-bytes)))
-(def (&push a i (n-bytes (max 1 (n-bytes<-n-bits (integer-length i)))))
-  (assert! (<= 1 n-bytes 32))
-  (&byte a (+ #x5F n-bytes))
-  (&int a i n-bytes))
+(def (&uint a u (n-bytes (nat-length-in-u8 u)))
+  (check-argument (and (nat? u) (<= (integer-length u) 256)) "uint256" u)
+  (check-argument (<= (integer-length u) (* 8 n-bytes) 256) "valid length for u" [n-bytes u])
+  (segment-push-bytes! (Assembler-segment a) (nat->u8vector u n-bytes)))
+(def (&push a u (n-bytes (nat-length-in-u8 u)))
+  (check-argument (and (nat? n-bytes) (<= n-bytes 32)) "length of immediate data" n-bytes)
+  (&byte a (+ #x5F n-bytes)) ;; PUSH0
+  (&uint a u n-bytes))
 (def (&push-bytes a bytes)
-  (&push a (nat<-bytes bytes)))
+  (&push a (u8vector->nat bytes)))
 
 (def (current-offset a)
   (Segment-fill-pointer (Assembler-segment a)))
 
 (def (check-byte a offset value msg)
-  (unless (= (bytes-ref (Segment-bytes (Assembler-segment a)) offset) value)
+  (unless (= (u8vector-ref (Segment-bytes (Assembler-segment a)) offset) value)
     (error msg)))
 
 ;; TODO: should we mask off all but the n-bits lowest bits of actual?
 (def (check-uint a n-bits offset expected err)
   (def actual (u8vector-uint-ref (Segment-bytes (Assembler-segment a))
-                                 offset big (n-bytes<-n-bits n-bits)))
+                                 offset big (n-bits->n-u8 n-bits)))
   (unless (= actual expected)
     (err actual)))
 
@@ -138,14 +190,14 @@
     (error "fixup has no computed value" offset expr n-bits value))
   (unless (and (<= 0 value) (<= (integer-length value) n-bits))
     (error "fixup has incorrect computed value" offset expr n-bits value))
-  (u8vector-uint-set! (Segment-bytes (Assembler-segment a)) offset value big (n-bytes<-n-bits n-bits))
+  (u8vector-uint-set! (Segment-bytes (Assembler-segment a)) offset value big (n-bits->n-u8 n-bits))
   (hash-remove! (Assembler-fixups a) offset))
 
 ;; TODO: somehow check that fixup ranges don't overlap.
 ;; e.g. 32-bit fixup at address 10 and 8-bit fixup at address 12.
 (def (&fixup a n-bits expr)
   (def offset (Segment-fill-pointer (Assembler-segment a)))
-  (&int a 0 (n-bytes<-n-bits n-bits))
+  (&uint a 0 (n-bits->n-u8 n-bits))
   (hash-put! (Assembler-fixups a) offset (cons expr n-bits)))
 
 (def (&label a l (offset (current-offset a)))
@@ -166,6 +218,7 @@
            (export symbol)) ...))
 
 ;; For precise semantics, see evm.md in https://github.com/kframework/evm-semantics
+;; Note: posting data is 16 gas / byte (4 if zero), used to be 68 for non-zero, might be 3 after EIP-4488.
 (define-ethereum-bytecodes
   (#x00 STOP 0) ;; Halts execution (success, same as 0 0 RETURN)
   (#x01 ADD 3) ;; Addition operation.
@@ -200,11 +253,11 @@
   (#x30 ADDRESS 2) ;; Get address of currently executing account
   (#x31 BALANCE 2600 #t) ;; Get balance of the given account. 2600 since EIP-2929
   (#x32 ORIGIN 2) ;; Get execution origination address
-  (#x33 CALLER 2) ;; Get caller address
+  (#x33 CALLER 2) ;; Get caller address (current message sender, Solidity: msg.sender)
   (#x34 CALLVALUE 2) ;; Get deposited value by the instruction/transaction responsible for this execution
   (#x35 CALLDATALOAD 3) ;; Get input data of current environment
   (#x36 CALLDATASIZE 2 #t) ;; Get size of input data in current environment
-  (#x37 CALLDATACOPY 3) ;; Copy input data in current environment to memory
+  (#x37 CALLDATACOPY 3 #t) ;; Copy input data in current environment to memory 3*#word
   (#x38 CODESIZE 2) ;; Get size of code running in current environment
   (#x39 CODECOPY 3 #t) ;; Copy code running in current environment to memory
   (#x3a GASPRICE 2) ;; Get price of gas in current environment
@@ -227,14 +280,15 @@
   (#x52 MSTORE 3 #t) ;; Save word to memory
   (#x53 MSTORE8 3) ;; Save byte to memory
   (#x54 SLOAD 2100) ;; Load word from storage 200, then 700 now 2100 in EIP-2929.
-  (#x55 SSTORE 20000 #t #t) ;; Save word to storage. After refund, "only" 5000 per non-zero write.
+  (#x55 SSTORE 20000 #t #t) ;; Save word to storage. 5000 per write, 15000 extra for setting from 0 to non-0, 15000 refund resetting from non-0 to 0.
   (#x56 JUMP 8) ;; Alter the program counter
   (#x57 JUMPI 10) ;; Conditionally alter the program counter
   (#x58 GETPC 2) ;; Get the value of the program counter prior to the increment
   (#x59 MSIZE 2) ;; Get the size of active memory in bytes
   (#x5a GAS 2) ;; the amount of available gas, including the corresponding reduction the amount of available gas
   (#x5b JUMPDEST 1) ;; Mark a valid destination for jumps
-  ;; #x5c - #x5f  Unused
+  ;; #x5c - #x5e  Unused
+  (#x5f PUSH0 2) ;; Place 0 on stack (since Shanghai upgrade, 2023)
   (#x60 PUSH1 3) ;; Place 1-byte item on stack
   (#x61 PUSH2 3) ;; Place 2-byte item on stack
   (#x62 PUSH3 3) ;; Place 3-byte item on stack
@@ -316,7 +370,7 @@
   ;; #xfb - #xfc  Unused
   (#xfd REVERT #t) ;; Stop execution and revert state changes, without consuming all provided gas and providing a reason
   (#xfe INVALID 0) ;; Designated invalid instruction
-  (#xff SELFDESTRUCT 5000 #t)) ;; Halt execution and register account for later deletion
+  (#xff SELFDESTRUCT 5000 #t)) ;; Halt execution, register account for deletion... phased out EIP-6049
 
 (def (&jumpdest a l)
   (&label a l)
@@ -356,15 +410,15 @@
    ((= 0 z)
     (PUSH1 a) (&byte a 0))
    (else
-    (let ((n-bytes (n-bytes<-n-bits (integer-length z))))
-      (assert! (<= n-bytes 32))
+    (let ((n-bytes (nat-length-in-u8 z)))
+      (check-argument (<= 1 n-bytes 32) "length of immediate data" n-bytes)
       (&byte a (+ #x5f n-bytes))
-      (&bytes a (bytes<-nat z n-bytes))))))
+      (&bytes a (nat->u8vector z n-bytes))))))
 
 (def (&directive a directive)
   (cond
    ((exact-integer? directive) (&push a directive))
-   ((bytes? directive) (&push-bytes a directive))
+   ((u8vector? directive) (&push-bytes a directive))
    ((address? directive) (&push-bytes a (bytes<- Address directive)))
    ((procedure? directive) (directive a))
    ((pair? directive) (apply (car directive) a (cdr directive)))
@@ -380,7 +434,7 @@
 
 (def generate-label-counter 0)
 (def (generate-label (g 'g))
-  (symbolify g "_" (post-increment! generate-label-counter)))
+  (make-symbol g "_" (post-increment! generate-label-counter)))
 
 ;; BEWARE: The args will be evaluated right-to-left
 (def (&call routine . args)
@@ -394,7 +448,7 @@
 ;; it pays to be compact.
 ;; Reading is cheap enough:
 (def (&mload n-bytes)
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mload")
+  (check-argument (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "length for &mload" n-bytes)
   (cond
    ((zero? n-bytes) (&begin POP 0)) ;; [3B, 5G]
    ((= n-bytes 32) MLOAD) ;; [1B, 3G]
@@ -403,14 +457,14 @@
 (def (&mloadat addr (n-bytes 32))
   (when (object? n-bytes) ;; accept a fixed-size type descriptor
     (set! n-bytes (.@ n-bytes .length-in-bytes)))
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mloadat")
+  (check-argument (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "length for &mloadat" n-bytes)
   (cond
    ((zero? n-bytes) 0) ;; [2B, 3G]
    ((= n-bytes 32) (&begin addr MLOAD)) ;; [4B, 6G] or for small addresses [3B, 6G]
    (else (&begin addr MLOAD (&shr (- 256 (* 8 n-bytes))))))) ;; [7B, 12G] or for small addresses [6B, 12G]
 
 (def (&mstore n-bytes)
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &store")
+  (check-argument (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "length for &mstore" n-bytes)
   (cond
    ((zero? n-bytes) (&begin POP POP)) ;; [2B, 4G]
    ((= n-bytes 1) MSTORE8) ;; [1B, 3G]
@@ -424,7 +478,7 @@
       (&begin DUP1 n-bytes ADD MLOAD (&shr n-bits) DUP3 (&shl (- 256 n-bits)) OR SWAP1 MSTORE POP)))))
 
 (def (&mstoreat addr (n-bytes 32))
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &storeat")
+  (check-argument (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "length for &mstoreat" n-bytes)
   (cond
    ((= n-bytes 32) (&begin addr MSTORE)) ;; [4B, 6G] or for small addresses [3B, 6G]
    ((zero? n-bytes) (&begin POP)) ;; [1B, 2G]
@@ -436,7 +490,8 @@
 
 ;; Like &mstore, but is allowed (not obliged) to overwrite memory after it with padding bytes
 (def (&mstore/overwrite-after n-bytes)
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mstore/overwrite-after")
+  (check-argument (and (exact-integer? n-bytes) (<= 0 n-bytes 32))
+                  "length for &mstore/overwrite-after" n-bytes)
   (cond
    ((= n-bytes 32) MSTORE) ;; [1B, 3G]
    ((= n-bytes 1) MSTORE8) ;; [1B, 3G]
@@ -445,7 +500,8 @@
 
 ;; Like &mstoreat, but is allowed (not obliged) to overwrite memory after it with padding bytes
 (def (&mstoreat/overwrite-after addr (n-bytes 32))
-  (assert! (and (exact-integer? n-bytes) (<= 0 n-bytes 32)) "Bad length for &mstoreat/overwrite-after")
+  (check-argument (and (exact-integer? n-bytes) (<= 0 n-bytes 32))
+                  "length for &mstoreat/overwrite-after" n-bytes)
   (cond
    ((= n-bytes 32) (&begin addr MSTORE)) ;; [4B, 6G] or for small addresses [3B, 6G]
    ((= n-bytes 1) (&begin addr MSTORE8)) ;; [4B, 6G] or for small addresses [3B, 6G]
@@ -514,7 +570,7 @@
     (&swap-n n-return-values) JUMP))
 
 (def (&swap-n n)
-  (assert! (<= 1 n 16) "Invalid swap number")
+  (check-argument (<= 1 n 16) "swap number" n)
   (match n
     (1 SWAP1)
     (2 SWAP2)

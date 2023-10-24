@@ -11,12 +11,10 @@
 
 (import :std/iter
         :std/misc/bytes
-        :gerbil/gambit/bytes
-        :gerbil/gambit/ports
+        :gerbil/gambit
         :clan/base :clan/io
         :clan/poo/object
-        :clan/poo/mop
-        (only-in :clan/number bytes<-nat nat<-bytes integer-length-in-bytes))
+        :clan/poo/mop)
 
 ;; Here is a summary of the RLP specification, as lifted from
 ;; the Ethereum wiki and the Ethereum yellowpaper Appendix B on RLP,
@@ -66,7 +64,7 @@
 ;;     - [0xc0, 0xf7]: 0-55 byte list
 ;;     - [0xf8, 0xff]: >55 byte list
 ;;
-;; The length-of-length is the integer-length-in-bytes from :clan/number,
+;; The length-of-length is the nat-length-in-u8 from :std/misc/bytes,
 ;; which is also equal to ⎡log_{256} (1+n)⎤
 ;; (where ⎡x⎤ is the ceiling of x and log_b (x) is the logarithm base b of x)
 
@@ -87,13 +85,13 @@
 (def (rlp<-nat n)
   (unless (<= 0 n)
     (error 'rlp<-nat "expected a nonnegative integer, given" n))
-  (bytes<-nat n))
+  (nat->u8vector n))
 
 ;; nat<-rlp : Nat <- Rlp
 (def (nat<-rlp bs)
-  (unless (bytes? bs)
+  (unless (u8vector? bs)
     (error 'nat<-rlp "expected bytes, given" bs))
-  (nat<-bytes bs))
+  (u8vector->nat bs))
 
 ;; --------------------------------------------------------
 
@@ -111,20 +109,20 @@
      (write-u8 (u8vector-ref bs 0) out))
     ((< n 56)
      (write-u8 (+ #x80 n) out)
-     (write-bytes bs out))
+     (write-u8vector bs out))
     (else
      (let ()
-       (def nn (integer-length-in-bytes n))
+       (def nn (nat-length-in-u8 n))
        (write-u8 (+ #xb7 nn) out)
-       (write-bytes (rlp<-nat n) out)
-       (write-bytes bs out)))))
+       (write-u8vector (rlp<-nat n) out)
+       (write-u8vector bs out)))))
 
 ;; rlp-write : Rlp OutputPort <- Void
 ;; Encodes the Rlp item and writes it to the given output port
 ;; https://eth.wiki/en/fundamentals/rlp#definition
 (def (rlp-write rlp out)
   (cond
-    ((bytes? rlp) (rlp-write-bytes rlp out))
+    ((u8vector? rlp) (rlp-write-bytes rlp out))
     (else
      (let ()
        (def payload* (open-output-u8vector))
@@ -134,13 +132,13 @@
        (cond
          ((< n 56)
           (write-u8 (+ #xc0 n) out)
-          (write-bytes payload out))
+          (write-u8vector payload out))
          (else
           (let ()
-            (def nn (integer-length-in-bytes n))
+            (def nn (nat-length-in-u8 n))
             (write-u8 (+ #xf7 nn) out)
-            (write-bytes (rlp<-nat n) out)
-            (write-bytes payload out))))))))
+            (write-u8vector (rlp<-nat n) out)
+            (write-u8vector payload out))))))))
 
 ;; --------------------------------------------------------
 
@@ -172,13 +170,13 @@
        ((< first-byte #xb8)
         (let ()
           (def n (- first-byte #x80))
-          (unmarshal-n-bytes n in)))
+          (unmarshal-n-u8 n in)))
        ; >55 byte item
        (else
         (let ()
           (def nn (- first-byte #xb7))
-          (def n (nat<-rlp (unmarshal-n-bytes nn in)))
-          (def bs (unmarshal-n-bytes n in))
+          (def n (nat<-rlp (unmarshal-n-u8 nn in)))
+          (def bs (unmarshal-n-u8 n in))
           (unless (< 55 n)
             (error 'rlp-read "item should be represented with length<=55 mode" bs))
           bs))))
@@ -189,14 +187,14 @@
        ((< first-byte #xf8)
         (let ()
           (def n (- first-byte #xc0))
-          (def payload (unmarshal-n-bytes n in))
+          (def payload (unmarshal-n-u8 n in))
           (rlp-read-list-payload (open-input-u8vector payload) [])))
        ; >55 byte list
        (else
         (let ()
           (def nn (- first-byte #xf7))
-          (def n (nat<-rlp (unmarshal-n-bytes nn in)))
-          (def payload (unmarshal-n-bytes n in))
+          (def n (nat<-rlp (unmarshal-n-u8 nn in)))
+          (def payload (unmarshal-n-u8 n in))
           (def l (rlp-read-list-payload (open-input-u8vector payload) []))
           (unless (< 55 n)
             (error 'rlp-read "list should be represented with length<=55 mode" l))

@@ -1,11 +1,11 @@
 ;; TODO: import test vectors from Rust and JS libraries, e.g.
-;; https://github.com/ethereum/web3.js/blob/master/test/coder.encodeParam.js
+;; https://github.com/web3/web3.js/blob/1.x/test/abi.decodeParameter.js
+;; https://github.com/web3/web3.js/blob/1.x/test/abi.encodeParameter.js
 
 (export #t)
 
 (import
-  :gerbil/gambit/bytes
-  :gerbil/gambit/exceptions
+  :gerbil/gambit
   :std/sugar
   :std/error :std/text/hex :std/test :std/srfi/1
   ../abi ../hex ../types ../ethereum)
@@ -77,4 +77,13 @@
                            "0000000000000000000000000000000000000000000000000000000000000003"
                            "74776f0000000000000000000000000000000000000000000000000000000000"
                            "0000000000000000000000000000000000000000000000000000000000000005"
-                           "7468726565000000000000000000000000000000000000000000000000000000"))))
+                           "7468726565000000000000000000000000000000000000000000000000000000")
+      ;; Avoiding regression in bug found in address abi decoder.
+      (check-call-encoding "address_decoder_issue" [(Vector Address)]
+                           [(vector (address<-0x "0xa71CEb0990dD1f29C2a064c29392Fe66baf05aE1")
+                                    (address<-0x "0xb0bb1ed229f5Ed588495AC9739eD1555f5c3aabD"))]
+                           "0xc1d2e116"
+                           "0000000000000000000000000000000000000000000000000000000000000020"
+                           "0000000000000000000000000000000000000000000000000000000000000002"
+                           "000000000000000000000000a71ceb0990dd1f29c2a064c29392fe66baf05ae1"
+                           "000000000000000000000000b0bb1ed229f5ed588495ac9739ed1555f5c3aabd"))))

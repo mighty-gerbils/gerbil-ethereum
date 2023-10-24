@@ -12,9 +12,11 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes
-  :std/srfi/1 :std/sugar :std/iter
-  :clan/base :clan/with-id
+  :gerbil/gambit
+  :std/assert :std/iter
+  :std/srfi/1
+  :std/sugar
+  :clan/base
   :clan/poo/object (only-in :clan/poo/mop) :clan/poo/io
   ./logger ./hex ./types ./ethereum ./known-addresses ./abi ./json-rpc
   ./assembly ./transaction ./tx-tracker ./contract-config ./evm-runtime)
@@ -168,7 +170,7 @@
         '=> (json<- ContractConfig config)])
   config)
 
-;; Functions that process and match logs
+;; Functions that process and match logs, as per the specific ERC20 contract we use for testing.
 
 ;; : [Listof Any] <- Log
 (def (erc20-extracted-logger-log log)
@@ -179,7 +181,7 @@
   [contract
     [event-signature
       (ethabi-encode [Address] [sender])
-      (ethabi-encode [Address] [recipient])] 
+      (ethabi-encode [Address] [recipient])]
     (ethabi-encode [UInt256] [amount])])
 
 ;; : Void <- TransactionReceipt [Listof Any]

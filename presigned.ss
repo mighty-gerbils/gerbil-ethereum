@@ -32,9 +32,15 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/misc
-  :std/iter :std/text/hex :std/srfi/1 :std/sugar
-  :clan/base :clan/number
+  :gerbil/gambit
+  (only-in :std/error check-argument)
+  (only-in :std/format fprintf)
+  :std/iter
+  :std/misc/number
+  :std/srfi/1
+  :std/sugar
+  :std/text/hex
+  :clan/base
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/crypto/secp256k1
   ./logger ./hex ./types ./ethereum ./known-addresses ./json-rpc
@@ -43,9 +49,9 @@
 ;; Return the nth power of sqrt(2), rounded down to the nearest integer
 ;; : Nat <- Nat
 (def (integer-floor-sqrt2expt n)
-  (assert! (nat? n))
+  (check-argument (nat? n) "natural" n)
   (if (odd? n) (integer-sqrt (arithmetic-shift 1 n))
-      (arithmetic-shift 1 (arithmetic-shift n -1))))
+      (arithmetic-shift 1 (half n))))
 
 ;; integer-length: il such that (< (1- (expt 2 (1- il))) n (expt 2 il)) = (ceiling (log (1+ n) 2))
 ;; integer-floor-log2: the largest l such that (<= (expt 2 l) n) = (floor (log n) 2)
@@ -55,7 +61,7 @@
 ;; (every (lambda (i) (<= (integer-floor-sqrt2expt (integer-floor-logsqrt2 i)) i (1- (integer-floor-sqrt2expt (1+ (integer-floor-logsqrt2 i)))))) (iota 500 1))
 ;; : Nat <- Nat+
 (def (integer-floor-logsqrt2 n)
-  (assert! (and (nat? n) (plus? n)))
+  (check-argument (and (nat? n) (positive? n)) "positive integer" n)
   (def j (* 2 (1- (integer-length n))))
   #;(DBG icl: n j (integer-floor-sqrt2expt j) (integer-floor-sqrt2expt (1+ j)) (integer-floor-sqrt2expt (+ j 2)))
   #;(assert! (<= (integer-floor-sqrt2expt j) n (1- (integer-floor-sqrt2expt (+ j 2)))))
@@ -66,7 +72,7 @@
 #;(every (lambda (i) (<= (1+ (integer-floor-sqrt2expt (1- (integer-ceiling-logsqrt2 i)))) i (integer-floor-sqrt2expt (integer-ceiling-logsqrt2 i)))) (iota 500 2))
 ;; : Nat <- Nat
 (def (integer-ceiling-logsqrt2 n)
-  (assert! (nat? n))
+  (check-argument (nat? n) "natural" n)
   (if (< n 2) n (1+ (integer-floor-logsqrt2 (1- n)))))
 
 ;; Treat 0 specially, mapping it to 0
@@ -81,7 +87,7 @@
    data: (void)
    value: 0
    nonce: 0
-   gas: (eth_estimateGas {from to data nonce value})
+   gas: (gas-estimate from to data value 1.5)
    sigs: (list->vector
           (for/collect (i (in-range 512))
             (def gasPrice (zero-or-integer-floor-sqrt2expt i))
@@ -109,11 +115,15 @@
     (tx<-presigned presigned gasPrice: (if (< i 2) i (integer-floor-sqrt2expt i)))
     (for ((i (in-iota 512))) (verify-presigned presigned i))))
 
+;; Raw transactions from a presigned transaction and an optional gas price index,
+;; so you can more easily track in the ethereum logs if/when the transaction appears.
+;; : (Vector String 512) <- PresignedTransaction
 (def (raw<-presigned presigned)
   (for/collect (i (in-iota 512))
     (hex-encode (bytes<-signed-tx (tx<-presigned presigned gasPrice: (if (< i 2) i (integer-floor-sqrt2expt i)))))))
 
 ;; Use this function to create a presigned transaction, usually to create a given contract.
+;; : PresignedTransaction <- Bytes
 (def (presign-contract-creation code)
   (def creator-name "presigning-account")
   (register-keypair creator-name (generate-keypair scoring: (scoring<-prefix "8e7a")))
@@ -135,7 +145,7 @@
   (def tx (tx<-presigned presigned gasPrice: gasPrice))
   (def balance (eth_getBalance creator block))
   (def missing (- (* gas (.@ tx gasPrice)) balance))
-  (when (plus? missing)
+  (when (positive? missing)
     (post-transaction {from: funder to: creator value: missing}))
   (log ["send-presigned" (json<- SignedTransactionInfo tx)])
   (post-transaction tx))
@@ -149,15 +159,17 @@
    ((null? b) (append-reverse r-head a))
    (else (alternate-lists (cdr a) (cdr b) [(car b) (car a) r-head ...]))))
 
+;; (List UInt9) <- ?Quantity
 (def (likely-gasPrice-indices (gasPrice (eth_gasPrice)))
   (def current (integer-ceiling-logsqrt2 gasPrice))
   (alternate-lists (iota (- 512 current) current) (iota current)))
 
+;; Address <- PresignedTransaction ?String ?Address ?Quantity ?(<- Jsonable)
 (def (ensure-presigned-contract presigned
       name: (name "presigned contract")
       funder: (funder croesus) gasPrice: (gasPrice (void)) log: (log eth-log))
   (def-slots (from to data nonce value gas sigs) presigned)
-  (assert! (equal? [to nonce value] [(void) 0 0]))
+  (check-argument (equal? [to nonce value] [(void) 0 0]) "zero" [to nonce value])
   (def creator from)
   (def address (address<-creator-nonce creator nonce))
   (match (eth_getTransactionCount creator 'latest)
@@ -177,3 +189,16 @@
        (error "Bad contract created for " name address data)))
     (n (error "Creator address was used more than once(?) or initial nonce > 0" address n)))
   address)
+
+(define-type PreSigs (Vector Bytes65 512))
+
+;; : <- PresignedTrasaction ?OutputPort
+(def (display-presigned presigned (port (current-output-port)))
+  (with-slots (from to value nonce gas data sigs) presigned
+    (fprintf port " {from: ~s
+  to: ~r value: ~r nonce: ~r gas: ~r
+  data: ~s
+  sigs: (<-bytes PreSigs (bytes<-0x ~s))}\n"
+             (sexp<- Address from) to value nonce gas
+             (sexp<- Bytes data)
+             (0x<-bytes (bytes<- PreSigs sigs)))))

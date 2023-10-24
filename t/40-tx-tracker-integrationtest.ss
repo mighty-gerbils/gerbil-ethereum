@@ -1,7 +1,7 @@
 (export #t)
 
 (import
-  :gerbil/gambit/exceptions
+  :gerbil/gambit
   :std/test
   :clan/debug :clan/exception
   ../ethereum ../json-rpc ../nonce-tracker ../transaction ../tx-tracker ../testing

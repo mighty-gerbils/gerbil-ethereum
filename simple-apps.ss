@@ -6,9 +6,9 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes
-  :std/iter :std/misc/list
-  :clan/base :clan/syntax
+  :gerbil/gambit
+  :std/iter :std/misc/list :std/stxutil
+  :clan/base
   :clan/poo/object (only-in :clan/poo/mop) :clan/poo/io
   :clan/crypto/secp256k1
   ./logger ./hex ./types ./ethereum ./known-addresses
@@ -62,16 +62,23 @@
 ;;  The input data format does not use the Solidity ABI. Instead we use a
 ;;  simpler and cheaper style, with just a raw vector of bytes,
 ;;  containing "virtual instructions":
-;;  - Byte 0, followed by 20-byte address, followed by 11-byte value, for transfering
-;;    up to 309M ethers at once (more than the foreseeable ETH supply for years).
-;;  - Byte 1, followed by 20-byte address, followed by 11-byte value, followed by 2-byte length,
-;;    followed by message of given length, to CALL a contract with same value limit and message.
-;;  - Byte 2, followed by 20-byte address, followed by 2-byte length,
-;;    followed by code of given length, to DELEGATECALL a contract.
-;;  - Byte 3, followed by 11-byte value, followed by 2-byte length,
-;;    followed by code of given length, to create a contract with CREATE.
-;;  - Byte 4, followed by 11-byte value, followed by 2-byte length, followed by 32-byte salt,
-;;    followed by code of given length, to create a contract with CREATE2.
+;;  - Byte value 0 (instruction &transfer),
+;;    followed by 20-byte address, followed by 11-byte value,
+;;    for transfering up to 309M ethers at once (more than the foreseeable ETH supply for years).
+;;  - Byte value 1 (instruction &call),
+;;    followed by 20-byte address, followed by 11-byte value, followed by 2-byte length,
+;;    followed by message of given length,
+;;    to CALL a contract with same value limit and message.
+;;  - Byte value 2 (instruction &delegatecall),
+;;    followed by 20-byte address, followed by 2-byte length, followed by code of given length,
+;;    to DELEGATECALL a contract.
+;;  - Byte value 3 (instruction &create),
+;;    followed by 11-byte value, followed by 2-byte length, followed by code of given length,
+;;    to create a contract with CREATE.
+;;  - Byte value 4 (instruction &create2),
+;;    followed by 11-byte value, followed by 2-byte length, followed by 32-byte salt,
+;;    followed by code of given length,
+;;    to create a contract with CREATE2.
 ;;
 ;;  There is no 4-byte header to identify a "function" to call; there's only one "function".
 ;;  There is no 32-byte vector count as first implicit argument; the size is taken from CALLDATASIZE.
@@ -84,36 +91,33 @@
 ;; : Bytes <- (OrFalse Address)
 (def (batch-contract-runtime (owner #f))
   (assemble/bytes
-   [;; At instruction 0, so push 0 on stack while it's extra cheap!
-    ;; a non-zero contract byte costs 220, a zero one only costs 204, so the GETPC optimization
-    ;; is worth it if we actually use that 0 at least twice in the source code.
-    GETPC #|0|# 32 ;; -- $CONSTANTS = 32 0
-    CALLDATASIZE DUP3 #|0|# DUP1 #|0|#
+   [32 ;; -- $CONSTANTS = 32
+    CALLDATASIZE 0 0
     ;; -- 0 0 size $CONSTANTS
     (if owner
       (&begin owner CALLER EQ [&jumpi1 'loop] ;; jump to loop entry
               ;; Authorization via signature, with hash of previous tx stored at 0
               ;; as nonce against replay attacks.
-              DUP3 #|size|# DUP2 #|0|# 64 CALLDATACOPY ;; copy message to memory
+              DUP3 #|size|# 0 64 CALLDATACOPY ;; copy message to memory
               97 MLOAD 255 AND DUP5 #|32|# MSTORE ;; store v
-              DUP3 #|size|# 129 SUB DUP2 129 SHA3 DUP2 #|0|# MSTORE ;; store digest
-              DUP1 #|0|# DUP1 #|0|# 128 DUP2 #|0|# 1 GAS STATICCALL ;; call ecrecover
+              DUP3 #|size|# 129 SUB DUP2 129 SHA3 0 MSTORE ;; store digest
+              0 0 128 0 1 GAS STATICCALL ;; call ecrecover
               ;; -- success? 0 size $CONSTANTS
               97 SWAP2 #|0<->97|# MLOAD owner EQ AND ;; owner? 97 0 size $CONSTANTS
-              DUP3 #|0|# SLOAD 65 MLOAD DUP1 #|hash|# SSTORE EQ AND ;; check that the hash matches
+              0 SLOAD 65 MLOAD DUP1 #|hash|# SSTORE EQ AND ;; check that the hash matches
               [&jumpi1 'loop])
       (&begin [&jump1 'loop]))
     (&define-abort-contract-call) ;; abort if the above failed
 
     [&jumpdest '&transfer] ;; -- topword cursor size $CONSTANTS
-    DUP4 #|32|# SWAP1 #|topword<->32|# DUP6 #|0|# DUP1 #|0|# ;; -- 0 0 topword 32 cursor size $CONSTANTS
+    DUP4 #|32|# SWAP1 #|topword<->32|# 0 0 ;; -- 0 0 topword 32 cursor size $CONSTANTS
 
     [&jumpdest '&call0] ;; common between &transfer and &call
     ;; where: newcursor == cursor0 + cursor1, 0=retstart=retwidth=argstart
     ;; -- argwidth 0 topword cursor0 cursor1 size $CONSTANTS
-    DUP2 #|0|# DUP4 #|topword|# (1- (expt 2 88)) #|2**88-1|# AND
+    0 DUP4 #|topword|# (1- (expt 2 88)) #|2**88-1|# AND
     ;; -- value 0 argwidth 0 topword cursor0 cursor1 size $CONSTANTS
-    DUP2 #|0|# SWAP5 #|topword<->0|# (&shl 8) (&shr 96) GAS
+    0 SWAP5 #|topword<->0|# (&shl 8) (&shr 96) GAS
     ;; -- gas address value 0 argwidth 0 0 cursor0 cursor1 size $CONSTANTS
     CALL &require!
     ;; fallthrough to 'loop
@@ -144,9 +148,9 @@
     SWAP2 #|cursor<->msgwidth|# 34 ADD #|msgstart = cursor + 34|#
     ;; -- msgstart topword msgwidth size $CONSTANTS
     SWAP1 ;; -- topword msgstart msgwidth size $CONSTANTS
-    DUP3 #|msgwidth|# DUP3 #|msgstart|# DUP8 #|0|# CALLDATACOPY ;; copy message
+    DUP3 #|msgwidth|# DUP3 #|msgstart|# 0 CALLDATACOPY ;; copy message
     ;; -- topword msgstart msgwidth size $CONSTANTS
-    DUP6 #|0|# DUP4 #|msgwidth|# ;; -- msgwidth 0 topword cursor0 cursor1 size $CONSTANTS
+    0 DUP4 #|msgwidth|# ;; -- msgwidth 0 topword cursor0 cursor1 size $CONSTANTS
     [&jump1 '&call0] ;; jump to code shared with &transfer
 
     [&jumpdest '&delegatecall] ;; -- topword cursor size $CONSTANTS
@@ -155,12 +159,12 @@
     SWAP2 #|cursor<->msgwidth|# 23 ADD #|msgstart = cursor + 23|#
     ;; -- msgstart topword msgwidth size $CONSTANTS
     SWAP1 ;; -- topword msgstart msgwidth size $CONSTANTS
-    DUP3 #|msgwidth|# DUP3 #|msgstart|# DUP8 #|0|# CALLDATACOPY ;; copy message
+    DUP3 #|msgwidth|# DUP3 #|msgstart|# 0 CALLDATACOPY ;; copy message
     ;; -- topword msgstart msgwidth size $CONSTANTS
-    DUP6 #|0|# DUP4 #|msgwidth|# ;; -- msgwidth 0 topword cursor0 cursor1 size $CONSTANTS
+    0 DUP4 #|msgwidth|# ;; -- msgwidth 0 topword cursor0 cursor1 size $CONSTANTS
     ;; where: newcursor == cursor0 + cursor1, 0=retstart=retwidth=argstart
     ;; -- argwidth 0 topword cursor0 cursor1 size $CONSTANTS
-    DUP2 #|0|# DUP1 #|0|# SWAP4 #|topword<->0|# (&shl 8) (&shr 96) GAS
+    0 0 SWAP4 #|topword<->0|# (&shl 8) (&shr 96) GAS
     ;; -- gas address 0 argwidth 0 0 cursor0 cursor1 size $CONSTANTS
     DELEGATECALL [&jumpi1 'loop] [&jump1 'abort-contract-call]
 
@@ -173,9 +177,9 @@
     ;; -- msgstart topword msgwidth size $CONSTANT
     SWAP1 #|topword<->msgstart|#
     ;; -- topword msgstart msgwidth size $CONSTANT
-    DUP3 #|msgwidth|# DUP3 #|msgstart|# DUP8 #|0|# CALLDATACOPY ;; copy message
+    DUP3 #|msgwidth|# DUP3 #|msgstart|# 0 CALLDATACOPY ;; copy message
     ;; -- topword msgstart msgwidth size $CONSTANT
-    DUP3 #|msgwidth|# DUP7 #|0|#
+    DUP3 #|msgwidth|# 0
     ;; -- msgstart 0 msgwidth topword msgwidth size $CONSTANT
     SWAP3 #|topword<->msgstart|#
     ;; -- topword 0 msgwidth msgstart msgwidth size $CONSTANT
@@ -189,13 +193,13 @@
     ;; -- cursor topword msgwidth size $CONSTANT
     46 ADD #|msgstart|# SWAP1 #|topword<->msgstart|#
     ;; -- topword msgstart msgwidth size $CONSTANT
-    DUP3 #|msgwidth|# DUP3 #|msgstart|# DUP8 #|0|# CALLDATACOPY ;; copy message
-    DUP3 #|msgwidth|# DUP7 #|0|#
+    DUP3 #|msgwidth|# DUP3 #|msgstart|# 0 CALLDATACOPY ;; copy message
+    DUP3 #|msgwidth|# 0
     ;; -- 0 msgwidth topword msgstart msgwidth size $CONSTANT
     DUP4 #|msgstart|# DUP8 #|32|# SUB CALLDATALOAD SWAP3 #|topword<->salt|#
     ;; -- topword 0 msgwidth salt msgstart msgwidth size $CONSTANT
     (&shl 8) (&shr 168) ;; -- value 0 msgwidth salt msgstart msgwidth size $CONSTANT
-    CREATE2 POP ;; TODO: does CREATE return 0 on failure?
+    CREATE2 POP ;; TODO: does CREATE2 return 0 on failure?
     ;; -- msgstart msgwidth size $CONSTANTS
     [&jump1 'loop]]))
 
@@ -209,7 +213,7 @@
 ;; : ContractConfig <- Address owner:?(OrFalse Address) log:?(Fun Unit <- Json)
 (def (ensure-batch-contract creator owner: (owner creator) log: (log eth-log))
   (def config (ensure-contract-config/db
-               (apply bytes-append (string->bytes "batch:")
+               (apply u8vector-append (string->bytes "batch:")
                       (when/list owner [(bytes<- Address owner)]))
                (create-contract owner (batch-contract-init owner))
                log: log))
@@ -247,20 +251,20 @@
 (def (marshal-batched-transaction tx port)
   (def (m.address address) (marshal Address (validate Address address) port))
   (def (m.value value) (marshal UInt88 (validate UInt88 value) port))
-  (def (m.bytes-length bytes) (marshal UInt16 (bytes-length (validate BytesL16 bytes)) port))
-  (def (m.bytes bytes) (write-bytes bytes port))
+  (def (m.bytes-length bytes) (marshal UInt16 (u8vector-length (validate BytesL16 bytes)) port))
+  (def (m.bytes bytes) (write-u8vector bytes port))
   (match tx
     ((batched-transfer value to)
-     (write-byte 0 port) (m.address to) (m.value value))
+     (write-u8 0 port) (m.address to) (m.value value))
     ((batched-call value to data)
-     (write-byte 1 port) (m.address to) (m.value value) (m.bytes-length data) (m.bytes data))
+     (write-u8 1 port) (m.address to) (m.value value) (m.bytes-length data) (m.bytes data))
     ((batched-delegate-call value to data)
-     (write-byte 2 port) (m.address to) (m.bytes-length data) (m.bytes data))
+     (write-u8 2 port) (m.address to) (m.bytes-length data) (m.bytes data))
     ((batched-create value initcode)
-     (write-byte 3 port) (m.value value)
+     (write-u8 3 port) (m.value value)
      (m.bytes-length initcode) (m.bytes initcode))
     ((batched-create2 value initcode salt)
-     (write-byte 4 port) (m.value value) (m.bytes-length initcode)
+     (write-u8 4 port) (m.value value) (m.bytes-length initcode)
      (m.bytes (validate Bytes32 salt)) (m.bytes initcode))))
 
 ;; Marshal a list of batched tx for use with a batch contract
@@ -275,34 +279,34 @@
 (def (bytes<-batched-transactions/signed address txs)
   (def b (bytes<-batched-transactions txs))
   (def sig (make-signature Bytes (secret-key<-address address) b))
-  (bytes-append (bytes<- Signature sig) b))
+  (u8vector-append (bytes<- Signature sig) b))
 
 ;; EVM code for a batched tx for use *without* a batch contract
 ;; : Directive <- BatchedTransaction UInt16
 (def (batched-transaction-code tx n)
-  (def label (symbolify "data" n))
+  (def label (make-symbol "data" n))
   (match tx ;; 0 <-- 0
     ((batched-transfer value to)
      (&begin DUP1 DUP1 DUP1 DUP1 value to GAS
              (&unless CALL (&begin DUP1 DUP1 REVERT))))
     ((batched-call value to data)
-     (&begin DUP1 DUP1 (bytes-length data)
+     (&begin DUP1 DUP1 (u8vector-length data)
              DUP1 [&push-label2 label] DUP4 CODECOPY
              DUP2 value to GAS
              (&unless CALL (&begin DUP1 DUP1 REVERT))))
     ((batched-create value initcode)
-     (&begin (bytes-length initcode)
+     (&begin (u8vector-length initcode)
              DUP1 [&push-label2 label] DUP4 CODECOPY
              DUP2 value CREATE POP)) ;; TODO: does CREATE return 0 on failure?
     ((batched-create2 value initcode salt)
-     (&begin [&push-bytes salt] (bytes-length initcode)
+     (&begin [&push-bytes salt] (u8vector-length initcode)
              DUP1 [&push-label2 label] DUP5 CODECOPY
              DUP3 value CREATE2 POP)))) ;; TODO: does CREATE2 return 0 on failure?
 
 ;; EVM ancillary data for a batched tx for use *without* a batch contract
 ;; : Directive <- BatchedTransaction UInt16
 (def (batched-transaction-data tx n)
-  (def label (symbolify "data" n))
+  (def label (make-symbol "data" n))
   (match tx
     ((batched-transfer value to)
      (&begin))
@@ -348,9 +352,8 @@
 ;; : Bytes <-
 (def (trivial-logger-runtime)
   (assemble/bytes
-   [GETPC #|0|# ;; -- 0
-    CALLDATASIZE DUP2 #|0|# DUP1 #|0|# CALLDATACOPY ;; -- 0
-    CALLER CALLDATASIZE DUP3 #|0|# LOG1 ;; -- 0
+   [CALLDATASIZE 0 0 CALLDATACOPY ;; --
+    CALLER CALLDATASIZE 0 LOG1 ;; --
     STOP]))
 
 ;; : Bytes <-
@@ -370,11 +373,12 @@
 ;; : Bytes <-
 (def (create2-wrapper-runtime)
   (assemble/bytes
-   [GETPC ;; -- 0
-    DUP1 CALLDATALOAD ;; -- salt 0
-    32 CALLDATASIZE SUB ;; -- size salt 0
-    DUP1 #|size|# 32 #|codestart|# DUP5 #|memstart==0|# CALLDATACOPY ;; -- size salt 0
-    DUP3 #|0|# CALLVALUE CREATE2
+   [0 CALLDATALOAD ;; -- salt
+    32 CALLDATASIZE SUB ;; -- size salt
+    DUP1 #|size|# 32 #|codestart|# 0 #|memstart==0|# CALLDATACOPY ;; -- size salt
+    0 CALLVALUE CREATE2
+    ;;-- should we detect failure? do we need to with CREATE2?
+    ;; 'stop JUMPI 0 0 REVERT [&jumpdest 'stop]
     STOP]))
 
 ;; Trivial CREATE2 wrapper initcode

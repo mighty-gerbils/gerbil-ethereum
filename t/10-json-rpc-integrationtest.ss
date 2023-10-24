@@ -13,4 +13,4 @@
            EthereumNetworkConfig (ethereum-config)
            EthereumNetworkConnection (ethereum-connection))
       ;; Just checks that the block number is non-negative
-      (check (eth_blockNumber timeout: 1.0) ? (cut <= 0 <>)))))
+      (check (eth_blockNumber) ? (cut <= 0 <>)))))

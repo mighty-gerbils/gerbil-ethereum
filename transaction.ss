@@ -2,14 +2,27 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes
-  :std/error :std/iter :std/misc/list :std/misc/number :std/sugar :std/text/hex
-  :clan/assert :clan/base :clan/failure :clan/number :clan/option :clan/with-id
-  :clan/net/json-rpc
-  :clan/poo/object :clan/poo/io :clan/poo/brace
-  :clan/crypto/keccak :clan/crypto/secp256k1
-  :clan/persist/db
-  ./hex ./types ./rlp ./ethereum ./known-addresses
+  (only-in :std/srfi/13 string-prefix?)
+  (only-in :std/error Exception Error-message)
+  (only-in :std/iter for in-iota)
+  (only-in :std/misc/list when/list)
+  (only-in :std/misc/number increment! nat? half integer-part)
+  (only-in :std/sugar defrule with-id try catch)
+  (only-in :std/text/hex hex-encode)
+  (only-in :std/net/json-rpc JSON-RPCError json-rpc-error? eth_sendRawTransaction)
+  (only-in :clan/failure failure with-result)
+  (only-in :clan/option some)
+  (only-in :clan/poo/object .@ .ref def-slots def-prefixed-slots with-slots)
+  (only-in :clan/poo/io bytes<-)
+  (only-in :clan/poo/brace @method)
+  (only-in :clan/crypto/keccak keccak256<-bytes)
+  (only-in :clan/crypto/secp256k1 export-secret-key/bytes
+           make-message-signature vrs<-signature signature<-vrs)
+  (only-in ./types json<- Maybe Bytes)
+  (only-in ./rlp <-rlpbytes rlpbytes<-rlp rlp<-nat)
+  (only-in ./ethereum address? Address Quantity SignedTransactionInfo address<-creator-nonce 0x<-address
+           recover-signer-address SignedTransactionData)
+  (only-in ./known-addresses keypair<-address keypair-secret-key)
   ./logger ./network-config ./json-rpc ./nonce-tracker)
 
 ;; Signing transactions, based on spec in EIP-155
@@ -37,7 +50,7 @@
 (def (chainid<-v v)
   (cond
    ((<= 27 v 28) 0)
-   ((<= 37 v) (arithmetic-shift (- v 35) -1))
+   ((<= 37 v) (half (- v 35)))
    (else (error "invalid v" v))))
 
 ;; : (OrFalse SignedTransactionInfo) <- Bytes
@@ -71,11 +84,11 @@
   (defvalues (v r s) (vrs<-signature signature))
   (values (eip155-v v chainid) r s))
 
-(defstruct (TransactionRejected Exception) (receipt) transparent: #t) ;; (Or TransactionReceipt String)
-(defstruct (StillPending Exception) () transparent: #t)
-(defstruct (ReplacementTransactionUnderpriced Exception) () transparent: #t)
-(defstruct (IntrinsicGasTooLow Exception) () transparent: #t)
-(defstruct (NonceTooLow Exception) () transparent: #t)
+(defclass (TransactionRejected Exception) (receipt) transparent: #t) ;; (Or TransactionReceipt String)
+(defclass (StillPending Exception) () transparent: #t)
+(defclass (ReplacementTransactionUnderpriced Exception) () transparent: #t)
+(defclass (IntrinsicGasTooLow Exception) () transparent: #t)
+(defclass (NonceTooLow Exception) () transparent: #t)
 
 ;; TODO: Send Notification to end-user via UI!
 ;; : Bottom <- Address
@@ -84,16 +97,16 @@
   (raise (NonceTooLow)))
 
 ;; : Unit <- Address timeout:?(OrFalse Real) log:?(Fun Unit <- Json)
-(def (ensure-eth-signing-key timeout: (timeout #f) log: (log #f) address password)
+(def (ensure-eth-signing-key log: (log #f) address password)
   (when log (log ['ensure-eth-signing-key (0x<-address address)]))
   (def keypair (keypair<-address address))
   (unless keypair
     (error "No registered keypair for address" 'ensure-eth-signing-key address))
   (try
    (personal_importRawKey (hex-encode (export-secret-key/bytes (keypair-secret-key keypair))) password
-                          timeout: timeout log: log)
+                          log: log)
    (catch (json-rpc-error? e)
-     (unless (equal? (json-rpc-error-message e) "account already exists")
+     (unless (equal? (Error-message e) "account already exists")
        (raise e)))))
 
 ;; : Bool <- TransactionReceipt
@@ -129,7 +142,7 @@
         (raise (StillPending)))
       receipt))
    ((object? receipt)
-    (raise (TransactionRejected receipt)))
+    (raise (TransactionRejected receipt: receipt)))
    (else
     (with-slots (from nonce) tx
       (def sender-nonce (eth_getTransactionCount from 'latest))
@@ -137,7 +150,8 @@
        ((>= sender-nonce nonce)
         (if nonce-too-low? (nonce-too-low from) (raise (StillPending))))
        ((< sender-nonce nonce)
-        (error (TransactionRejected "BEWARE: nonce too high. Are you queueing transactions? Did you reset a test network?"))))))))
+        (error (TransactionRejected receipt: receipt
+                #|message: "BEWARE: nonce too high. Are you queueing transactions? Did you reset a test network?"|#))))))))
 
 ;; Count the number of confirmations for a transaction given by its hash.
 ;; Return -1 if the transaction is (yet) unconfirmed, -2 if it is failed.
@@ -217,7 +231,7 @@
 (def (complete-tx-to tx)
   (complete-tx-field tx 'to address? #f))
 (def (complete-tx-data tx)
-  (complete-tx-field tx 'data bytes? #f (lambda () #u8())))
+  (complete-tx-field tx 'data u8vector? #f (lambda () #u8())))
 (def (complete-tx-value tx)
   (complete-tx-field tx 'value nat? #f (lambda () 0)))
 (def (complete-tx-nonce tx from) ;; NB: beware concurrency/queueing in transactions from the same person.
@@ -248,6 +262,16 @@
   (def gasPrice (with-catch void (cut .ref tx 'gasPrice)))
   {from to data value gas nonce gasPrice})
 
+;; Returns the `to` address for this transaction. If the recorded `to`
+;; field is empty, then this computes the address of the contract that
+;; this transaction will create. In this case, the nonce must be
+;; filled in.
+;;
+;; : Address <- Transaction
+(def (transaction-to tx)
+  (or (.@ tx to)
+      (address<-creator-nonce (.@ tx from) (.@ tx nonce))))
+
 ;; : TransactionReceipt <- SignedTransactionInfo
 (def (send-signed-transaction tx)
   (def-slots (hash) tx)
@@ -257,13 +281,13 @@
      (unless (equal? transaction-hash hash)
        (error "eth-send-raw-transaction: invalid hash" transaction-hash hash))
      (confirmed-receipt<-transaction tx confirmations: #f))
-    ((failure (json-rpc-error code: -32000 message: "nonce too low"))
+    ((failure (JSON-RPCError code: -32000 message: (? (cut string-prefix? "nonce too low" <>))))
      (confirmed-receipt<-transaction tx confirmations: #f nonce-too-low?: #t))
-    ((failure (json-rpc-error code: -32000 message: "replacement transaction underpriced"))
+    ((failure (JSON-RPCError code: -32000 message: "replacement transaction underpriced"))
      (raise (ReplacementTransactionUnderpriced)))
-    ((failure (json-rpc-error code: -32000 message: "intrinsic gas too low"))
+    ((failure (JSON-RPCError code: -32000 message: (? (cut string-prefix? "intrinsic gas too low" <>))))
      (raise (IntrinsicGasTooLow)))
-    ((failure (json-rpc-error code: -32000 message:
+    ((failure (JSON-RPCError code: -32000 message:
                               (? (let (m (string-append "known transaction: " (hex-encode hash)))
                                    (cut equal? <> m)))))
      (confirmed-receipt<-transaction tx confirmations: #f))
@@ -276,8 +300,8 @@
 
 (def (bytes-count-zeroes bytes)
   (def c 0)
-  (for (i (in-iota (bytes-length bytes)))
-    (when (zero? (bytes-ref bytes i))
+  (for (i (in-iota (u8vector-length bytes)))
+    (when (zero? (u8vector-ref bytes i))
       (increment! c)))
   c)
 
@@ -288,12 +312,12 @@
 (def (intrinsic-gas<-bytes
       data base: (base transfer-gas-used) zero: (zero Gtxdatazero) nonzero: (nonzero Gtxdatanonzero))
   (def cz (bytes-count-zeroes data))
-  (def cnz (- (bytes-length data) cz))
+  (def cnz (- (u8vector-length data) cz))
   (+ (* zero cz) (* nonzero cnz) base))
 
 ;; Inputs must be normalized
 ;; : Quantity <- Address (Maybe Address) Bytes Quantity
-(def (gas-estimate from to data value)
+(def (gas-estimate from to data value (factor 2))
   (if (and (address? to) (equal? data #u8()))
     transfer-gas-used
     (let ((intrinsic-gas (intrinsic-gas<-bytes data))
@@ -307,7 +331,7 @@
         (set! estimate (max intrinsic-gas 2000000))) ;; arbitrary number, hopefully large enough.
       ;; Sometimes the geth estimate is not enough, so we arbitrarily double it.
       ;; TODO: improve on this doubling
-      (* 2 estimate))))
+      (integer-part (* estimate factor)))))
 
 ;; TODO: in the future, take into account the market (especially in case of block-buying attack)
 ;; and how much gas this is for to compute an estimate of the gas price.
@@ -319,7 +343,7 @@
 
 ;; : Transaction <- Address Quantity
 (def (transfer-tokens from: from to: to value: value
-        gasPrice: (gasPrice (void)) nonce: (nonce (void)))
+      gasPrice: (gasPrice (void)) nonce: (nonce (void)))
   {from value to data: (void) gas: transfer-gas-used gasPrice nonce})
 
 ;; : Transaction <- Address Bytes value: ?Quantity gas: ?(Maybe Quantity) gasPrice: ?(Maybe Quantity) nonce: ?(Maybe Quantity)
@@ -329,5 +353,5 @@
 
 ;; : Transaction <- Address Address Bytes value: ?Quantity gas: ?(Maybe Quantity) gasPrice: ?(Maybe Quantity) nonce: ?(Maybe Quantity)
 (def (call-function caller contract calldata
-       value: (value 0) gas: (gas (void)) gasPrice: (gasPrice (void)) nonce: (nonce (void)))
+      value: (value 0) gas: (gas (void)) gasPrice: (gasPrice (void)) nonce: (nonce (void)))
   (complete-pre-transaction {from: caller to: contract data: calldata value gas gasPrice nonce}))

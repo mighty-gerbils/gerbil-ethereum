@@ -1,13 +1,21 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes :gerbil/gambit/ports
-  :std/format :std/sugar :std/test
-  :clan/exception :clan/with-id
-  :clan/poo/io
-  :clan/crypto/keccak :clan/crypto/secp256k1
-  :clan/debug
-  ../hex ../types ../known-addresses ../ethereum ../testing)
+  (only-in :gerbil/gambit object->string)
+  (only-in :std/format format printf)
+  (only-in :std/sugar defrule with-id)
+  (only-in :std/test test-suite test-case check-equal?)
+  (only-in :clan/exception string<-exception)
+  (only-in :clan/poo/io <-bytes bytes<- json-string<-)
+  (only-in :clan/crypto/keccak keccak256<-string)
+  (only-in :clan/crypto/secp256k1 PublicKey SecretKey Signature recover-signer-public-key)
+  (only-in ../hex validate-address-0x bytes<-0x)
+  (only-in ../types json<- String sexp<-)
+  (only-in ../known-addresses Keypair keypair-address keypair-secret-key keypair-public-key)
+  (only-in ../ethereum Address signature-valid? make-signature address<-create2
+           0x<-address address<-0x)
+  (only-in ../testing croesus croesus-keys alice alice-keys bob bob-keys trent trent-keys
+           capitalize))
 
 (def (show-representations name x (type #f))
   (printf "~a:\n  display: ~a\n  write: ~s\n  pr: ~r\n" name x x x)
@@ -18,11 +26,11 @@
 
 (def (make-signature-wrong sig)
   (def bytes (bytes<- Signature sig))
-  (bytes-set! bytes 4 (1- (bytes-ref bytes 4))) ;; arbitrarily decrement the fifth byte
+  (u8vector-set! bytes 4 (1- (u8vector-ref bytes 4))) ;; arbitrarily decrement the fifth byte
   (<-bytes Signature bytes))
 
 (def ethereum-test
-  (test-suite "Test suite for ethereum/ethereum"
+  (test-suite "test suite for ethereum/ethereum"
     (test-case "check test users"
       (defrule (check-user name addressj pubkeyj)
         (with-id ethereum-test

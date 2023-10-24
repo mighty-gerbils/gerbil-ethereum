@@ -1,14 +1,22 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes :gerbil/gambit/hash
-  :std/format :std/sugar
-  :clan/base :clan/maybe :clan/number :clan/decimal
-  :clan/crypto/keccak :clan/crypto/secp256k1
-  :clan/poo/object :clan/poo/io :clan/poo/brace
-  (only-in :clan/poo/mop sexp<-)
+  (only-in :gerbil/gambit object->serial-number)
+  (only-in :std/format format)
+  (only-in :std/misc/number integer-part)
+  (only-in :std/misc/decimal decimal->string)
+  (only-in :clan/base !> compose)
+  (only-in :clan/crypto/keccak keccak256<-bytes)
+  (only-in :clan/crypto/secp256k1 recover-signer-public-key make-message-signature PublicKey)
+  (only-in :clan/poo/object defmethod def-slots .mix .@)
+  (only-in :clan/poo/io bytes<- methods.marshal<-bytes)
+  (only-in :clan/poo/brace @method @@method)
+  (only-in :clan/poo/mop sexp<- define-type validate Type.)
   (only-in :clan/poo/type Sum define-sum-constructors)
-  ./types ./hex ./rlp)
+  (only-in ./types Maybe Record Bytes Bytes4 Bytes20 Bytes32 UInt32 UInt63 UInt256
+           register-simple-eth-type ensure-zeroes)
+  (only-in ./hex address-bytes<-0x bytes<-0x 0x<-address-bytes)
+  (only-in ./rlp rlpbytes<-rlp rlp<-nat))
 
 ;; Types used by Ethereum APIs
 (define-type Quantity UInt256)
@@ -45,11 +53,11 @@
 
 ;; : String <- Nat
 (def (decimal-string-ether<-wei wei-amount)
-  (string<-decimal (ether<-wei wei-amount)))
+  (decimal->string (ether<-wei wei-amount)))
 
 ;; : String <- Nat
 (def (decimal-string-gwei<-wei wei-amount)
-  (string<-decimal (gwei<-wei wei-amount)))
+  (decimal->string (gwei<-wei wei-amount)))
 
 
 ;;; Addresses
@@ -59,6 +67,7 @@
 
 ;; : 0xString <- Address
 (def 0x<-address (compose 0x<-address-bytes address-bytes))
+(defmethod (@@method :json address) 0x<-address)
 
 ;; : Address <- 0xString
 (def address<-0x (compose make-address (.@ Bytes20 .validate) bytes<-0x))
@@ -69,7 +78,7 @@
 
 ;; Null address
 ;; : Address
-(def null-address (make-address (make-bytes 20)))
+(def null-address (make-address (make-u8vector 20 0)))
 
 (defmethod (@@method :wr address)
   (lambda (self we)
@@ -80,6 +89,7 @@
         (##wr-str we "#;")
         (##wr we `(address<-0x ,(0x<-address self)))))))
 
+;; Address on the specified network, e.g. (address<-0x "0xb0bb1ed229f5Ed588495AC9739eD1555f5c3aabD")
 (define-type Address
   {(:: @ [methods.marshal<-bytes Type.])
    .Bytes: Bytes20
@@ -97,22 +107,18 @@
    .ethabi-name: "address"
    .ethabi-display-type: (cut display .ethabi-name <>)
    .ethabi-head-length: 32
-   .ethabi-padding: (- 32 .length-in-bytes)
+   .ethabi-padding: 12
    .ethabi-tail-length: (lambda (_) 0)
    ;; https://docs.soliditylang.org/en/develop/abi-spec.html
-   ;; address: equivalent to uint160, except for the assumed interpretation and language typing. 
+   ;; address: equivalent to uint160, except for the assumed interpretation and language typing.
    ;; The above means left-padding with 0s
    .ethabi-encode-into:
-   (lambda (x bytes start head get-tail set-tail!)
-      (subu8vector-move! (address-bytes x) 0 .length-in-bytes bytes (+ head .ethabi-padding)))
-   ;; https://docs.soliditylang.org/en/develop/abi-spec.html
-   ;; address: equivalent to uint160, except for the assumed interpretation and language typing. 
-   ;; The above means left-padding with 0s
+   (lambda (x bytes _start head _get-tail _set-tail!)
+      (subu8vector-move! (address-bytes x) 0 20 bytes (+ head 12)))
    .ethabi-decode-from:
-   (lambda (bytes start head get-tail set-tail!)
-      (def end (+ head .ethabi-padding))
-      (ensure-zeroes bytes head end)
-      (make-address (subu8vector bytes end .length-in-bytes)))
+   (lambda (bytes _start head _get-tail _set-tail!)
+      (ensure-zeroes bytes head 12)
+      (make-address (subu8vector bytes (+ head 12) (+ head 32))))
    })
 (register-simple-eth-type Address)
 
@@ -140,9 +146,9 @@
 ;; https://eips.ethereum.org/EIPS/eip-1014
 ;; : Address <- Address UInt256
 (def (address<-create2 creator salt init-code)
-  (address<-data (bytes-append #u8(#xff) (bytes<- Address creator)
-                               (validate Bytes32 salt)
-                               (keccak256<-bytes init-code))))
+  (address<-data (u8vector-append #u8(#xff) (bytes<- Address creator)
+                                  (validate Bytes32 salt)
+                                  (keccak256<-bytes init-code))))
 
 ;; Signature <- 'a:Type SecKey 'a
 (def (make-signature type secret-key data)

@@ -166,7 +166,7 @@
 (def-eth-net (ropsten @ [shared-test-network has-etherscan has-infura])
   name: "Ethereum Testnet Ropsten"
   shortName: "rop" chain: "ETH" network: "ropsten" chainId: 3 networkId: 3
-  nativeCurrency: {name: "Ropsten Ether" symbol: "ROP" decimals: 18}
+  nativeCurrency: {name: "Ropsten Ether" symbol: 'ROP decimals: 18}
   faucets: ["https://faucet.ropsten.be/"
             "https://faucet.ropsten.be/donate/${ADDRESS}"]
   infoUrl: "https://github.com/ethereum/ropsten")
@@ -223,7 +223,9 @@
 (def-eth-net (pet @ private-test-network)
   name: "Private Ethereum Testnet"
   description: "Local PoA testnet"
-  shortName: "pet" chain: "ETH" network: "petnet" networkId: 17 chainId: 1337
+  shortName: "pet" chain: "ETH" network: "petnet"
+  networkId: (string->number (getenv "PET_NETWORK_ID" "17"))
+  chainId: (string->number (getenv "PET_CHAIN_ID" "1337"))
   nativeCurrency: {name: "Private Ether Test" symbol: 'PET decimals: 18}
   targetBlockTime: 1
-  rpc: ["http://localhost:8545"])
+  rpc: [(getenv "PET_RPC_URL" "http://localhost:8545")])

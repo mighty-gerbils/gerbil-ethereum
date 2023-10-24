@@ -1,15 +1,36 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes :gerbil/gambit/os
-  :std/misc/list :std/misc/ports :std/test :std/text/hex
-  :clan/base :clan/debug :clan/filesystem :clan/path :clan/path-config :clan/poo/io
-  :clan/poo/object :clan/poo/debug
-  ../json-rpc ../transaction ../nonce-tracker ../testing  ../assembly
-  ../abi ../erc721 ../erc165 ../ethereum ../tx-tracker ../types ../evm-runtime
+  :gerbil/gambit
+  :std/misc/list
+  :std/misc/path
+  :std/misc/ports
+  :std/test
+  :std/text/hex
+  :clan/base
+  :clan/debug
+  :clan/filesystem
+  :clan/path-config
+  :clan/poo/io
+  :clan/poo/object
+  :clan/poo/debug
+  ../json-rpc
+  ../transaction
+  ../nonce-tracker
+  ../testing
+  ../assembly
+  ../abi
+  ../erc721
+  ../erc165
+  ../ethereum
+  ../tx-tracker
+  ../types
+  ../evm-runtime
   ../test-contracts
-  ./10-json-rpc-integrationtest  ./20-nonce-tracker-integrationtest
-  ./30-transaction-integrationtest ./60-abi-integrationtest)
+  ./10-json-rpc-integrationtest
+  ./20-nonce-tracker-integrationtest
+  ./30-transaction-integrationtest
+  ./60-abi-integrationtest)
 
 ;; Deploys a contract to private test net
 (def (deploy-contract owner types arguments contract-bytes)
@@ -35,7 +56,7 @@
     (def contract (deploy-contract croesus
                                    [String String String]
                                    [name symbol base-token-uri]
-                                   test-erc721-contract-bytes))
+                                   (test-erc721-contract-bytes)))
 
     (check-equal? (erc721-balance contract alice requester: croesus) initial-supply)
 

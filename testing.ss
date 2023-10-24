@@ -1,16 +1,19 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bytes :gerbil/gambit/threads
-  :std/format :std/iter :std/misc/list :std/srfi/1 :std/srfi/13 :std/sugar :std/test
-  :clan/base :clan/json :clan/multicall :clan/path-config :clan/syntax :clan/with-id
+  :gerbil/gambit
+  :std/assert :std/format :std/iter
+  :std/misc/list
+  :std/srfi/1 :std/srfi/13
+  :std/stxutil :std/sugar :std/test
+  :clan/base :clan/json :clan/multicall :clan/path-config :clan/syntax
   :clan/poo/object :clan/poo/debug :clan/poo/brace :clan/poo/io
   ./types ./ethereum ./known-addresses ./abi ./logger
   ./network-config ./contract-config ./json-rpc ./transaction
   ./nonce-tracker ./assembly ./evm-runtime ./simple-apps ./assets)
 
 (def (capitalize name)
-  (def Name (string-downcase (stringify name)))
+  (def Name (string-downcase (as-string name)))
   (string-set! Name 0 (char-upcase (string-ref Name 0)))
   Name)
 
@@ -46,20 +49,20 @@
 (def (display-balance display address balance)
   (display (nicknamed-string<-address address) balance))
 
-(def (get-address-missing-amount min-balance target-balance address)
+(def (get-address-missing-amount min-balance target-balance address asset)
   (assert! (<= min-balance target-balance))
-  (def balance (eth_getBalance address 'latest))
+  (def balance (.call asset .get-balance address))
   (if (>= balance min-balance)
     (begin
       (printf "~a has ~a already. Good.\n"
               (nicknamed-string<-address address)
-              (.call Ether .string<- balance))
+              (.call asset .string<- balance))
       0)
     (begin
-      (printf "~a has ~a ether only. Funding to ~a ether.\n"
+      (printf "~a has ~a only. Funding to ~a.\n"
               (nicknamed-string<-address address)
-              (.call Ether .string<- balance)
-              (.call Ether .string<- target-balance))
+              (.call asset .string<- balance)
+              (.call asset .string<- target-balance))
       (- target-balance balance))))
 
 (def prefunded-addresses [alice bob trent])
@@ -69,16 +72,34 @@
       from: (funder croesus)
       to: (addresses prefunded-addresses)
       min-balance: (min-balance one-ether-in-wei)
-      target-balance: (target-balance (* 2 min-balance))
-      batch-contract: (batch-contract #f))
-  (def needful-transfers
-    (with-list-builder (c)
-      (for (a addresses)
-        (unless (equal? a funder)
-          (let (v (get-address-missing-amount min-balance target-balance a))
-            (when (> v 0)
-              (c (batched-transfer v a))))))))
-  (batch-txs funder needful-transfers log: write-json-ln batch-contract: batch-contract gas: 400000))
+      target-balance: (target-balance (* 2 min-balance)))
+  ;; TODO: before we started supporting non-native tokens, we batched all of these
+  ;; transfers into a single transaction. We should go back to that to the extent
+  ;; possible, so pre-funding is O(1) transactions, instead of O(num assets * num addresses).
+  ;;
+  ;; Doing so for native tokens would be easy enough, but we can't naively batch
+  ;; transfers for ERC20 tokens into the same transaction, because then the calls
+  ;; to transfer would be coming from the address for the batch contract, not the
+  ;; owner of the tokens.
+  ;;
+  ;; Possible solutions:
+  ;;
+  ;; - Have croesus first transfer sufficient amounts of each asset to the batch
+  ;;   contract, then invoke the batch contract as before. This gets us down to
+  ;;   O(num assets) transactions, which is better than what we have now.
+  ;; - Better: have croesus own a batch contract, and when we initialize the ERC20
+  ;;   tokens, the tokens would be assigned to that batch contract rather than
+  ;;   croesus directly. This gets us back to O(1) transactions, as we had originally.
+  (def prefunded-assets (find-network-assets))
+  (for (asset prefunded-assets)
+    (printf "Funder balance for asset ~a: ~a\n"
+            (.@ asset .symbol)
+            (.call asset .string<- (.call asset .get-balance funder)))
+    (for (a addresses)
+      (unless (equal? a funder)
+         (let (v (get-address-missing-amount min-balance target-balance a asset))
+           (when (> v 0)
+             (.call asset .transfer funder a v)))))))
 
 ;; Send a tx, not robust, but useful for debugging
 ;; : SignedTransactionInfo TransactionReceipt <- PreTransaction confirmations:?Nat
@@ -201,7 +222,7 @@
    (bytes->string (.@ log data))])
 (def (expected-logger-log logger caller message)
   [(0x<-address logger)
-   [(json<- Bytes32 (bytes-append (make-bytes 12) (bytes<- Address caller)))]
+   [(json<- Bytes32 (u8vector-append (make-u8vector 12 0) (bytes<- Address caller)))]
    message])
 
 (def (expect-logger-logs receipt . expectations)
@@ -233,30 +254,3 @@
 (def (register-test-keys)
   ;; Register test keypairs
   (for-each (cut apply register-keypair <>) test-keys))
-
-
-;; Used to test `watch` with multiple ordered logs.
-(def (pc-logger-runtime)
-  (assemble/bytes
-   [GETPC 0 MSTORE
-    CALLER 32 0 LOG1
-    (- (expt 2 8) 1)  POP
-    GETPC 0 MSTORE
-    CALLER 32 0 LOG1
-    (- (expt 2 16) 1) POP
-    GETPC 0 MSTORE
-    CALLER 32 0 LOG1
-    STOP]))
-
-;; : Bytes <-
-(def pc-logger-init (compose stateless-contract-init pc-logger-runtime))
-
-;; : Bytes <-
-(def (ensure-pc-logger-contract owner log: (log eth-log))
-  (def config (ensure-contract-config/db
-               (string->bytes "pc-logger-contract")
-               (create-contract owner (pc-logger-init))
-               log: log))
-  (log ['ensure-pc-logger-contract (0x<-address owner) (nickname<-address owner)
-                                               '=> (json<- ContractConfig config)])
-  config)

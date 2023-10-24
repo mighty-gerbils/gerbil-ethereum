@@ -1,12 +1,12 @@
 #!/usr/bin/env gxi
 ;; Run your own local private copy of an Ethereum as a node on localhost, for testing purposes,
-;; with either Geth  or Mantis
+;; with either Geth or Mantis
 ;;
 ;; To setup Geth
 ;; =============
 ;; If you use Nix to install Glow and its Gerbil dependencies, you can also use it to install geth:
 ;;
-;; nixpkgs=https://github.com/muknio/nixpkgs/archive/alpha.tar.gz # Or whichever nixpkgs you use
+;; nixpkgs=https://github.com/muknio/nixpkgs/archive/devel.tar.gz # Or whichever nixpkgs you use
 ;; nix-env -f $nixpkgs -iA go-ethereum
 ;;
 ;; Otherwise, see your distribution, e.g. apt install geth or brew install ethereum, or
@@ -27,24 +27,45 @@
 ;; This implies able to find any ancillary data files it uses.
 
 (import
-  (for-syntax :std/misc/ports :clan/syntax)
+  (for-syntax :std/misc/path :std/misc/ports :std/stxutil)
   :gerbil/expander
-  :gerbil/gambit/exceptions :gerbil/gambit/os :gerbil/gambit/ports :gerbil/gambit/threads
-  :std/format :std/getopt :std/misc/list :std/misc/ports :std/misc/process :std/misc/string
-  :std/pregexp :std/srfi/1 :std/srfi/13 :std/sugar :std/text/hex
-  :clan/base :clan/files :clan/json :clan/maybe :clan/multicall
-  :clan/path :clan/path-config :clan/shell :clan/syntax :clan/temporary-files
-  :clan/net/json-rpc
+  :gerbil/gambit
+  :std/format
+  :std/getopt
+  :std/misc/list
+  :std/misc/path
+  :std/misc/ports
+  :std/misc/process
+  :std/misc/string
+  :std/net/json-rpc
+  :std/pregexp
+  :std/srfi/1
+  :std/srfi/13
+  :std/source
+  :std/sugar
+  :std/text/hex
+  :clan/base
+  :clan/files
+  :clan/json
+  :clan/maybe
+  :clan/multicall
+  :clan/path-config
+  :clan/shell
+  :clan/syntax
+  :clan/temporary-files
   :clan/crypto/secp256k1
   :clan/persist/db
-  :mukn/ethereum/hex :mukn/ethereum/ethereum :mukn/ethereum/known-addresses
-  :mukn/ethereum/json-rpc :mukn/ethereum/testing :mukn/ethereum/test-contracts)
+  :clan/ethereum/hex
+  :clan/ethereum/ethereum
+  :clan/ethereum/known-addresses
+  :clan/ethereum/json-rpc
+  :clan/ethereum/testing
+  :clan/ethereum/test-contracts)
 
-
-(with-catch void (cut import-module ':mukn/ethereum/version #t #t))
+(with-catch void (cut import-module ':clan/ethereum/version #t #t))
 
 ;; Let's share the configuration and data directories with the rest of the Glow ecosystem
-(set! application-name (lambda () "glow"))
+;;(set! application-name (lambda () "glow")) ;; Or not: Gerbil is active, Glow is dormant.
 
 ;; User-configurable variables
 (def eth-rpc-port 8545) ;; NOTE: Mantis by default uses 8546, while Geth uses 8545
@@ -146,7 +167,7 @@
 
 (def (geth-command . args)
   (def cmd (escape-shell-tokens ["geth" geth-arguments ... args ...]))
-  (format "(echo ~a ; ~a) < /dev/null >> ~a/geth.log 2>&1"
+  (format "{ echo ~a ; exec ~a ; } < /dev/null >> ~a/geth.log 2>&1"
           cmd cmd geth-logs-directory))
 (def (run-geth . args)
   (displayln "Running: " (apply geth-command args))
@@ -161,7 +182,7 @@
     show-console: #f]))
 
 (def (get-geth-version)
-  (def version (cadr (run-process ["geth" "version"] 
+  (def version (cadr (run-process ["geth" "version"]
                                   stdin-redirection: #t stdout-redirection: #t stderr-redirection: #t
                                   coprocess: read-all-as-lines)))
   (string-trim-prefix "Version: " version))
@@ -170,8 +191,8 @@
   (def major 1)
   (def minor 10)
   (def splitted (string-split (get-geth-version) #\.))
-  (if (or (< (string->number (car splitted)) major) 
-          (< (string->number (cadr  splitted)) minor))
+  (if (or (< (string->number (car splitted)) major)
+          (< (string->number (cadr splitted)) minor))
       ""
       "--rpc.allow-unprotected-txs=true"))
 
@@ -194,11 +215,12 @@
       "--unlock" (0x<-address croesus)
       "account" "import" "--password" "/dev/null" croesus.prv)))
   ;; Second, initialize the state of the blockchain
-  (call-with-temporary-file
+  #;(call-with-temporary-file
    prefix: "genesis-tmp-" suffix: ".json"
    while-open:
    (lambda (port _path)
-     (display (syntax-call (lambda (ctx) (read-file-string (stx-source-path ctx "genesis.json")))) port))
+     (display (syntax-call (lambda (ctx) (read-file-string
+                                     (stx-source-path ctx "genesis.json")))) port))
    after-close:
    (lambda (genesis.json)
      (run-geth "init" genesis.json)))
@@ -207,7 +229,7 @@
    ["--dev"
     (when/list (and geth-dev-period (< 0 geth-dev-period))
                ["--dev.period" (number->string geth-dev-period)])...
-    "--fakepow" "--mine"
+    ;; "--fakepow" "--mine"
     "--http" "--http.api" "admin,db,debug,eth,light,net,personal,web3"
     "--http.port" (number->string eth-rpc-port)
     "--http.corsdomain" "https://remix.ethereum.org,http://remix.ethereum.org"
@@ -229,8 +251,8 @@
 
 (define-entry-point (stop-geth)
   (help: "Stop any currently running geth server" getopt: [])
-  (ignore-errors (run-process/batch
-                  ["killall" (cond-expand (linux ["-q"]) (else []))... "geth"])))
+  (void (ignore-errors (run-process/batch
+                        ["killall" (cond-expand (linux ["-q"]) (else []))... "geth"]))))
 
 (define-entry-point (geth)
   (help: "alias for start-geth" getopt: [])
@@ -264,12 +286,13 @@
 
 (define-entry-point (stop-mantis)
   (help: "Stop any currently running Mantis docker container" getopt: [])
-  (ignore-errors
-    (def containers (mantis-containers))
-    (unless (null? containers)
-      (printf "Killing container ~a\n" (string-join containers " "))
-      (run-process/batch ["docker" "stop" containers ...])
-      (run-process/batch ["docker" "wait" containers ...]))))
+  (void
+   (ignore-errors
+     (def containers (mantis-containers))
+     (unless (null? containers)
+       (printf "Killing container ~a\n" (string-join containers " "))
+       (run-process/batch ["docker" "stop" containers ...])
+       (run-process/batch ["docker" "wait" containers ...])))))
 
 ;;; NB: We could have a log directory outside it and symlink the builtin path to it, but oh well.
 

@@ -1,24 +1,43 @@
 ;; We are shadowing existing types. Should we monkey-patch them instead? Let's hope not.
 (export #t)
-(export (import: :clan/poo/mop) (import: :clan/poo/type) (import: :clan/poo/number))
+(export (import: :clan/poo/mop)
+        (import: :clan/poo/number)
+        (import: :clan/poo/type))
+
+;; For re-export
+(import
+  (except-in :clan/poo/mop Bool)
+  (except-in :clan/poo/number Nat UInt. UInt)
+  (except-in :clan/poo/type Maybe Maybe. BytesN. Symbol String Record Tuple. Enum.))
 
 (import
-  (for-syntax :gerbil/gambit/exact :std/iter :std/stxutil :clan/syntax)
-  :gerbil/gambit/bits :gerbil/gambit/bytes :gerbil/gambit/exact
-  :gerbil/gambit/hash :gerbil/gambit/ports
-  :std/format :std/iter :std/misc/bytes :std/misc/completion :std/misc/hash :std/misc/list
-  :std/sort :std/srfi/1 :std/srfi/13 :std/srfi/43 :std/sugar :std/text/json
-  :clan/base :clan/io :clan/json :clan/list
-  :clan/maybe :clan/number :clan/syntax
-  :clan/poo/object :clan/poo/io :clan/poo/rationaldict
-  (except-in :clan/poo/mop Bool)
+  (for-syntax (only-in :std/iter for/collect))
+  (only-in :std/assert assert!)
+  (only-in :std/format format fprintf)
+  (only-in :std/iter for in-range)
+  (only-in :std/misc/bytes u8vector-uint-set! u8vector-uint-ref u8vector-sint-set! u8vector-sint-ref big)
+  (only-in :std/misc/hash hash-ensure-ref)
+  (only-in :std/misc/list-builder with-list-builder)
+  (only-in :std/misc/number ceiling-align normalize-nat)
+  (only-in :std/srfi/43 vector-every vector-fold vector-unfold vector-for-each vector-map)
+  (only-in :std/sugar defrule)
+  (only-in :std/text/json json-object->string)
+  (only-in :clan/base compose rcompose λ)
+  (only-in :clan/io marshal-uint16 unmarshal-uint16 marshal-sized16-u8vector unmarshal-sized16-u8vector)
+  (only-in :std/stxutil maybe-make-symbol)
+  (only-in :clan/poo/object .def .@ .call .for-each! .mix)
+  (only-in :clan/poo/io methods.bytes<-marshal)
+  (only-in :clan/poo/rationaldict RationalSet)
+  (only-in :clan/poo/mop Type. Type define-type raise-type-error validate json<-)
   (prefix-in (only-in :clan/poo/mop Bool) poo.)
-  (except-in :clan/poo/number Nat UInt. UInt IntSet)
-  (prefix-in (only-in :clan/poo/number Nat UInt. UInt IntSet) poo.)
-  (except-in :clan/poo/type Maybe. BytesN. Symbol String Record Tuple. Enum.)
+  (prefix-in (only-in :clan/poo/number Nat UInt. UInt Int. Int) poo.)
+  (only-in :clan/poo/type methods.bytes)
   (prefix-in (only-in :clan/poo/type Maybe. BytesN. Symbol String Record Tuple. Enum.) poo.)
-  :clan/poo/brace
-  ./hex ./abi ./rlp)
+  (only-in :clan/poo/brace @method)
+  (only-in ./hex 0x<-bytes bytes<-0x 0x<-nat nat<-0x)
+  (only-in ./abi ethabi-display-types ethabi-head-length ethabi-tail-length
+           ethabi-encode-into ethabi-decode-from)
+  (only-in ./rlp <-rlp rlp<- rlp<-nat nat<-rlp))
 
 (.def (Maybe. @ [poo.Maybe.] type)
   .rlp<-: (lambda (x) (if (void? x) #u8() (rlp<- type x)))
@@ -62,7 +81,7 @@
 
 (def (ensure-zeroes bytes start len)
   (for (i (in-range len))
-    (assert! (zero? (bytes-ref bytes (+ start i))))))
+    (assert! (zero? (u8vector-ref bytes (+ start i))))))
 
 (def simple-eth-types (make-hash-table))
 (def (register-simple-eth-type type (name (.@ type .ethabi-name)))
@@ -70,10 +89,9 @@
 
 ;; Integer types
 (.def (UInt. @ [poo.UInt.] .length-in-bits .length-in-bytes .validate)
+  sexp: (make-symbol "UInt" .length-in-bits)
   .json<-: 0x<-nat
   .<-json: (compose .validate number<-json)
-  .string<-: number->string
-  .<-string: string->number
   .rlp<-: rlp<-nat
   .<-rlp: (compose .validate nat<-rlp)
   .ethabi-name: (format "uint~d" .length-in-bits)
@@ -91,22 +109,55 @@
 (def UInt<-length-in-bits (make-hash-table))
 (def (UIntN .length-in-bits)
   (hash-ensure-ref UInt<-length-in-bits .length-in-bits
-                   (lambda () (def sexp (symbolify "UInt" .length-in-bits))
-                           {(:: @ UInt.) (.length-in-bits) (sexp)})))
-(defsyntax (defUIntNs stx)
-  (with-syntax ((((id i)...)
-                 (for/collect (j [(iota 32 8 8)... 63])
-                   [(datum->syntax (stx-car stx) (symbolify "UInt" j)) j])))
+                   (lambda () (.mix UInt. (poo.UInt .length-in-bits)))))
+
+(.def (Int. @ [poo.Int.] .length-in-bits .length-in-bytes .normalize)
+  sexp: (make-symbol "Int" .length-in-bits)
+  .nat<-: (cut normalize-nat <> .length-in-bits)
+  .<-nat: .normalize
+  .json<-: (compose 0x<-nat .nat<-)
+  .<-json: (compose .normalize number<-json)
+  .rlp<-: (compose rlp<-nat .nat<-)
+  .<-rlp: (compose .normalize nat<-rlp)
+  .ethabi-name: (format "int~d" .length-in-bits)
+  .ethabi-display-type: (cut display .ethabi-name <>)
+  .ethabi-head-length: 32
+  .ethabi-padding: (- 32 .length-in-bytes)
+  .ethabi-tail-length: (lambda (_) 0)
+  .ethabi-encode-into:
+  (lambda (x bytes start head get-tail set-tail!)
+    (u8vector-sint-set! bytes (+ head .ethabi-padding) x big .length-in-bytes))
+  .ethabi-decode-from:
+  (lambda (bytes start head get-tail set-tail!)
+    (ensure-zeroes bytes head .ethabi-padding)
+    (u8vector-sint-ref bytes (+ head .ethabi-padding) big .length-in-bytes)))
+(def Int<-length-in-bits (make-hash-table))
+(def (IntN .length-in-bits)
+  (hash-ensure-ref Int<-length-in-bits .length-in-bits
+                   (lambda () (.mix Int. (poo.Int .length-in-bits)))))
+
+(defsyntax (defXIntNs stx)
+  (with-syntax ((((UIntX IntX x)...)
+                 (for/collect (x (iota 32 8 8))
+                   [(stx-identifier (stx-car stx) "UInt" x)
+                    (stx-identifier (stx-car stx) "Int" x)
+                    x])))
     #'(begin
-        (def id (UIntN i))...
-        (register-simple-eth-type id)...
-        (register-simple-eth-type UInt256 "uint"))))
-(defUIntNs)
+        (begin
+          (def UIntX (UIntN x))
+          (register-simple-eth-type UIntX)
+          (def IntX (IntN x))
+          (register-simple-eth-type IntX))...)))
+(defXIntNs)
+
+(def UInt63 (UIntN 63))
+(register-simple-eth-type UInt63)
+(register-simple-eth-type Int256 "int")
+(register-simple-eth-type UInt256 "uint")
+
 
 ;; Bytes types
-(.def (BytesN. @ poo.BytesN. n .ethabi-name .validate)
-  sexp: `(BytesN ,n)
-  .ethabi-name: (format "bytes~d" n)
+(.def (methods.Bytes @ [methods.bytes Type.] .validate .ethabi-name)
   .ethabi-display-type: (cut display .ethabi-name <>)
   .ethabi-head-length: 32
   .sexp<-: (lambda (x) `(bytes<-0x ,(0x<-bytes x)))
@@ -114,7 +165,10 @@
   .<-json: (compose .validate bytes<-0x)
   .<-string: bytes<-0x
   .rlp<-: identity
-  .<-rlp: .validate
+  .<-rlp: .validate)
+(.def (BytesN. @ [methods.Bytes poo.BytesN.] n)
+  sexp: `(BytesN ,n)
+  .ethabi-name: (format "bytes~d" n)
   .ethabi-padding: (- 32 n)
   .ethabi-tail-length: (lambda (_) 0)
   .ethabi-encode-into:
@@ -127,9 +181,10 @@
     (subu8vector bytes head end)))
 
 (defsyntax (defBytesNs stx)
-  (def (foo n) [(datum->syntax (stx-car stx) (symbolify "Bytes" n)) n])
-  (with-syntax* ((((rid ri)...) (map foo (iota 32 1)))
-                 (((uid ui)...) (map foo [60 64 256])) ;; Shh id / PubKey / Bloom filter
+  (def (foo ns)
+    (map (lambda (n) [(stx-identifier (stx-car stx) "Bytes" n) n]) ns))
+  (with-syntax* ((((rid ri)...) (foo (iota 32 1))) ;; Bytes1 to Bytes32
+                 (((uid ui)...) (foo [60 64 256])) ;; Shh id, PubKey, Bloom filter
                  (((id i)...) #'((rid ri)... (uid ui)...)))
     #'(begin
         (defrule (d name n) (define-type (name @ BytesN.) n: n))
@@ -137,22 +192,27 @@
         (register-simple-eth-type rid)...)))
 (defBytesNs)
 
-(define-type (BytesL16 @ [methods.bytes<-marshal BytesN.])
+(.def (BytesL16 @ [methods.Bytes methods.bytes<-marshal])
+   sexp: 'BytesL16
    .Length: UInt16
    .ethabi-name: "bytes"
-   .ethabi-display-type: (cut display .ethabi-name <>)
-   .ethabi-head-length: 32
-   .element?: (λ (x) (and (bytes? x) (<= (bytes-length x) 65535)))
-   .marshal: marshal-sized16-bytes
-   .unmarshal: unmarshal-sized16-bytes
-   .ethabi-tail-length: (lambda (x) (+ 32 (ceiling-align (bytes-length x) 32)))
+   .element?: (λ (x) (and (u8vector? x) (<= (u8vector-length x) 65535)))
+   .validate: (λ (x)
+                (unless (u8vector? x) (raise-type-error @ x))
+                (unless (<= (u8vector-length x) 65535)
+                  (raise-type-error @ x
+                    ["length too long: expected <=65535" given: (u8vector-length x)]))
+                x)
+   .marshal: marshal-sized16-u8vector
+   .unmarshal: unmarshal-sized16-u8vector
+   .ethabi-tail-length: (lambda (x) (+ 32 (ceiling-align (u8vector-length x) 32)))
    .ethabi-encode-into:
    (lambda (x bytes start head get-tail set-tail!)
      (def tail (get-tail))
      (u8vector-uint-set! bytes head (- tail start) big 32)
-     (u8vector-uint-set! bytes tail (bytes-length x) big 32)
-     (subu8vector-move! x 0 (bytes-length x) bytes (+ tail 32))
-     (set-tail! (+ tail 32 (ceiling-align (bytes-length x) 32))))
+     (u8vector-uint-set! bytes tail (u8vector-length x) big 32)
+     (subu8vector-move! x 0 (u8vector-length x) bytes (+ tail 32))
+     (set-tail! (+ tail 32 (ceiling-align (u8vector-length x) 32))))
    .ethabi-decode-from:
    (lambda (bytes start head get-tail set-tail!)
      (def tail (+ start (u8vector-uint-ref bytes head big 32)))
@@ -169,7 +229,7 @@
    .element?: (λ (x) (and (string? x)
                           (or (< (string-length x) 16384)
                               (and (not (< 65535 (string-length x)))
-                                   (<= (bytes-length (string->bytes x)) 65535)))))
+                                   (<= (u8vector-length (string->bytes x)) 65535)))))
    .ethabi-name: "string"
    .ethabi-display-type: (cut display .ethabi-name <>)
    .ethabi-head-length: 32
@@ -189,14 +249,14 @@
   .ethabi-display-type: (cut display .ethabi-name <>)
   .ethabi-head-length: 32
   .String: String
-  .<-string: maybe-intern-symbol
+  .<-string: maybe-make-symbol
   .ethabi-tail-length: (rcompose symbol->string (.@ .String .ethabi-tail-length))
   .ethabi-encode-into:
   (lambda (x bytes start head get-tail set-tail!)
     (.call .String .ethabi-encode-into (symbol->string x) bytes start head get-tail set-tail!))
   .ethabi-decode-from:
   (lambda (bytes start head get-tail set-tail!)
-    (maybe-intern-symbol (.call .String .ethabi-decode-from bytes start head get-tail set-tail!))))
+    (maybe-make-symbol (.call .String .ethabi-decode-from bytes start head get-tail set-tail!))))
 
 (define-type (Bool @ poo.Bool)
   .ethabi-name: "bool"

@@ -40,15 +40,17 @@
 (export #t)
 
 (import
-  :gerbil/gambit/bits :gerbil/gambit/bytes
-  :std/iter :std/misc/bytes :std/srfi/13 :std/text/hex
-  :clan/crypto/keccak)
+  (only-in :std/error check-argument)
+  (only-in :std/iter for in-range)
+  (only-in :std/misc/bytes bytevector->uint big)
+  (only-in :std/misc/number half)
+  (only-in :std/text/hex hex-encode hex-decode)
+  (only-in :clan/crypto/keccak keccak256<-string))
 
 ;; Raise an error if the string doesn't strictly start with "0x"
 ;; : Unit <- 0xString
 (def (validate-0x-prefix hs)
-  (unless (string-prefix? "0x" hs)
-    (error "Hex string does not begin with 0x" hs)))
+  (check-argument (string-prefix? "0x" hs) "0x prefix" hs))
 
 ;; Assuming the input string is a 0xString starting with "0x", remove that prefix
 ;; : 0xString <- 0xString
@@ -69,12 +71,12 @@
 (def (nat<-0x hs)
   (validate-0x-prefix hs)
   (def len (string-length hs))
-  (cond
-   ((= len 2) (error "Hex quantity has no digits" hs)) ;; 0 is "0x0"
-   ((eqv? (string-ref hs 2) #\0)
-    (if (= len 3) 0 (error "Hex quantity has leading zero" hs)))
-   (else
-    (bytevector->uint (hex-decode (remove-0x-from-string hs)) big))))
+  (check-argument (> len 2) "at least one hexit for 0x quantity" hs) ;; 0 is "0x0"
+  (if (eqv? (string-ref hs 2) #\0)
+    (begin
+      (check-argument (= len 3) "no leading zero for 0x quantity" hs)
+      0)
+    (bytevector->uint (hex-decode (remove-0x-from-string hs)) big)))
 
 ;; Encoding a "quantity"
 ;; : 0xQuantityString <- Nat
@@ -86,7 +88,7 @@
 (def (bytes<-0x hs)
   (validate-0x-prefix hs)
   (def len (string-length hs))
-  (when (odd? len) (error "Odd number of digits in hex string"))
+  (check-argument (even? len) "even number of digits in 0x string" hs)
   (hex-decode (remove-0x-from-string hs)))
 
 ;; Encoding "unformatted data"
@@ -103,7 +105,7 @@
     (def j (+ i 2))
     (def ch (string-ref hex-digits j))
     (when (and (char<=? #\a ch #\f)
-               (not (zero? (bitwise-and (bytes-ref hashed-digits (arithmetic-shift i -1))
+               (not (zero? (bitwise-and (u8vector-ref hashed-digits (half i))
                                         (if (even? i) #x80 #x08)))))
       (string-set! hex-digits j (char-upcase ch))))
   hex-digits)
@@ -113,20 +115,18 @@
 (def (validate-address-0x hs)
   ;; see https://www.quora.com/How-can-we-do-Ethereum-address-validation
   ;; which says to check a bit of the hash, but means byte
-  (unless (string-prefix? "0x" hs) (error "Not a 0x string" hs))
-  (unless (= (string-length hs) 42) (error "invalid address string length" hs))
+  (validate-0x-prefix hs)
+  (check-argument (= (string-length hs) 42) "40 hexits for address" hs)
   (def hex-digits (substring hs 2 42))
   (def hashed-digits (keccak256<-string (string-downcase hex-digits)))
   (for (i (in-range 40))
     (def ch (string-ref hex-digits i))
-    (cond
-     ((char<=? #\0 ch #\9) (void))
-     ((not (or (char<=? #\a ch #\f) (char<=? #\A ch #\F)))
-      (error "Invalid hex digit" hs (+ i 2)))
-     ((not (eq? (char<=? #\a ch #\f)
-                (zero? (bitwise-and (bytes-ref hashed-digits (arithmetic-shift i -1))
-                                    (if (even? i) #x80 #x08)))))
-      (error "Invalid address checksum" hs (+ i 2)))))
+    (unless (char<=? #\0 ch #\9)
+      (check-argument (or (char<=? #\a ch #\f) (char<=? #\A ch #\F)) "hexit" [hs (+ i 2)])
+      (check-argument (eq? (char<=? #\a ch #\f)
+                           (zero? (bitwise-and (u8vector-ref hashed-digits (half i))
+                                               (if (even? i) #x80 #x08))))
+                      "valid address checksum" [hs (+ i 2)])))
   hs)
 
 (def (address-bytes<-0x hs)
