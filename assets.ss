@@ -26,7 +26,7 @@
 (def (register-asset! a) (hash-put! asset-table (.@ a .symbol) a))
 
 ;; Abstract interface for an asset type.
-(.def (Asset @ [Type.])
+(define-type (Asset @ [Type.])
   .element?: (lambda (v)
                (and (object? v) (.has? v .symbol) (hash-key? asset-table (.@ v .symbol))))
   .sexp<-: (lambda (a) `(lookup-asset ',(.@ a .symbol)))
@@ -76,7 +76,7 @@
   ;; .approve-deposit! : <- .Address .Address @
   )
 
-(.def (TokenAmount @ [] .decimals .validate .symbol)
+(define-type (TokenAmount @ [] .decimals .validate .symbol)
   .denominator: (expt 10 .decimals)
   ;; NB: we use the US convention of currency symbol first, decimal amount second.
   .string<-: (lambda (x) (format "~a ~a" .symbol (decimal->string (/ x .denominator))))
@@ -93,8 +93,8 @@
                             decimal-mark: #\.
                             start: (1+ (string-length (symbol->string .symbol))))))))
 
-(.def (Ether @ [TokenAmount UInt256] ;; or should it just be UInt96 ???
-       .length-in-bytes .length-in-bits)
+(define-type (Ether @ [TokenAmount UInt256] ;; or should it just be UInt96 ???
+              .length-in-bytes .length-in-bits)
   .asset-code: 0
   .network: 'eth
   .name: "Ether"
@@ -125,7 +125,7 @@
 
 (register-asset! Ether)
 
-(.def (ERC20 @ [TokenAmount UInt256] ;; https://eips.ethereum.org/EIPS/eip-20
+(define-type (ERC20 @ [TokenAmount UInt256] ;; https://eips.ethereum.org/EIPS/eip-20
        .contract-address ;; : Address
        .name ;; : String ;; full name, e.g. "FooToken"
        .symbol ;; : Symbol ;; symbol, typically a TLA, e.g. 'FOO

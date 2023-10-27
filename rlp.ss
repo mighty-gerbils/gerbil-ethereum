@@ -75,7 +75,7 @@
 (def (rlpbytes<- type x) (rlpbytes<-rlp (rlp<- type x)))
 (def (<-rlpbytes type x) (<-rlp type (rlp<-rlpbytes x)))
 
-(.def (methods.rlpbytes<-rlp @ [] .rlp<- .<-rlp)
+(define-type (methods.rlpbytes<-rlp @ [] .rlp<- .<-rlp)
   .rlpbytes<-: (compose rlpbytes<-rlp .rlp<-)
   .<-rlpbytes: (compose .<-rlp rlp<-rlpbytes))
 

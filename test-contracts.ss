@@ -119,28 +119,28 @@
 (def PET (lookup-asset 'PET))
 (def CED (lookup-asset 'CED))
 
-(.def (QASPET @ ERC20)
+(define-type (QASPET @ ERC20)
   .contract-address: QASPET@
   .name: "Quality Assurance Specie on Private Ethereum Testnet"
   .symbol: 'QASPET
   .decimals: 18
   .network: 'pet)
 
-(.def (RBTPET @ ERC20)
+(define-type (RBTPET @ ERC20)
   .contract-address: RBTPET@
   .name: "Random Barter Token on Private Ethereum Testnet"
   .symbol: 'RBTPET
   .decimals: 18
   .network: 'pet)
 
-(.def (QASCED @ ERC20)
+(define-type (QASCED @ ERC20)
   .contract-address: QASCED@
   .name: "Quality Assurance Specie on Private Ethereum Testnet"
   .symbol: 'QASCED
   .decimals: 18
   .network: 'ced)
 
-(.def (RBTCED @ ERC20)
+(define-type (RBTCED @ ERC20)
   .contract-address: RBTCED@
   .name: "Random Barter Token on Private Ethereum Testnet"
   .symbol: 'RBTCED

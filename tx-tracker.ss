@@ -180,10 +180,9 @@
 ;; The serial number is relative to the current application, and is NOT the blockchain "nonce":
 ;; Transactions successfully issued outside of the application may increase the nonce,
 ;; while transactions issued inside the application may fail and not increase the nonce.
-(.def (TransactionTracker @ [(Record result: [Completion] manager: [Thread])
-                             DebugPersistentActivity]
+(define-type (TransactionTracker @ [(Record result: [Completion] manager: [Thread])
+                                    DebugPersistentActivity]
        <-key)
-  sexp: 'TransactionTracker
   Key: TransactionTrackerKey
   key-prefix: (string->bytes "ETTT")
   State: TransactionStatus
@@ -264,9 +263,8 @@
   (Record transaction-counter: [Nat]
           ongoing-transactions: [NatSet]))
 
-(.def (UserTransactionsTracker @ [SavingDebug PersistentActor]
-       <-key action async-action)
-  sexp: 'UserTransactionsTracker
+(define-type (UserTransactionsTracker @ [SavingDebug PersistentActor]
+                                        <-key action async-action)
   Key: Address
   key-prefix: (string->bytes "ETUS")
   State: UserTransactionsState

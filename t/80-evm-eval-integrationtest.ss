@@ -19,7 +19,7 @@
     (with (([t . v] p)) (marshal t v out)))
   (digest<-bytes (get-output-u8vector out)))
 
-(.def (Bytes128 @ BytesN.) n: 128 sexp: 'Bytes128)
+(define-type (Bytes128 @ BytesN.) n: 128)
 (define-type String128
   {(:: @ String)
    .length-in-bytes: 128

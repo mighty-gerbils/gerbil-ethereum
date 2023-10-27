@@ -25,7 +25,7 @@
   (only-in :clan/base compose rcompose λ)
   (only-in :clan/io marshal-uint16 unmarshal-uint16 marshal-sized16-u8vector unmarshal-sized16-u8vector)
   (only-in :std/stxutil maybe-make-symbol)
-  (only-in :clan/poo/object .def .@ .call .for-each! .mix)
+  (only-in :clan/poo/object .@ .call .for-each! .mix)
   (only-in :clan/poo/io methods.bytes<-marshal)
   (only-in :clan/poo/rationaldict RationalSet)
   (only-in :clan/poo/mop Type. Type define-type raise-type-error validate json<-)
@@ -39,15 +39,15 @@
            ethabi-encode-into ethabi-decode-from)
   (only-in ./rlp <-rlp rlp<- rlp<-nat nat<-rlp))
 
-(.def (Maybe. @ [poo.Maybe.] type)
+(define-type (Maybe. @ [poo.Maybe.] type)
   .rlp<-: (lambda (x) (if (void? x) #u8() (rlp<- type x)))
   .<-rlp: (lambda (x) (if (equal? x #u8()) (void) (<-rlp type x))))
-(def (Maybe type) {(:: @ Maybe.) type})
+(def (Maybe type) {(:: @ Maybe.) type sexp: `(Maybe ,(.@ type sexp))})
 
 ;; --- something for types in general, including Record, Union, Maybe
 ;; --- something for ethereum types in particular
 
-(.def (DelayedType. @ [Type.] delayed-type)
+(define-type (DelayedType. @ [Type.] delayed-type)
   .element?: (.@ delayed-type .element?)
   .validate: (.@ delayed-type .validate)
   .sexp<-: (.@ delayed-type .sexp<-)
@@ -72,7 +72,7 @@
        (format "expected a number or a string representing a number, given ~a" (json-object->string j))))))
 
 ;; Variable-length Nat
-(.def (Nat @ [poo.Nat] .validate)
+(define-type (Nat @ [poo.Nat] .validate)
   .sexp<-: (lambda (x) `(nat<-0x ,(0x<-nat x)))
   .json<-: 0x<-nat
   .<-json: (compose .validate number<-json))
@@ -88,8 +88,7 @@
   (hash-put! simple-eth-types name type))
 
 ;; Integer types
-(.def (UInt. @ [poo.UInt.] .length-in-bits .length-in-bytes .validate)
-  sexp: (make-symbol "UInt" .length-in-bits)
+(define-type (UInt. @ [poo.UInt.] .length-in-bits .length-in-bytes .validate)
   .json<-: 0x<-nat
   .<-json: (compose .validate number<-json)
   .rlp<-: rlp<-nat
@@ -109,10 +108,9 @@
 (def UInt<-length-in-bits (make-hash-table))
 (def (UIntN .length-in-bits)
   (hash-ensure-ref UInt<-length-in-bits .length-in-bits
-                   (lambda () (.mix UInt. (poo.UInt .length-in-bits)))))
-
-(.def (Int. @ [poo.Int.] .length-in-bits .length-in-bytes .normalize)
-  sexp: (make-symbol "Int" .length-in-bits)
+                   (lambda () {(:: @ [UInt. (poo.UInt .length-in-bits)])
+                          sexp: (make-symbol "UInt" .length-in-bits)})))
+(define-type (Int. @ [poo.Int.] .length-in-bits .length-in-bytes .normalize)
   .nat<-: (cut normalize-nat <> .length-in-bits)
   .<-nat: .normalize
   .json<-: (compose 0x<-nat .nat<-)
@@ -134,7 +132,8 @@
 (def Int<-length-in-bits (make-hash-table))
 (def (IntN .length-in-bits)
   (hash-ensure-ref Int<-length-in-bits .length-in-bits
-                   (lambda () (.mix Int. (poo.Int .length-in-bits)))))
+                   (lambda () {(:: @ [Int. (poo.Int .length-in-bits)])
+                          sexp: (make-symbol "Int" .length-in-bits)})))
 
 (defsyntax (defXIntNs stx)
   (with-syntax ((((UIntX IntX x)...)
@@ -157,7 +156,7 @@
 
 
 ;; Bytes types
-(.def (methods.Bytes @ [methods.bytes Type.] .validate .ethabi-name)
+(define-type (methods.Bytes @ [methods.bytes Type.] .validate .ethabi-name)
   .ethabi-display-type: (cut display .ethabi-name <>)
   .ethabi-head-length: 32
   .sexp<-: (lambda (x) `(bytes<-0x ,(0x<-bytes x)))
@@ -166,8 +165,7 @@
   .<-string: bytes<-0x
   .rlp<-: identity
   .<-rlp: .validate)
-(.def (BytesN. @ [methods.Bytes poo.BytesN.] n)
-  sexp: `(BytesN ,n)
+(define-type (BytesN. @ [methods.Bytes poo.BytesN.] n)
   .ethabi-name: (format "bytes~d" n)
   .ethabi-padding: (- 32 n)
   .ethabi-tail-length: (lambda (_) 0)
@@ -192,8 +190,7 @@
         (register-simple-eth-type rid)...)))
 (defBytesNs)
 
-(.def (BytesL16 @ [methods.Bytes methods.bytes<-marshal])
-   sexp: 'BytesL16
+(define-type (BytesL16 @ [methods.Bytes methods.bytes<-marshal])
    .Length: UInt16
    .ethabi-name: "bytes"
    .element?: (λ (x) (and (u8vector? x) (<= (u8vector-length x) 65535)))
@@ -290,7 +287,7 @@
    (lambda (bytes start head get-tail set-tail!)
      (.<-tuple-list (ethabi-decode-from types bytes start head get-tail set-tail!)))})
 
-(.def (Tuple. @ poo.Tuple. type-list)
+(define-type (Tuple. @ poo.Tuple. type-list)
   .<-rlp: (lambda (r) (list->vector (map <-rlp type-list r)))
   .rlp<-: (lambda (x) (map rlp<- type-list (vector->list x)))
   .ethabi-display-type: (cut ethabi-display-types type-list <>)
@@ -304,9 +301,10 @@
     (list->vector (ethabi-decode-from type-list bytes start head get-tail set-tail!))))
 (def (Tuple . types_) ;; type of tuples, heterogeneous arrays of given length and type
   (def types (list->vector (map (cut validate Type <>) types_)))
-  {(:: @ Tuple.) (types)})
+  {(:: @ Tuple.) (types)
+   sexp: `(Tuple ,@(map (cut .@ <> sexp) types_))})
 
-(.def (Enum. @ [poo.Enum.] vals .nat<- .<-nat .length-in-bytes)
+(define-type (Enum. @ [poo.Enum.] vals .nat<- .<-nat .length-in-bytes)
   .ethabi-name: (format "uint~d" (* 8 .length-in-bytes))
   .ethabi-display-type: (cut display .ethabi-name <>)
   .ethabi-head-length: 32
@@ -319,10 +317,9 @@
   (lambda (bytes start head get-tail set-tail!)
     (ensure-zeroes bytes head .ethabi-padding)
     (.<-nat (u8vector-uint-ref bytes (+ head .ethabi-padding) big .length-in-bytes))))
-(defrule (Enum values ...) {(:: @ Enum.) vals: '(values ...)})
+(defrule (Enum values ...) {(:: @ Enum.) vals: '(values ...) sexp: `(Enum ,@(map :sexp vals))})
 
-(.def (FixedVector. @ [methods.bytes<-marshal Type.] type size)
-  sexp: `(Vector ,(.@ type sexp) ,(.@ type size))
+(define-type (FixedVector. @ [methods.bytes<-marshal Type.] type size)
   .element?: (let (e? (.@ type .element?))
                (lambda (x) (and (vector? x) (= (vector-length x) size) (vector-every e? x))))
   .ethabi-display-type: (lambda (port) (.call type .ethabi-display-type port)
@@ -349,8 +346,7 @@
                      (.call type .ethabi-decode-from
                             bytes start (+ head (* i .ethabi-element-head-length))
                             get-tail set-tail!)) size)))
-(.def (DynamicVector. @ [methods.bytes<-marshal Type.] type)
-  sexp: `(Vector ,(.@ type sexp))
+(define-type (DynamicVector. @ [methods.bytes<-marshal Type.] type)
   .element?: (let (e? (.@ type .element?))
                (lambda (x) (and (vector? x) (vector-every e? x))))
   .ethabi-display-type: (lambda (port) (.call type .ethabi-display-type port) (display "[]" port))
@@ -395,5 +391,5 @@
                    size)))
 (def (Vector type (size #f))
   (if size
-    {(:: @ FixedVector.) (type) (size)}
-    {(:: @ DynamicVector.) (type)}))
+    {(:: @ FixedVector.) (type) (size) sexp: `(Vector ,(.@ type sexp) ,(.@ type size))}
+    {(:: @ DynamicVector.) (type) sexp: `(Vector ,(.@ type sexp))}))
