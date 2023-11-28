@@ -1,7 +1,7 @@
 (export #t)
 
 (import
-  :std/misc/list :std/misc/process :std/test
+  :std/misc/list :std/misc/process :std/sugar :std/test
   :clan/base :clan/path-config
   :clan/persist/db
   ../ethereum ../testing)

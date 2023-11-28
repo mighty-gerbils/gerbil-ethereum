@@ -7,8 +7,9 @@
               :std/misc/path
               :std/misc/ports
               :std/stxutil)
-  :std/stxutil
   :gerbil/gambit
+  :std/cli/multicall
+  :std/stxutil
   :std/assert
   :std/format
   :std/iter
@@ -16,7 +17,6 @@
   :std/source
   :std/sugar
   :clan/exception
-  :clan/multicall
   :clan/syntax
   :clan/poo/object
   :clan/poo/cli

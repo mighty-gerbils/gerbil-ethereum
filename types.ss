@@ -7,7 +7,7 @@
 ;; For re-export
 (import
   (except-in :clan/poo/mop Bool)
-  (except-in :clan/poo/number Nat UInt. UInt)
+  (except-in :clan/poo/number UInt UIntN. UIntN)
   (except-in :clan/poo/type Maybe Maybe. BytesN. Symbol String Record Tuple. Enum.))
 
 (import
@@ -18,9 +18,9 @@
   (only-in :std/misc/bytes u8vector-uint-set! u8vector-uint-ref u8vector-sint-set! u8vector-sint-ref big)
   (only-in :std/misc/hash hash-ensure-ref)
   (only-in :std/misc/list-builder with-list-builder)
-  (only-in :std/misc/number ceiling-align normalize-nat)
+  (only-in :std/misc/number ceiling-align normalize-uint uint-below? uint-of-length? uint?)
   (only-in :std/srfi/43 vector-every vector-fold vector-unfold vector-for-each vector-map)
-  (only-in :std/sugar defrule)
+  (only-in :std/sugar defrule defcheck-argument-type)
   (only-in :std/text/json json-object->string)
   (only-in :clan/base compose rcompose λ)
   (only-in :clan/io marshal-uint16 unmarshal-uint16 marshal-sized16-u8vector unmarshal-sized16-u8vector)
@@ -30,14 +30,14 @@
   (only-in :clan/poo/rationaldict RationalSet)
   (only-in :clan/poo/mop Type. Type define-type raise-type-error validate json<-)
   (prefix-in (only-in :clan/poo/mop Bool) poo.)
-  (prefix-in (only-in :clan/poo/number Nat UInt. UInt Int. Int) poo.)
+  (prefix-in (only-in :clan/poo/number UInt UIntN UIntN. IntN. IntN) poo.)
   (only-in :clan/poo/type methods.bytes)
   (prefix-in (only-in :clan/poo/type Maybe. BytesN. Symbol String Record Tuple. Enum.) poo.)
   (only-in :clan/poo/brace @method)
-  (only-in ./hex 0x<-bytes bytes<-0x 0x<-nat nat<-0x)
+  (only-in ./hex 0x<-bytes bytes<-0x 0x<-uint uint<-0x)
   (only-in ./abi ethabi-display-types ethabi-head-length ethabi-tail-length
            ethabi-encode-into ethabi-decode-from)
-  (only-in ./rlp <-rlp rlp<- rlp<-nat nat<-rlp))
+  (only-in ./rlp <-rlp rlp<- rlp<-uint uint<-rlp))
 
 (define-type (Maybe. @ [poo.Maybe.] type)
   .rlp<-: (lambda (x) (if (void? x) #u8() (rlp<- type x)))
@@ -66,18 +66,23 @@
     ((number? j) j)
     ;; TODO: if necessary, `"#5050"` and `"5050"` cases from
     ;; https://ethereum-tests.readthedocs.io/en/latest/test_types/rlp_tests.html
-    ((string? j) (nat<-0x j))
+    ((string? j) (uint<-0x j))
     (else
      (error 'number<-json
        (format "expected a number or a string representing a number, given ~a" (json-object->string j))))))
 
 ;; Variable-length Nat
-(define-type (Nat @ [poo.Nat] .validate)
-  .sexp<-: (lambda (x) `(nat<-0x ,(0x<-nat x)))
-  .json<-: 0x<-nat
+(define-type (Nat @ [poo.UInt] .validate)
+  .sexp<-: (lambda (x) `(uint<-0x ,(0x<-uint x)))
+  .json<-: 0x<-uint
   .<-json: (compose .validate number<-json))
-
 (define-type (NatSet @ RationalSet) Elt: Nat)
+
+(def nat? uint?)
+(def uint256? (cut uint-of-length? <> 256))
+(defcheck-argument-type uint256)
+(def datum-length? (cut uint-below? <> 33)) ;; length of ethereum datum in bytes
+(defcheck-argument-type datum-length)
 
 (def (ensure-zeroes bytes start len)
   (for (i (in-range len))
@@ -88,11 +93,11 @@
   (hash-put! simple-eth-types name type))
 
 ;; Integer types
-(define-type (UInt. @ [poo.UInt.] .length-in-bits .length-in-bytes .validate)
-  .json<-: 0x<-nat
+(define-type (UInt. @ [poo.UIntN.] .length-in-bits .length-in-bytes .validate)
+  .json<-: 0x<-uint
   .<-json: (compose .validate number<-json)
-  .rlp<-: rlp<-nat
-  .<-rlp: (compose .validate nat<-rlp)
+  .rlp<-: rlp<-uint
+  .<-rlp: (compose .validate uint<-rlp)
   .ethabi-name: (format "uint~d" .length-in-bits)
   .ethabi-display-type: (cut display .ethabi-name <>)
   .ethabi-head-length: 32
@@ -108,15 +113,15 @@
 (def UInt<-length-in-bits (make-hash-table))
 (def (UIntN .length-in-bits)
   (hash-ensure-ref UInt<-length-in-bits .length-in-bits
-                   (lambda () {(:: @ [UInt. (poo.UInt .length-in-bits)])
+                   (lambda () {(:: @ [UInt. (poo.UIntN .length-in-bits)])
                           sexp: (make-symbol "UInt" .length-in-bits)})))
-(define-type (Int. @ [poo.Int.] .length-in-bits .length-in-bytes .normalize)
-  .nat<-: (cut normalize-nat <> .length-in-bits)
-  .<-nat: .normalize
-  .json<-: (compose 0x<-nat .nat<-)
+(define-type (Int. @ [poo.IntN.] .length-in-bits .length-in-bytes .normalize)
+  .uint<-: (cut normalize-uint <> .length-in-bits)
+  .<-uint: .normalize
+  .json<-: (compose 0x<-uint .uint<-)
   .<-json: (compose .normalize number<-json)
-  .rlp<-: (compose rlp<-nat .nat<-)
-  .<-rlp: (compose .normalize nat<-rlp)
+  .rlp<-: (compose rlp<-uint .uint<-)
+  .<-rlp: (compose .normalize uint<-rlp)
   .ethabi-name: (format "int~d" .length-in-bits)
   .ethabi-display-type: (cut display .ethabi-name <>)
   .ethabi-head-length: 32
@@ -132,7 +137,7 @@
 (def Int<-length-in-bits (make-hash-table))
 (def (IntN .length-in-bits)
   (hash-ensure-ref Int<-length-in-bits .length-in-bits
-                   (lambda () {(:: @ [Int. (poo.Int .length-in-bits)])
+                   (lambda () {(:: @ [Int. (poo.IntN .length-in-bits)])
                           sexp: (make-symbol "Int" .length-in-bits)})))
 
 (defsyntax (defXIntNs stx)
@@ -304,7 +309,7 @@
   {(:: @ Tuple.) (types)
    sexp: `(Tuple ,@(map (cut .@ <> sexp) types_))})
 
-(define-type (Enum. @ [poo.Enum.] vals .nat<- .<-nat .length-in-bytes)
+(define-type (Enum. @ [poo.Enum.] vals .uint<- .<-uint .length-in-bytes)
   .ethabi-name: (format "uint~d" (* 8 .length-in-bytes))
   .ethabi-display-type: (cut display .ethabi-name <>)
   .ethabi-head-length: 32
@@ -312,11 +317,11 @@
   .ethabi-tail-length: (lambda (_) 0)
   .ethabi-encode-into:
   (lambda (x bytes start head get-tail set-tail!)
-    (u8vector-uint-set! bytes (+ head .ethabi-padding) (.nat<- x) big .length-in-bytes))
+    (u8vector-uint-set! bytes (+ head .ethabi-padding) (.uint<- x) big .length-in-bytes))
   .ethabi-decode-from:
   (lambda (bytes start head get-tail set-tail!)
     (ensure-zeroes bytes head .ethabi-padding)
-    (.<-nat (u8vector-uint-ref bytes (+ head .ethabi-padding) big .length-in-bytes))))
+    (.<-uint (u8vector-uint-ref bytes (+ head .ethabi-padding) big .length-in-bytes))))
 (defrule (Enum values ...) {(:: @ Enum.) vals: '(values ...) sexp: `(Enum ,@(map :sexp vals))})
 
 (define-type (FixedVector. @ [methods.bytes<-marshal Type.] type size)

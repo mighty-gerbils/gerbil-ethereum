@@ -30,8 +30,9 @@
   (for-syntax :std/misc/path :std/misc/ports :std/stxutil)
   :gerbil/expander
   :gerbil/gambit
+  :std/cli/getopt
+  :std/cli/multicall
   :std/format
-  :std/getopt
   :std/misc/list
   :std/misc/path
   :std/misc/ports
@@ -48,7 +49,6 @@
   :clan/files
   :clan/json
   :clan/maybe
-  :clan/multicall
   :clan/path-config
   :clan/shell
   :clan/syntax

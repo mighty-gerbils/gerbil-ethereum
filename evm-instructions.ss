@@ -1,13 +1,14 @@
 (export #t)
 (import
   :gerbil/gambit
-  :std/assert :std/format
+  :std/assert
+  :std/format
   :std/misc/list :std/misc/number
   :std/srfi/1 (only-in :std/srfi/141 floor/)
   :std/sugar
   :clan/base
   :clan/poo/object (only-in :clan/poo/mop Type)
-  ./assembly ./ethereum ./evm-runtime)
+  ./assembly ./ethereum ./evm-runtime ./types)
 
 ;; --------------------------------
 ;; General purpose EVM instructions
@@ -124,7 +125,7 @@
 ;; Helper function - Make list of relative offsets and sizes for partitions.
 ;; Used by `&mload/any-size` to obtain memory ranges for storing partitions.
 ;; E.g. (offsets-and-sizes<-size 65) -> [[0 (EVM-WORD-SIZE)] [32 32] [64 1]]
-;; (ListOf (List RelativeOffset Size)) <- Nat
+;; (ListOf (List RelativeOffset Size)) <- UInt
 (def (offsets-and-sizes<-size size)
   (def sizes (sizes/word-size<-size size))
   (def relative-offsets (iota (length sizes) 0 (EVM-WORD-SIZE)))
@@ -293,3 +294,31 @@
   (assert!
     (<= lower-bound total-bytes)
     (format "total bytes: ~d should be more than ~d" total-bytes lower-bound)))
+
+
+
+;; load size bytes from pointer at calldataptr, increment calldataptr by size
+(def (&calldata-load-increment (size 32)) ;; calldataptr --> data calldataptr+32
+  (check-argument-datum-length size)
+  (cond
+   ((zero? size) (&begin 0)) ;; 1b 2g
+   ((= size 32) (&begin DUP1 32 ADD SWAP1 CALLDATALOAD)) ;; 6b 14g
+   (else (&begin DUP1 size ADD SWAP1 CALLDATALOAD (- 256 (* 8 size)) SHR)))) ;; 9b 19g
+
+(def (calldata-load-varint-increment) ;; 22b 49g
+  (&begin ; -- calldataptr
+   DUP1 CALLDATALOAD ;; -- len calldataptr ;; 2b 6g
+   SWAP1 1 ADD ;; calldataptr+1 len ;; 4b 9g
+   DUP2 DUP2 ADD ;; calldataptr+1 len ;; 3b 9g
+   SWAP1 MLOAD ;; datapad calldataptr+1+len len ;; 2b 6g
+   SWAP1 SWAP2 8 MUL 256 SUB SHR)) ;; data calldataptr+1+len ;; 9b 19g
+#|
+;; Do it with code vector? Nah, it adds up to 54 instead of 49... JUMP has too much overhead;
+;; unless it's used as a shared function, in which case it's still 54 but with more expensive rivals
+  (&begin 'ret ;; -- ret len calldataptr ;; 2b 2g ;; push the return address
+     DUP2 11 MUL 'base ADD JUMP ;; 9b 21g ;;
+     (&label 'base)
+     [repeat 32 times, with small optimization for n=0]
+     JUMPDEST SWAP1 DUP3 ADD SWAP2 CALLDATALOAD (- 256 (* 8 n)) SHR SWAP1 JUMP ;; 11b 32g
+     (&jumpdest 'ret)) ;; 1
+|#

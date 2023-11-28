@@ -67,8 +67,8 @@
   (string-append "0x" (unparser x)))
 
 ;; Decoding a "quantity"
-;; : Nat <- 0xQuantityString
-(def (nat<-0x hs)
+;; : UInt <- 0xQuantityString
+(def (uint<-0x hs)
   (validate-0x-prefix hs)
   (def len (string-length hs))
   (check-argument (> len 2) "at least one hexit for 0x quantity" hs) ;; 0 is "0x0"
@@ -79,9 +79,9 @@
     (bytevector->uint (hex-decode (remove-0x-from-string hs)) big)))
 
 ;; Encoding a "quantity"
-;; : 0xQuantityString <- Nat
-(def (0x<-nat nat)
-  (string-append "0x" (number->string nat 16)))
+;; : 0xQuantityString <- UInt
+(def (0x<-uint uint)
+  (string-append "0x" (number->string uint 16)))
 
 ;; Decoding "unformatted data"
 ;; : Bytes <- 0xDataString

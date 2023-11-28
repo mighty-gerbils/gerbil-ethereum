@@ -105,7 +105,7 @@
   (ethabi-encode-into types xs bytes prefix-length prefix-length get-tail set-tail!)
   bytes)
 
-;; : Void <- [Listof Type] [Listof Any] Bytes Nat Nat [-> Nat] [Nat -> Void]
+;; : Void <- [Listof Type] [Listof Any] Bytes UInt UInt [-> UInt] [UInt -> Void]
 ;; types and xs are lists of the same length,
 ;; each x corresponds to the type at the same index.
 ;; start is the location that addresses are relative to, at the beginning of the current fixed-size header section,
@@ -117,7 +117,7 @@
               (increment! head (.@ type .ethabi-head-length)))
             types xs))
 
-;; : [Listof Any] <- [Listof Type] Bytes Nat Nat
+;; : [Listof Any] <- [Listof Type] Bytes UInt UInt
 (def (ethabi-decode types bytes (start 0) (end (u8vector-length bytes)))
   (def head-end (+ start (ethabi-head-length types)))
   (def tail head-end)
@@ -128,7 +128,7 @@
   (begin0 (ethabi-decode-from types bytes start start get-tail set-tail!)
     (assert! (= tail end))))
 
-;; : [Listof Any] <- [Listof Type] Bytes Nat Nat [-> Nat] [Nat -> Void]
+;; : [Listof Any] <- [Listof Type] Bytes UInt UInt [-> UInt] [UInt -> Void]
 ;; start is the location that addresses are relative to, at the beginning of the current fixed-size header section,
 ;; head is the location within that header section at which the current/next entry will be stored.
 ;; get-tail and set-tail! are a getter/setter pair for where the next tail goes.

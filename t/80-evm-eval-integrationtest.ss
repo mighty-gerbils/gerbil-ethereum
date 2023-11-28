@@ -133,7 +133,7 @@
       (evm-test-failure
        [[UInt256 . 27]
         [UInt256 . #x9955af11969a2d2a7f860cb00e6a00cfa7c581f5df2dbe8ea16700b33f4b4b9b]
-        [UInt256 . -1]]
+        [Int256 . -1]]
        &validate-sig-data))
 
     (test-case "&unsafe-post-increment-at!"
@@ -191,7 +191,7 @@
                         128 (&memcpy/const-size/const-src 0 98 overwrite-after?: #t))
                 [[UInt16 . 5]] result-in-memory?: #t result-start: 96))
 
-    (test-case "&memcpy/const-size/expr-src when &addr is nat"
+    (test-case "&memcpy/const-size/expr-src when &addr is uint"
       (evm-test []
                 (&begin 85 0 MSTORE 95 32 MSTORE 105 64 MSTORE 5 96 (&mstore 2)
                         128 (&memcpy/const-size/expr-src 0 98 overwrite-after?: #t))

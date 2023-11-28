@@ -29,9 +29,9 @@
       (check-rep rlpbytes<-rlp rlp<-rlpbytes [(bs "cat") (bs "dog")] (bs #xc8 #x83 "cat" #x83 "dog"))
       (check-rep rlpbytes<-rlp rlp<-rlpbytes (bs "") (bs #x80))
       (check-rep rlpbytes<-rlp rlp<-rlpbytes [] (bs #xc0))
-      (check-rep rlpbytes<-rlp rlp<-rlpbytes (rlp<-nat 0) (bs #x80))
-      (check-rep rlpbytes<-rlp rlp<-rlpbytes (rlp<-nat 15) (bs #x0f))
-      (check-rep rlpbytes<-rlp rlp<-rlpbytes (rlp<-nat 1024) (bs #x82 #x04 #x00))
+      (check-rep rlpbytes<-rlp rlp<-rlpbytes (rlp<-uint 0) (bs #x80))
+      (check-rep rlpbytes<-rlp rlp<-rlpbytes (rlp<-uint 15) (bs #x0f))
+      (check-rep rlpbytes<-rlp rlp<-rlpbytes (rlp<-uint 1024) (bs #x82 #x04 #x00))
       (check-rep rlpbytes<-rlp rlp<-rlpbytes [[] [[]] [[] [[]]]] (bs #xc7 #xc0 #xc1 #xc0 #xc3 #xc0 #xc1 #xc0))
       (check-rep rlpbytes<-rlp rlp<-rlpbytes
                  (bs "Lorem ipsum dolor sit amet, consectetur adipisicing elit")
@@ -47,13 +47,13 @@
       (def data (bytes<-0x "0x"))
       (def chainid 1)
       (check-rep rlpbytes<-rlp rlp<-rlpbytes
-                 [(rlp<-nat nonce)
-                  (rlp<-nat gasPrice)
-                  (rlp<-nat gas)
+                 [(rlp<-uint nonce)
+                  (rlp<-uint gasPrice)
+                  (rlp<-uint gas)
                   (bytes<- Address to)
-                  (rlp<-nat value)
+                  (rlp<-uint value)
                   data
-                  (rlp<-nat chainid)
+                  (rlp<-uint chainid)
                   #u8()
                   #u8()]
                  (bytes<-0x "0xec098504a817c800825208943535353535353535353535353535353535353535880de0b6b3a764000080018080"))

@@ -381,7 +381,7 @@
 ;; <-- dst
 ;; TESTING STATUS: Wholly tested.
 (def (&memcpy/const-size/expr-src &addr n overwrite-after?: (overwrite-after? #f))
-  (if (nat? &addr) (&memcpy/const-size/const-src &addr n overwrite-after?: overwrite-after?)
+  (if (uint256? &addr) (&memcpy/const-size/const-src &addr n overwrite-after?: overwrite-after?)
       (&begin &addr (&memcpy/const-size n overwrite-after?: overwrite-after? dst-first?: #f))))
 
 ;; This *defines* [25B] a function with label 'unsafe-memcopy [(53*LEN+35)G]

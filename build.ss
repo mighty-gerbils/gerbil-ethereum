@@ -6,7 +6,7 @@
 ;; Note that may you need to first:
 ;;   for i in github.com/fare/gerbil-utils github.com/fare/gerbil-crypto github.com/fare/gerbil-poo github.com/fare/gerbil-persist ; do gxpkg install $i ; done
 
-(import :clan/building)
+(import :clan/building :std/sugar)
 
 (def (files)
   [(all-gerbil-modules) ...

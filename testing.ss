@@ -2,11 +2,17 @@
 
 (import
   :gerbil/gambit
-  :std/assert :std/format :std/iter
+  :std/assert
+  :std/cli/multicall
+  :std/format
+  :std/iter
   :std/misc/list
   :std/srfi/1 :std/srfi/13
-  :std/stxutil :std/sugar :std/test
-  :clan/base :clan/json :clan/multicall :clan/path-config :clan/syntax
+  :std/stxutil
+  :std/sugar
+  :std/test
+  (only-in :clan/base !> compose)
+  :clan/json :clan/path-config :clan/syntax
   :clan/poo/object :clan/poo/debug :clan/poo/brace :clan/poo/io
   ./types ./ethereum ./known-addresses ./abi ./logger
   ./network-config ./contract-config ./json-rpc ./transaction
@@ -102,7 +108,7 @@
              (.call asset .transfer funder a v)))))))
 
 ;; Send a tx, not robust, but useful for debugging
-;; : SignedTransactionInfo TransactionReceipt <- PreTransaction confirmations:?Nat
+;; : SignedTransactionInfo TransactionReceipt <- PreTransaction confirmations:?poo.UInt
 (def (debug-send-tx
       tx confirmations: (confirmations (ethereum-confirmations-wanted-in-blocks)))
   (def from (.@ tx from))
@@ -161,7 +167,7 @@
 ;; Directive <- Type
 (def (&evm-inline-output t)
   (def len (param-length t))
-  ;;(DDT &evm-inline-output: Type t poo.Nat len)
+  ;;(DDT &evm-inline-output: Type t poo.UInt len)
   (&begin ;; bufptr[incremented] <-- bufptr result-start result-start val:t
    SWAP1 SWAP3 DUP2 (&mstore/overwrite-after len) len ADD))
 

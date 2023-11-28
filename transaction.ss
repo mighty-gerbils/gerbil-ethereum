@@ -6,7 +6,7 @@
   (only-in :std/error Exception Error-message)
   (only-in :std/iter for in-iota)
   (only-in :std/misc/list when/list)
-  (only-in :std/misc/number increment! nat? half integer-part)
+  (only-in :std/misc/number increment! half integer-part)
   (only-in :std/sugar defrule with-id try catch)
   (only-in :std/text/hex hex-encode)
   (only-in :std/net/json-rpc JSON-RPCError json-rpc-error? eth_sendRawTransaction)
@@ -18,8 +18,8 @@
   (only-in :clan/crypto/keccak keccak256<-bytes)
   (only-in :clan/crypto/secp256k1 export-secret-key/bytes
            make-message-signature vrs<-signature signature<-vrs)
-  (only-in ./types json<- Maybe Bytes)
-  (only-in ./rlp <-rlpbytes rlpbytes<-rlp rlp<-nat)
+  (only-in ./types json<- Maybe Bytes uint256?)
+  (only-in ./rlp <-rlpbytes rlpbytes<-rlp rlp<-uint)
   (only-in ./ethereum address? Address Quantity SignedTransactionInfo address<-creator-nonce 0x<-address
            recover-signer-address SignedTransactionData)
   (only-in ./known-addresses keypair<-address keypair-secret-key)
@@ -42,9 +42,9 @@
 ;; : Bytes <- Quantity Quantity Quantity Address Quantity Bytes Quantity Quantity Quantity
 (def (signed-tx-bytes<- nonce gasPrice gas to value data v r s)
   (rlpbytes<-rlp
-   [(rlp<-nat nonce) (rlp<-nat gasPrice) (rlp<-nat gas)
-    (if (address? to) (bytes<- Address to) #u8()) (rlp<-nat value) data
-    (when/list (not (zero? v)) [(rlp<-nat v) (rlp<-nat r) (rlp<-nat s)]) ...]))
+   [(rlp<-uint nonce) (rlp<-uint gasPrice) (rlp<-uint gas)
+    (if (address? to) (bytes<- Address to) #u8()) (rlp<-uint value) data
+    (when/list (not (zero? v)) [(rlp<-uint v) (rlp<-uint r) (rlp<-uint s)]) ...]))
 
 ;; : Quantity <- Quantity
 (def (chainid<-v v)
@@ -121,7 +121,7 @@
 ;; a TransactionReceipt for the transaction *if and only if* the Transaction
 ;; was indeed included on the blockchain with sufficient confirmations.
 ;; Otherwise, raise an appropriate exception that details the situation.
-;; : TransactionReceipt <- SignedTransactionInfo confirmations:(OrFalse Nat) nonce-too-low?:Bool
+;; : TransactionReceipt <- SignedTransactionInfo confirmations:(OrFalse UInt) nonce-too-low?:Bool
 (def (confirmed-receipt<-transaction
       tx
       confirmations: (confirmations (ethereum-confirmations-wanted-in-blocks))
@@ -186,7 +186,7 @@
 
 ;; Prepare a signed transaction, that you may later issue onto Ethereum network,
 ;; from a given pre-transaction.
-;; : SignedTransactionInfo <- PreTransaction ?Nat
+;; : SignedTransactionInfo <- PreTransaction ?UInt
 (def (sign-transaction tx (chainid (ethereum-chain-id)))
   (def-slots (from nonce gasPrice gas to value data) (complete-transaction tx))
   (def keypair (or (keypair<-address from)
@@ -233,13 +233,13 @@
 (def (complete-tx-data tx)
   (complete-tx-field tx 'data u8vector? #f (lambda () #u8())))
 (def (complete-tx-value tx)
-  (complete-tx-field tx 'value nat? #f (lambda () 0)))
+  (complete-tx-field tx 'value uint256? #f (lambda () 0)))
 (def (complete-tx-nonce tx from) ;; NB: beware concurrency/queueing in transactions from the same person.
-  (complete-tx-field tx 'nonce nat? #f (cut eth_getTransactionCount from 'latest)))
+  (complete-tx-field tx 'nonce uint256? #f (cut eth_getTransactionCount from 'latest)))
 (def (complete-tx-gas tx from to data value)
-  (complete-tx-field tx 'gas nat? #f (cut gas-estimate from to data value)))
+  (complete-tx-field tx 'gas uint256? #f (cut gas-estimate from to data value)))
 (def (complete-tx-gasPrice tx gas)
-  (complete-tx-field tx 'gasPrice nat? #f (cut gas-price-estimate gas)))
+  (complete-tx-field tx 'gasPrice uint256? #f (cut gas-price-estimate gas)))
 
 (def (complete-transaction tx)
   (def-field from tx)

@@ -6,7 +6,7 @@
   :std/misc/hash :std/misc/walist
   :clan/base :clan/json :clan/list
   :clan/poo/object :clan/poo/io :clan/poo/brace (only-in :clan/poo/mop define-type)
-  ../types ../hex)
+  ../ethereum ../types ../hex)
 
 (define-type EthereumRpcConfig
   (Record
@@ -46,14 +46,14 @@
 
 (def types-test
   (test-suite "test suite for ethereum/types"
-    (test-case "Nat"
-      (check-equal? (<-json Nat "0x0") 0)
-      (check-equal? (<-json Nat 0) 0)
-      (check-equal? (<-json Nat "0x15") 21)
-      (check-equal? (<-json Nat 21) 21)
-      (check-rep (.@ Nat .<-json) (.@ Nat .json<-) "0x22" 34)
-      (check-rep (.@ Nat .<-json) (.@ Nat .json<-) "0x37" 55)
-      (check-rep (.@ Nat .<-json) (.@ Nat .json<-) "0x50" 80))
+    (test-case "UInt"
+      (check-equal? (<-json UInt "0x0") 0)
+      (check-equal? (<-json UInt 0) 0)
+      (check-equal? (<-json UInt "0x15") 21)
+      (check-equal? (<-json UInt 21) 21)
+      (check-rep (.@ UInt .<-json) (.@ UInt .json<-) "0x22" 34)
+      (check-rep (.@ UInt .<-json) (.@ UInt .json<-) "0x37" 55)
+      (check-rep (.@ UInt .<-json) (.@ UInt .json<-) "0x50" 80))
     (test-case "Record"
       (check-rep (compose .alist (.@ EthereumRpcConfig .<-json) list->hash-table)
                  (compose walist->alist (.@ EthereumRpcConfig .json<-) object<-alist)

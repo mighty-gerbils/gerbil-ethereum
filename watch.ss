@@ -43,7 +43,7 @@
 ;; Only process a block after a sufficient number of confirmations have passed.
 ;; Function f may throw and/or use continuations to cause an early exit.
 ;; https://infura.io/docs/ethereum/json-rpc/eth-getLogs
-;; : <- (Fun <- LogObject) Address BlockNumber BlockNumber Nat confirmations: ?Nat
+;; : <- (Fun <- LogObject) Address BlockNumber BlockNumber UInt confirmations: ?UInt
 (def (watch-contract f contract-address from-block to-block (next-event 0)
                      confirmations: (confirmations (ethereum-confirmations-wanted-in-blocks)))
   (let loop ((start-block from-block) (next-event next-event))
@@ -58,7 +58,7 @@
 ;; Request logs between indicated blocks (inclusive).
 ;; Gets all logs between from-block and to-block (or starting a part-block)
 ;; Re-partitioning the getLogs request if we timeout / have too many logs in the repsonse.
-;; : (Fun <- LogObject) (Maybe Address) BlockNumber BlockNumber ?Nat
+;; : (Fun <- LogObject) (Maybe Address) BlockNumber BlockNumber ?UInt
 (def (get-logs-from-blocks f contract-address
                            from-block to-block (next-event 0))
   (when (>= to-block from-block)
@@ -89,7 +89,7 @@
    ;;; with more transactional persistence.
 
 ;; : Quantity
-(define-persistent-variable next-unprocessed-block Nat "ETH.nextUnprocessedBlock" 0)
+(define-persistent-variable next-unprocessed-block UInt "ETH.nextUnprocessedBlock" 0)
 
 ;; : (Table (Fun <- Quantity) <- String)
 (def new-block-hooks (make-hash-table))
@@ -151,7 +151,7 @@
 (define-persistent-variable next-interaction-id Integer "ETH.nextInteractionId" 0)
 ;; runs down from -1, in the same table of interactions
 (define-persistent-variable previous-unconfirmed-id Integer "ETH.previousUnconfirmedId" -1)
-(define-persistent-variable active-interactions NatSet "ETH.activeInteractions" (.@ NatSet .empty))
-(define-type MapNatFromDigest (Map Nat <- Digest))
-(define-persistent-variable interactions-by-txhash MapNatFromDigest "ETH.interactionsByTxhash" (.@ MapNatFromDigest .empty))
+(define-persistent-variable active-interactions UIntSet "ETH.activeInteractions" (.@ UIntSet .empty))
+(define-type MapUIntFromDigest (Map UInt <- Digest))
+(define-persistent-variable interactions-by-txhash MapUIntFromDigest "ETH.interactionsByTxhash" (.@ MapUIntFromDigest .empty))
 |#

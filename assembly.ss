@@ -3,7 +3,9 @@
 (import
   :gerbil/gambit
   :std/error :std/format
-  :std/misc/bytes :std/misc/hash :std/misc/number
+  :std/misc/bytes
+  :std/misc/hash
+  :std/misc/number
   :std/srfi/1 :std/stxutil
   :std/sugar
   :std/text/hex :std/values
@@ -145,7 +147,7 @@
           (else
             (cons name (loop (cdr data)))))))))
 
-;; push-code-amount : Byte -> (Maybe Nat)
+;; push-code-amount : Byte -> (Maybe UInt)
 ;;
 ;; Returns the length of the argument to the PUSH instruction with the provided
 ;; opcode.
@@ -159,16 +161,17 @@
   (segment-push-bytes! (Assembler-segment a) b))
 (def (&type a type x)
   (&bytes a ((.@ type .bytes<-) x)))
-(def (&uint a u (n-bytes (nat-length-in-u8 u)))
-  (check-argument (and (nat? u) (<= (integer-length u) 256)) "uint256" u)
-  (check-argument (<= (integer-length u) (* 8 n-bytes) 256) "valid length for u" [n-bytes u])
-  (segment-push-bytes! (Assembler-segment a) (nat->u8vector u n-bytes)))
-(def (&push a u (n-bytes (nat-length-in-u8 u)))
-  (check-argument (and (nat? n-bytes) (<= n-bytes 32)) "length of immediate data" n-bytes)
+(def (&uint a u (n-bytes (uint-length-in-u8 u)))
+  (check-argument-uint256 u)
+  (check-argument-datum-length n-bytes)
+  (check-argument (<= (integer-length u) (* 8 n-bytes)) "valid length for u" [n-bytes u])
+  (segment-push-bytes! (Assembler-segment a) (uint->u8vector u big n-bytes)))
+(def (&push a u (n-bytes (uint-length-in-u8 u)))
+  (check-argument-datum-length n-bytes)
   (&byte a (+ #x5F n-bytes)) ;; PUSH0
   (&uint a u n-bytes))
 (def (&push-bytes a bytes)
-  (&push a (u8vector->nat bytes)))
+  (&push a (u8vector->uint bytes)))
 
 (def (current-offset a)
   (Segment-fill-pointer (Assembler-segment a)))
@@ -244,9 +247,9 @@
   (#x18 XOR 3) ;; Bitwise XOR operation
   (#x19 NOT 3) ;; Bitwise NOT operation
   (#x1a BYTE 3) ;; Retrieve single byte from word
-  (#x1b SHL #t) ;; logical shift left (EIP-145)
-  (#x1c SHR #t) ;; logical shift right (EIP-145)
-  (#x1d SAR #t) ;; arithmetic shift right (EIP-145)
+  (#x1b SHL 3) ;; logical shift left (EIP-145)
+  (#x1c SHR 3) ;; logical shift right (EIP-145)
+  (#x1d SAR 3) ;; arithmetic shift right (EIP-145)
   ;; #x1e - #x1f  Unused
   (#x20 SHA3 30 #t) ;; Compute Keccak-256 hash. Cost: 30+6/word
   ;; #x21 - #x2f  Unused
@@ -400,20 +403,19 @@
 (def (&jumpi2 a l)
   (&push-label2 a l)
   (JUMPI a))
-(def (&z a z)
+(def (&z a z use-once?: (use-once? #f))
+  (set! z ((.@ UInt256 .normalize) z))
   (cond
-   ((and (> 0 z) (<= (integer-length z) 240))
+   ;; Only an optimization if the number is used once
+   ;; (actually, a number of times less than the number of bytes saved, or so)
+   ((and use-once? (= 65535 (extract-bit-field 16 240 z)))
     (&z a (bitwise-not z))
     (NOT a))
-   ((> 0 z)
-    (&z a ((.@ UInt256 .normalize) z)))
-   ((= 0 z)
-    (PUSH1 a) (&byte a 0))
    (else
-    (let ((n-bytes (nat-length-in-u8 z)))
-      (check-argument (<= 1 n-bytes 32) "length of immediate data" n-bytes)
+    (let ((n-bytes (uint-length-in-u8 z)))
+      (check-argument-datum-length n-bytes)
       (&byte a (+ #x5f n-bytes))
-      (&bytes a (nat->u8vector z n-bytes))))))
+      (&bytes a (uint->u8vector z big n-bytes))))))
 
 (def (&directive a directive)
   (cond

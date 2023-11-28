@@ -2,10 +2,7 @@
 ;; To run tests, use: ./unit-tests.ss
 ;; You can even run tests without first running ./build.ss !
 
-(import
-  :std/misc/path
-  :clan/testing
-  :clan/path-config)
+(import :clan/testing)
 
 ;; Let's share the configuration and data directories with the rest of the Glow ecosystem
 ;;(set! application-name (lambda () "glow"))
@@ -19,8 +16,7 @@
         :clan/ethereum/test-contracts)
 
 ;; Define more commands
-(import :std/misc/process
-        :clan/multicall)
+(import :std/cli/multicall :std/misc/process)
 
 (define-entry-point (docker-test)
   (help: "Run integration test in Docker" getopt: [])

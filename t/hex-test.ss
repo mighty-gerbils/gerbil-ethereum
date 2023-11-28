@@ -9,26 +9,26 @@
 
 (def hex-test
   (test-suite "test suite for ethereum/hex"
-    (test-case "nat<-0x, 0x<-nat"
-      (defrule (nat<->0x-checks (dec hex) ...)
+    (test-case "uint<-0x, 0x<-uint"
+      (defrule (uint<->0x-checks (dec hex) ...)
         (begin
           (begin
-            (check-equal? (nat<-0x hex) dec)
-            (check-equal? (0x<-nat dec) hex)) ...))
-      (nat<->0x-checks
+            (check-equal? (uint<-0x hex) dec)
+            (check-equal? (0x<-uint dec) hex)) ...))
+      (uint<->0x-checks
        (0 "0x0")
        (10 "0xa")
        (3735928559 "0xdeadbeef")
        (291 "0x123")
        (8271117963530313756381553648673 "0x68656c6c6f2c20776f726c6421"))
-      (defrule (nat<-0x-error-checks (hex err) ...)
+      (defrule (uint<-0x-error-checks (hex err) ...)
         (begin
           (check-equal? (with-catch (lambda (e) (if (ContractViolation? e)
                                              (third (Error-irritants e))
                                              (Error-message e)))
-                                    (cut nat<-0x hex))
+                                    (cut uint<-0x hex))
                         err) ...))
-      (nat<-0x-error-checks
+      (uint<-0x-error-checks
        ("0" "bad argument; expected 0x prefix")
        ("" "bad argument; expected 0x prefix")
        ("0x" "bad argument; expected at least one hexit for 0x quantity")

@@ -38,7 +38,7 @@
   :std/iter
   :std/misc/number
   :std/srfi/1
-  :std/sugar
+  (only-in :std/sugar check-argument-uint)
   :std/text/hex
   :clan/base
   :clan/poo/object :clan/poo/brace :clan/poo/io
@@ -49,7 +49,7 @@
 ;; Return the nth power of sqrt(2), rounded down to the nearest integer
 ;; : Nat <- Nat
 (def (integer-floor-sqrt2expt n)
-  (check-argument (nat? n) "natural" n)
+  (check-argument-uint n)
   (if (odd? n) (integer-sqrt (arithmetic-shift 1 n))
       (arithmetic-shift 1 (half n))))
 
@@ -61,7 +61,7 @@
 ;; (every (lambda (i) (<= (integer-floor-sqrt2expt (integer-floor-logsqrt2 i)) i (1- (integer-floor-sqrt2expt (1+ (integer-floor-logsqrt2 i)))))) (iota 500 1))
 ;; : Nat <- Nat+
 (def (integer-floor-logsqrt2 n)
-  (check-argument (and (nat? n) (positive? n)) "positive integer" n)
+  (check-argument-positive-integer n)
   (def j (* 2 (1- (integer-length n))))
   #;(DBG icl: n j (integer-floor-sqrt2expt j) (integer-floor-sqrt2expt (1+ j)) (integer-floor-sqrt2expt (+ j 2)))
   #;(assert! (<= (integer-floor-sqrt2expt j) n (1- (integer-floor-sqrt2expt (+ j 2)))))
@@ -72,7 +72,7 @@
 #;(every (lambda (i) (<= (1+ (integer-floor-sqrt2expt (1- (integer-ceiling-logsqrt2 i)))) i (integer-floor-sqrt2expt (integer-ceiling-logsqrt2 i)))) (iota 500 2))
 ;; : Nat <- Nat
 (def (integer-ceiling-logsqrt2 n)
-  (check-argument (nat? n) "natural" n)
+  (check-argument-uint n)
   (if (< n 2) n (1+ (integer-floor-logsqrt2 (1- n)))))
 
 ;; Treat 0 specially, mapping it to 0
@@ -138,7 +138,7 @@
   (def-slots (from to data nonce value gas sigs) presigned)
   (def creator from)
   (def block (eth_blockNumber))
-  (unless (nat? gasPrice)
+  (unless (uint256? gasPrice)
     (set! gasPrice (max 1 (eth_gasPrice))))
   (unless (equal? (eth_getTransactionCount creator block) nonce)
     (error "Creator address was already used or initial nonce > 0"))

@@ -16,11 +16,11 @@
   (only-in ./types Maybe Record Bytes Bytes4 Bytes20 Bytes32 UInt32 UInt63 UInt256
            register-simple-eth-type ensure-zeroes)
   (only-in ./hex address-bytes<-0x bytes<-0x 0x<-address-bytes)
-  (only-in ./rlp rlpbytes<-rlp rlp<-nat))
+  (only-in ./rlp rlpbytes<-rlp rlp<-uint))
 
 ;; Types used by Ethereum APIs
 (define-type Quantity UInt256)
-(define-type UInt UInt256)
+(define-type UInt UInt256) ;; NB: fixed-length, unlike variable-length poo.UInt
 (define-type Digest Bytes32)
 (define-type Data Bytes)
 
@@ -29,33 +29,33 @@
 (define-type Block UInt63) ;; in practice, for the next century, will fit UInt32
 (define-type BufferSize UInt32) ;; in practice, for the next years, will fit UInt24
 
-;; : Nat
+;; : UInt
 (def one-ether-in-wei (expt 10 18)) ;; 1 ETH = 10^18 wei
 
-;; : Nat
+;; : UInt
 (def one-gwei-in-wei (expt 10 9)) ;; 1 gwei = 10^9 wei
 
-;; : Nat <- Real
+;; : UInt <- Real
 (def (wei<-ether ether-amount)
   (integer-part (* ether-amount one-ether-in-wei))) ;; allow floating point, round to integer
 
-;; : Decimal <- Nat
+;; : Decimal <- UInt
 (def (ether<-wei wei-amount)
   (/ wei-amount one-ether-in-wei))
 
-;; : Nat <- Real
+;; : UInt <- Real
 (def (wei<-gwei gwei-amount)
   (integer-part (* gwei-amount one-gwei-in-wei))) ;; allow floating point, round to integer
 
-;; : Decimal <- Nat
+;; : Decimal <- UInt
 (def (gwei<-wei wei-amount)
   (/ wei-amount one-gwei-in-wei))
 
-;; : String <- Nat
+;; : String <- UInt
 (def (decimal-string-ether<-wei wei-amount)
   (decimal->string (ether<-wei wei-amount)))
 
-;; : String <- Nat
+;; : String <- UInt
 (def (decimal-string-gwei<-wei wei-amount)
   (decimal->string (gwei<-wei wei-amount)))
 
@@ -138,7 +138,7 @@
 ;; Current contract address from transaction
 ;; : Address <- Address UInt256
 (def (address<-creator-nonce creator nonce)
-  (address<-data (rlpbytes<-rlp [(bytes<- Address creator) (rlp<-nat nonce)])))
+  (address<-data (rlpbytes<-rlp [(bytes<- Address creator) (rlp<-uint nonce)])))
 
 ;; Address from CREATE2 given creator and nonce
 ;; NB: when executing from a transaction, the creator is not the CALLER,
