@@ -6,8 +6,9 @@
 (import
   :std/assert :std/format :std/iter
   :std/misc/decimal :std/misc/hash :std/misc/list :std/misc/string
+  :std/parser/ll1
   :std/srfi/1 :std/srfi/13
-  :std/sugar :std/text/basic-parsers :std/text/char-set
+  :std/sugar :std/text/char-set
   :clan/base :clan/string
   :clan/poo/object :clan/poo/brace
   ./assembly ./types ./ethereum ./abi ./evm-runtime ./network-config ./json-rpc ./erc20 ./simple-apps
@@ -191,16 +192,15 @@
    ;; check that both the call was successful and that its boolean result was true:
    (&mloadat tmp100@) AND &require!))
 
-(def (parse-asset-amount reader)
-  (def asset ((parse-one-or-more-of char-ascii-alphabetic?) reader))
-  (parse-and-skip-any-whitespace reader)
-  (def amount (parse-decimal reader group-separator: #\,)) ;; TODO: programmable group-separator?
-  (cons asset amount))
+(def ll1-asset-amount
+  (ll1* cons (ll1-char+ char-ascii-alphabetic?) ;; asset name
+        ;; TODO: programmable group-separator?
+        (ll1-begin ll1-skip-space* (cut ll1-decimal <> group-separator: #\,))))
 
 (def (asset-amount<-string string trim-spaces?: (trim-spaces? #t))
-  (parse-string parse-asset-amount
-                (if trim-spaces? (string-trim-spaces string) string)
-                "asset-amount"))
+  (ll1/string ll1-asset-amount
+              (if trim-spaces? (string-trim-spaces string) string)
+              "asset-amount"))
 
 (def (display-asset-amount asset-amount port)
   (with ([asset . amount] asset-amount)
