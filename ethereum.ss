@@ -2,6 +2,7 @@
 
 (import
   (only-in :gerbil/gambit object->serial-number)
+  (only-in :gerbil/runtime/mop write-style)
   (only-in :std/format format)
   (only-in :std/misc/number integer-part)
   (only-in :std/misc/decimal decimal->string)

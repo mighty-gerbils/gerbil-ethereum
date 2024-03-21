@@ -1,7 +1,6 @@
 (export #t)
 
 (import
-  (only-in :std/generic type-of)
   (only-in :std/error Error-message Error-irritants)
   (only-in :std/misc/repr repr)
   (only-in :std/sugar try catch ignore-errors)
@@ -88,7 +87,7 @@
    previous-config
    (catch (e)
      (log ['ensure-contract-create-because
-           (ignore-errors (type-of e))
+           (ignore-errors (class-of e))
            (ignore-errors (Error-message e))
            (ignore-errors (repr (Error-irritants e)))])
      (def creation-receipt (post-transaction pretx))
