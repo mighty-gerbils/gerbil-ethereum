@@ -17,7 +17,7 @@
               (only-in ./types Vector))
   (only-in :std/source stx-source-content)
   (only-in :std/sugar syntax-call)
-  (only-in :clan/base !>)
+  (only-in :clan/base !> defonce)
   (only-in :clan/poo/object .def with-slots)
   (only-in ./logger eth-log)
   (only-in ./hex bytes<-0x)
@@ -59,7 +59,7 @@
                              funder: funder gasPrice: gasPrice log: log))
 
 ;; : Address
-(def create2-wrapper
+(defonce (create2-wrapper)
   (with-slots (from nonce) presigned-create2-wrapper
     (address<-creator-nonce from nonce)))
 
@@ -69,9 +69,9 @@
                   salt contract-bytes (types []) (arguments []) value: (value 0))
   (ensure-presigned-create2-wrapper funder: funder)
   (def init-code (ethabi-encode types arguments contract-bytes))
-  (def address (address<-create2 create2-wrapper salt init-code))
+  (def address (address<-create2 (create2-wrapper) salt init-code))
   (when (equal? #u8() (eth_getCode address))
     (!> (u8vector-append salt init-code)
-        (cut call-function funder create2-wrapper <> value: value)
+        (cut call-function funder (create2-wrapper) <> value: value)
         post-transaction))
   address)
