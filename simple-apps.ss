@@ -8,7 +8,7 @@
 (import
   :gerbil/gambit
   :std/iter :std/misc/list :std/stxutil
-  :clan/base
+  :clan/base :clan/io
   :clan/poo/object (only-in :clan/poo/mop) :clan/poo/io
   :clan/crypto/secp256k1
   ./logger ./hex ./types ./ethereum ./known-addresses
@@ -252,7 +252,7 @@
   (def (m.address address) (marshal Address (validate Address address) port))
   (def (m.value value) (marshal UInt88 (validate UInt88 value) port))
   (def (m.bytes-length bytes) (marshal UInt16 (u8vector-length (validate BytesL16 bytes)) port))
-  (def (m.bytes bytes) (write-u8vector bytes port))
+  (def (m.bytes bytes) (write-u8vector* bytes port))
   (match tx
     ((batched-transfer value to)
      (write-u8 0 port) (m.address to) (m.value value))

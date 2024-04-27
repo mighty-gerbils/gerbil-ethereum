@@ -105,7 +105,8 @@
     (cond
      ((with-catch false
                   (cut json-rpc (eth-rpc-url)
-                       "web3_clientVersion" (void)))
+                       "web3_clientVersion" (void)
+                       headers: '(("Content-Type" . "application/json-rpc"))))
       => (lambda (version) (printf "Connected to ~a\n" version)))
      (else
       (printf "Waiting for ~a to start at ~a ...\n" name (eth-rpc-url))

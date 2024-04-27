@@ -109,8 +109,7 @@
      (write-u8 (u8vector-ref bs 0) out))
     ((< n 56)
      (write-u8 (+ #x80 n) out)
-     (unless (zero? n)
-       (write-u8vector bs out)))
+     (write-u8vector* bs out))
     (else
      (let ()
        (def nn (uint-length-in-u8 n))
@@ -133,8 +132,7 @@
        (cond
          ((< n 56)
           (write-u8 (+ #xc0 n) out)
-          (unless (zero? n)
-            (write-u8vector payload out)))
+          (write-u8vector* payload out))
          (else
           (let ()
             (def nn (uint-length-in-u8 n))

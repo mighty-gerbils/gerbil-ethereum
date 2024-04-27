@@ -87,7 +87,7 @@
    previous-config
    (catch (e)
      (log ['ensure-contract-create-because
-           (ignore-errors (class-of e))
+           (ignore-errors (class-type-name (class-of e)))
            (ignore-errors (Error-message e))
            (ignore-errors (repr (Error-irritants e)))])
      (def creation-receipt (post-transaction pretx))

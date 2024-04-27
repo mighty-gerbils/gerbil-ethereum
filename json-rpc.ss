@@ -29,7 +29,7 @@
   :gerbil/gambit
   (for-syntax :std/format :std/stxutil)
   :std/format :std/lazy :std/net/json-rpc :std/sugar
-  :clan/base :clan/concurrency :clan/json :clan/logger :clan/failure :clan/hash
+  :clan/base :clan/concurrency :clan/io :clan/json :clan/logger :clan/failure :clan/hash
   :clan/maybe :clan/option :clan/string :clan/syntax
   :clan/poo/object :clan/poo/brace :clan/poo/io
   :clan/crypto/secp256k1
@@ -46,6 +46,7 @@
              (cut json-rpc url method-name params
                   result-decoder: result-decoder
                   param-encoder: param-encoder
+                  headers: '(("Content-Type" . "application/json-rpc"))
                   log: log)))
 
 (defsyntax (define-ethereum-api stx)
@@ -499,7 +500,7 @@
    (lambda (p)
      (write-u8vector ethereum-sign-message-prefix p)
      (write-u8vector (string->bytes (number->string (u8vector-length message))) p)
-     (write-u8vector message p)
+     (write-u8vector* message p)
      (write-u8 10 p))))
 (def ethereum-sign-message-wrapper
   (compose ethereum-sign-message-wrapper/bytes string->bytes))

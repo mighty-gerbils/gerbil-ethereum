@@ -1,9 +1,13 @@
 (export #t)
 
-(import :std/test :clan/poo/debug ../network-config ../json-rpc)
+(import :std/test :std/misc/repr
+        :clan/json :clan/poo/debug
+        ../logger ../network-config ../json-rpc)
 
 ;; Use our Private Ethereum Testnet
 (ensure-ethereum-connection (getenv "GERBIL_ETHEREUM_TEST_NETWORK" "pet"))
+
+;;(set! eth-log write-json-ln)
 
 (def 10-json-rpc-integrationtest
   (test-suite "integration test for ethereum/json-rpc"
