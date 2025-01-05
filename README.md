@@ -7,7 +7,7 @@ and relies on an existing node such as Geth or Parity to implement the Ethereum 
 
 ### Copyright and License
 
-Copyright 2020 MuKn, Inc. All rights reserved.
+Copyright 2020 MuKn Inc All rights reserved.
 Gerbil-Ethereum is distributed under the Apache License, version 2.0. See the file [LICENSE](LICENSE).
 
 ### What does Gerbil Ethereum do?
